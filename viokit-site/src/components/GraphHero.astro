@@ -1,0 +1,186 @@
+---
+import { graph as graphCopy } from "../copy";
+
+const subject = [140, 190];
+const sources = [
+  { x: 380, y: 60 },
+  { x: 435, y: 130 },
+  { x: 445, y: 210 },
+  { x: 415, y: 290 },
+  { x: 340, y: 345 },
+  { x: 210, y: 345 },
+  { x: 250, y: 55 },
+];
+const evidence = [
+  [260, 125],
+  [338, 95],
+  [370, 170],
+  [290, 190],
+  [380, 250],
+  [320, 300],
+  [265, 300],
+  [200, 130],
+];
+const timeline = [
+  [70, "09:00"],
+  [160, "11:00"],
+  [250, "13:00"],
+  [340, "15:00"],
+  [430, "17:00"],
+] as const;
+
+const icons: Record<string, string> = {
+  building:
+    "M4 21V5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v16 M9 21V13h6v8 M4 10h16 M8 10V7 M12 10V7 M16 10V7",
+  bird: "M22 4s-.7 2.1-2 3.4c1.6 10-9.4 17.3-18 11.6 2.2.1 4.4-.6 6-2C3 15.5.5 9.6 3 5c2.2 2.6 5.6 4.1 9 4-.9-4.2 4-6.6 7-3.8 1.1 0 3-1.2 3-1.2z",
+  briefcase: "M2 7h20v14H2z M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2 M2 12h20 M12 12v5",
+  code: "M16 18l6-6-6-6 M8 6l-6 6 6 6",
+  linkedin: "M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-4 0v7h-4v-7a6 6 0 0 1 6-6z M2 9h4v12H2z M4 2a2 2 0 1 1 0 4 2 2 0 0 1 0-4z",
+  plane:
+    "M17.8 19.2L16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z",
+  terminal: "M7 4h10v16H7z M10 8l-3 4 3 4 M14 8l3 4-3 4",
+};
+---
+
+<div class="graph-visual">
+  <div class="graph-frame" role="img" aria-label={graphCopy.ariaLabel}>
+    <svg width="540" height="420" viewBox="0 0 540 420" fill="none" aria-hidden="true">
+      <style>
+        .pulse {
+          transform-box: fill-box;
+          transform-origin: center;
+        }
+      </style>
+
+      {/* Subject pulsing rings */}
+      <circle class="pulse" cx={subject[0]} cy={subject[1]} r="36" stroke="var(--accent)" stroke-width="1.4" />
+      <circle class="pulse pulse-delay" cx={subject[0]} cy={subject[1]} r="48" stroke="var(--accent)" stroke-width="1.1" />
+
+      {/* Fan-out edges from subject to each source */}
+      {sources.map((s) => (
+        <line
+          x1={subject[0]}
+          y1={subject[1]}
+          x2={s.x}
+          y2={s.y}
+          stroke="var(--border-strong)"
+          stroke-width="1.2"
+          opacity="0.8"
+        />
+      ))}
+
+      {/* Corroboration edges between sources */}
+      <line x1="380" y1="60" x2="435" y2="130" stroke="var(--ok)" stroke-width="1" stroke-dasharray="4 4" opacity="0.5" />
+      <line x1="445" y1="210" x2="415" y2="290" stroke="var(--ok)" stroke-width="1" stroke-dasharray="4 4" opacity="0.5" />
+      <line x1="340" y1="345" x2="210" y2="345" stroke="var(--ok)" stroke-width="1" stroke-dasharray="4 4" opacity="0.4" />
+
+      {/* Evidence dots scattered along edges */}
+      {evidence.map(([x, y]) => (
+        <circle cx={x} cy={y} r="3.5" fill="var(--faint)" opacity="0.7" />
+      ))}
+
+      {/* Subject node */}
+      <g class="graph-node-subject">
+        <circle cx={subject[0]} cy={subject[1]} r="26" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.8" />
+        <circle cx={subject[0]} cy={subject[1]} r="8" fill="var(--accent)" />
+      </g>
+      <text x={subject[0]} y={subject[1] + 42} text-anchor="middle" fill="var(--muted)" font-size="10" font-family="var(--font-mono)">
+        {graphCopy.subjectLabel}
+      </text>
+
+      {/* Source nodes with icons */}
+      {sources.map((s, i) => {
+        const src = graphCopy.sources[i];
+        return (
+          <g class="graph-node">
+            {/* Node circle background */}
+            <circle cx={s.x} cy={s.y} r="22" fill="var(--panel-strong)" stroke="var(--info)" stroke-width="1.4" />
+            {/* Icon */}
+            <g transform={`translate(${s.x - 10}, ${s.y - 10})`} stroke="var(--info)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none">
+              <path d={icons[src.icon]} />
+            </g>
+            {/* Label */}
+            <text
+              x={s.x}
+              y={s.y + 34}
+              text-anchor="middle"
+              fill="var(--muted)"
+              font-size="8.5"
+              font-family="var(--font-mono)"
+            >
+              {src.label}
+            </text>
+          </g>
+        );
+      })}
+
+      {/* Corroboration badges */}
+      <g font-family="var(--font-mono)" font-size="8" fill="var(--ok)">
+        <circle cx="410" cy="95" r="8" fill="rgb(126 226 155 / 0.12)" stroke="var(--ok)" stroke-width="0.8" />
+        <text x="410" y="98" text-anchor="middle">{graphCopy.corroborationBadge}</text>
+        <circle cx="438" cy="250" r="8" fill="rgb(126 226 155 / 0.12)" stroke="var(--ok)" stroke-width="0.8" />
+        <text x="438" y="253" text-anchor="middle">{graphCopy.corroborationBadge}</text>
+      </g>
+
+      {/* Time axis */}
+      <line x1="55" y1="400" x2="480" y2="400" stroke="var(--border-strong)" stroke-width="1" />
+      {timeline.map(([x, label]) => (
+        <g font-family="var(--font-mono)" font-size="9" fill="var(--faint)">
+          <line x1={x} y1="396" x2={x} y2="404" stroke="var(--border-strong)" stroke-width="1" />
+          <text x={x} y="390" text-anchor="middle">{label}</text>
+        </g>
+      ))}
+      <text x="55" y="380" fill="var(--faint)" font-size="8.5" font-family="var(--font-mono)" letter-spacing="0.1em">
+        {graphCopy.timeAxisLabel}
+      </text>
+
+      {/* Legend */}
+      <g font-family="var(--font-mono)" font-size="8.5" fill="var(--muted)">
+        <circle cx="60" cy="24" r="5" fill="var(--accent)" />
+        <text x="72" y="28">{graphCopy.legend[0]}</text>
+        <circle cx="130" cy="24" r="5" fill="var(--info)" />
+        <text x="142" y="28">{graphCopy.legend[1]}</text>
+        <circle cx="195" cy="24" r="3.5" fill="var(--faint)" />
+        <text x="205" y="28">{graphCopy.legend[2]}</text>
+      </g>
+    </svg>
+
+    <div class="graph-status">
+      <span class="graph-status-dot" aria-hidden="true"></span>
+      <span>{graphCopy.status}</span>
+    </div>
+  </div>
+</div>
+
+<style>
+  .graph-status {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 22px;
+    border-top: 1px solid var(--border);
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    color: var(--muted);
+  }
+
+  .graph-status-dot {
+    flex: 0 0 auto;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 10px rgb(255 180 84 / 0.8);
+    animation: blink 1.6s ease-in-out infinite;
+  }
+
+  @keyframes blink {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.35;
+    }
+  }
+</style>

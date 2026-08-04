@@ -1,0 +1,118 @@
+---
+import { form as formCopy } from "../copy";
+import { INTEREST_FORM_ENDPOINT } from "../config";
+---
+
+<form id="interest-form" class="interest-form" novalidate data-endpoint={INTEREST_FORM_ENDPOINT}>
+	<div class="field">
+		<label for="interest-name">{formCopy.labels.name}</label>
+		<input
+			id="interest-name"
+			name="name"
+			type="text"
+			autocomplete="name"
+			placeholder={formCopy.placeholders.name}
+			required
+		/>
+	</div>
+
+	<div class="field">
+		<label for="interest-company">{formCopy.labels.company}</label>
+		<input
+			id="interest-company"
+			name="company"
+			type="text"
+			autocomplete="organization"
+			placeholder={formCopy.placeholders.company}
+		/>
+	</div>
+
+	<div class="field">
+		<label for="interest-email">{formCopy.labels.email}</label>
+		<input
+			id="interest-email"
+			name="email"
+			type="email"
+			autocomplete="email"
+			placeholder={formCopy.placeholders.email}
+			required
+		/>
+	</div>
+
+	<button class="btn btn-primary btn-block" type="submit">
+		{formCopy.button}
+	</button>
+
+	<p class="form-note">{formCopy.note}</p>
+
+	<p class="form-status" data-form-status hidden role="status" aria-live="polite"></p>
+</form>
+
+<script>
+	const form = document.querySelector<HTMLFormElement>('#interest-form');
+	const statusEl = document.querySelector<HTMLElement>('[data-form-status]');
+	const endpoint = form?.dataset.endpoint ?? '';
+
+	if (form && statusEl) {
+		form.addEventListener('submit', async (event) => {
+			event.preventDefault();
+
+			const data = new FormData(form);
+			const name = data.get('name')?.toString().trim() ?? '';
+			const email = data.get('email')?.toString().trim() ?? '';
+
+			if (!name || !email) {
+				statusEl.dataset.state = 'error';
+				statusEl.textContent = 'Please fill in your name and email.';
+				statusEl.hidden = false;
+				return;
+			}
+
+			const submitBtn = form.querySelector<HTMLButtonElement>('[type="submit"]');
+			if (submitBtn) {
+				submitBtn.disabled = true;
+				submitBtn.textContent = 'Sending…';
+			}
+			statusEl.hidden = true;
+
+			if (!endpoint) {
+				await new Promise((r) => setTimeout(r, 900));
+				if (submitBtn) {
+					submitBtn.disabled = false;
+					submitBtn.textContent = 'Request early access';
+				}
+				statusEl.dataset.state = 'success';
+				statusEl.textContent = formCopy.messages.success;
+				statusEl.hidden = false;
+				form.reset();
+				return;
+			}
+
+			try {
+				const payload = Object.fromEntries(data);
+				const res = await fetch(endpoint, {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify(payload),
+				});
+				if (!res.ok) throw new Error(`${res.status}`);
+				if (submitBtn) {
+					submitBtn.disabled = false;
+					submitBtn.textContent = 'Request early access';
+				}
+				statusEl.dataset.state = 'success';
+				statusEl.textContent = formCopy.messages.success;
+				statusEl.hidden = false;
+				form.reset();
+			} catch {
+				if (submitBtn) {
+					submitBtn.disabled = false;
+					submitBtn.textContent = 'Request early access';
+				}
+				statusEl.dataset.state = 'error';
+				statusEl.textContent = formCopy.messages.failure;
+				statusEl.hidden = false;
+			}
+		});
+	}
+</script>

@@ -1,0 +1,16 @@
+---
+import { nav } from "../copy";
+import Logo from "./Logo.astro";
+---
+
+<header class="nav">
+	<div class="container nav-inner">
+		<Logo />
+		<nav class="nav-links" aria-label={nav.ariaLabel}>
+			{nav.links.map((link) => (
+				<a href={link.href}>{link.label}</a>
+			))}
+		</nav>
+		<a class="btn btn-primary nav-cta" href={nav.cta.href}>{nav.cta.label}</a>
+	</div>
+</header>

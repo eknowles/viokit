@@ -1,0 +1,35 @@
+---
+import { liveCase } from "../copy";
+---
+
+<section class="section" id="live-case">
+	<div class="container" style="max-width: 860px;">
+		<h2 class="h2">{liveCase.heading}</h2>
+		<p class="lead">{liveCase.lead}</p>
+
+		<div class="trail-panel" style="margin-top: 40px;">
+			<div class="trail-head">
+				<span class="dot" aria-hidden="true"></span>
+				<span>{liveCase.panelTitle}</span>
+			</div>
+			<ul class="trail-list">
+				{
+					liveCase.entries.map((e) => (
+						<li class="trail-item">
+							<span class="trail-time">{e.time}</span>
+							<div class="trail-body">
+								{e.body}
+								<div class="trail-meta">{e.meta}</div>
+								{e.verified && <div class="trail-verify">{liveCase.verifiedLabel}</div>}
+							</div>
+						</li>
+					))
+				}
+			</ul>
+		</div>
+
+		<p style="color: var(--faint); font-size: 0.82rem; margin-top: 18px; font-family: var(--font-mono);">
+			{liveCase.caption}
+		</p>
+	</div>
+</section>

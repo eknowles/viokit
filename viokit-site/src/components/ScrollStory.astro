@@ -1,0 +1,496 @@
+---
+import { hero } from "../copy";
+
+// Investigation chain: artifacts arranged with clear spacing
+const artifacts = [
+  { x: 70, y: 195, icon: "phone", label: "Phone number", step: 1 },
+  { x: 175, y: 100, icon: "signal", label: "Carrier record", step: 2 },
+  { x: 310, y: 60, icon: "chat", label: "Messenger profiles", step: 2 },
+  { x: 435, y: 100, icon: "tag", label: "Username handle", step: 3 },
+  { x: 520, y: 195, icon: "mail", label: "Email address", step: 3 },
+  { x: 435, y: 290, icon: "lock", label: "Breach data", step: 4 },
+  { x: 310, y: 330, icon: "building", label: "Public records", step: 5 },
+  { x: 175, y: 290, icon: "user-check", label: "Confirmed identity", step: 5 },
+];
+
+const chainEdges = [
+  { from: 0, to: 1 },
+  { from: 1, to: 2 },
+  { from: 2, to: 3 },
+  { from: 3, to: 4 },
+  { from: 4, to: 5 },
+  { from: 5, to: 6 },
+  { from: 6, to: 7 },
+];
+
+const corrLinks = [
+  { from: 1, to: 5, label: "name matches" },
+  { from: 2, to: 3, label: "photo matches" },
+  { from: 4, to: 6, label: "DOB confirms" },
+];
+
+// Source tags: small labels near each artifact
+const sourceTags = [
+  { artifact: 0, labels: ["T-Mobile", "NumVerify"], side: "below" },
+  { artifact: 1, labels: ["CNAM", "Truecaller"], side: "above" },
+  { artifact: 2, labels: ["WhatsApp", "Telegram"], side: "above" },
+  { artifact: 3, labels: ["GitHub", "StackOverflow"], side: "above" },
+  { artifact: 4, labels: ["Commit metadata", "HIBP"], side: "below" },
+  { artifact: 5, labels: ["DeHashed", "LeakCheck"], side: "below" },
+  { artifact: 6, labels: ["Electoral roll", "Property"], side: "below" },
+  { artifact: 7, labels: ["LinkedIn", "5+ sources"], side: "below" },
+];
+
+// Step action labels: what just happened at each step
+const stepActions = [
+  { step: 1, text: "Seed identified" },
+  { step: 2, text: "Line verified → profiles found" },
+  { step: 3, text: "Username pivoted → email exposed" },
+  { step: 4, text: "Breaches searched → identity revealed" },
+  { step: 5, text: "Records matched → case corroborated" },
+];
+
+const icons: Record<string, string> = {
+  building:
+    "M4 21V5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v16 M9 21V13h6v8 M4 10h16 M8 10V7 M12 10V7 M16 10V7",
+  chat:
+    "M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z",
+  lock:
+    "M12 2a5 5 0 0 0-5 5v3H5a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-8a1 1 0 0 0-1-1h-2V7a5 5 0 0 0-5-5z M9 7a3 3 0 0 1 6 0v3H9z",
+  mail:
+    "M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z M22 6l-10 7L2 6",
+  phone:
+    "M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.79 19.79 0 0 1 2.12 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z",
+  signal:
+    "M2 20h.01 M7 20v-4 M12 20v-8 M17 20V8 M22 4v16",
+  tag:
+    "M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z M7 7h.01",
+  "user-check":
+    "M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2 M8.5 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8z M20 8l2 2-2 2 M23 11h-6",
+};
+
+const steps = [
+  {
+    body: "It starts with a single piece of information. A phone number from a phishing complaint. A domain from a suspicious email. A username found in a leak. One seed.",
+    num: "01",
+    title: "Start from one seed",
+  },
+  {
+    body: "Viokit verifies the line — carrier, line type, registered name — and immediately pivots to messenger profiles. A Telegram handle, a WhatsApp photo. Each result opens a new door.",
+    num: "02",
+    title: "Follow the first trail",
+  },
+  {
+    body: "That Telegram username appears on GitHub — where commit metadata exposes a personal email. One pivot leads to another. The identifier ladder climbs.",
+    num: "03",
+    title: "Pivot on identifiers",
+  },
+  {
+    body: "The email appears in breach archives — revealing a real name, date of birth, and a physical address. Two independent data breaches confirm the same identity.",
+    num: "04",
+    title: "Cross-reference breach data",
+  },
+  {
+    body: "Electoral registry matches the name and DOB. LinkedIn confirms the photo. Five independent sources converge on one person. The case is corroborated.",
+    num: "05",
+    title: "Confirm with multiple sources",
+  },
+];
+---
+
+<section class="scroll-story" id="story">
+  <div class="story-rail" aria-hidden="true">
+    <div class="story-rail-track">
+      {steps.map((s, i) => (
+        <div class={`story-rail-dot${i === 0 ? " active" : ""}`} data-rail={i + 1}>
+          <span class="story-rail-num">{s.num}</span>
+        </div>
+      ))}
+      <div class="story-rail-fill" data-rail-fill></div>
+    </div>
+  </div>
+
+  <div class="scroll-story-graph">
+    <div class="scroll-story-graph-inner">
+      <div class="graph-status-bar">
+        <span class="graph-status-dot"></span>
+        <span class="graph-status-text">investigating · 5 steps · 8 artifacts · 3 corroborations</span>
+      </div>
+
+      {/* Step action label — shows what just happened */}
+      <div class="graph-action" data-action-label>
+        <span class="graph-action-text">{stepActions[0].text}</span>
+      </div>
+
+      <svg viewBox="0 0 590 380" fill="none" aria-hidden="true">
+        <defs>
+          <filter id="glow-amber">
+            <feGaussianBlur stdDeviation="5" result="blur" />
+            <feMerge>
+              <feMergeNode in="blur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+          <filter id="glow-cyan">
+            <feGaussianBlur stdDeviation="3.5" result="blur" />
+            <feMerge>
+              <feMergeNode in="blur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+          <filter id="glow-green">
+            <feGaussianBlur stdDeviation="4" result="blur" />
+            <feMerge>
+              <feMergeNode in="blur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+        </defs>
+
+        <style>
+          .chain-el {
+            opacity: 0;
+            transition: opacity 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+          }
+          .chain-el.revealed {
+            opacity: 1;
+          }
+          .chain-edge {
+            stroke-dasharray: 300;
+            stroke-dashoffset: 300;
+            transition: stroke-dashoffset 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+          }
+          .chain-edge.revealed {
+            stroke-dashoffset: 0;
+          }
+          .artifact-node {
+            opacity: 0;
+            transform: scale(0.5);
+            transform-origin: center;
+            transition:
+              opacity 0.4s cubic-bezier(0.34, 1.56, 0.64, 1),
+              transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+          }
+          .artifact-node.revealed {
+            opacity: 1;
+            transform: scale(1);
+          }
+          .artifact-node.flash {
+            animation: artifact-flash 0.8s ease-out;
+          }
+          @keyframes artifact-flash {
+            0% {
+              filter: url(#glow-amber);
+            }
+            100% {
+              filter: none;
+            }
+          }
+          .corr-link {
+            stroke-dasharray: 6 4;
+            stroke-dashoffset: 100;
+            transition: stroke-dashoffset 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+          }
+          .corr-link.revealed {
+            stroke-dashoffset: 0;
+          }
+          .source-tag {
+            opacity: 0;
+            transition: opacity 0.35s ease;
+          }
+          .source-tag.revealed {
+            opacity: 1;
+          }
+          .corr-badge {
+            opacity: 0;
+            transition: opacity 0.4s ease;
+          }
+          .corr-badge.revealed {
+            opacity: 1;
+          }
+          .step-label-el {
+            opacity: 0;
+            transition: opacity 0.3s ease;
+          }
+          .step-label-el.revealed {
+            opacity: 1;
+          }
+        </style>
+
+        {/* Chain edges: curved paths connecting artifacts */}
+        {chainEdges.map(({ from, to }, i) => {
+          const a = artifacts[from];
+          const b = artifacts[to];
+          const mx = (a.x + b.x) / 2;
+          const my = (a.y + b.y) / 2;
+          const dx = b.x - a.x;
+          const dy = b.y - a.y;
+          const cx = mx - dy * 0.1;
+          const cy = my + dx * 0.1;
+          // Edge reveals at the step of the destination artifact
+          return (
+            <path
+              class="chain-edge chain-el"
+              data-step={b.step}
+              data-chain-edge={i}
+              d={`M${a.x},${a.y} Q${cx},${cy} ${b.x},${b.y}`}
+              stroke="var(--border-strong)"
+              stroke-width="1.4"
+              fill="none"
+            />
+          );
+        })}
+
+        {/* Corroboration links */}
+        {corrLinks.map(({ from, to, label }, i) => {
+          const a = artifacts[from];
+          const b = artifacts[to];
+          const mx = (a.x + b.x) / 2;
+          const my = (a.y + b.y) / 2;
+          const maxStep = Math.max(a.step, b.step);
+          return (
+            <g class="chain-el" data-step={maxStep}>
+              <line
+                class="corr-link"
+                data-corr-link={i}
+                x1={a.x}
+                y1={a.y}
+                x2={b.x}
+                y2={b.y}
+                stroke="var(--ok)"
+                stroke-width="1.2"
+              />
+              <g class="corr-badge" data-corr-badge={i}>
+                <rect x={mx - 34} y={my - 9} width="68" height="18" rx="9" fill="rgb(126 226 155 / 0.12)" stroke="var(--ok)" stroke-width="0.8" />
+                <text x={mx} y={my + 3.5} text-anchor="middle" fill="var(--ok)" font-family="var(--font-mono)" font-size="7.5">
+                  {label}
+                </text>
+              </g>
+            </g>
+          );
+        })}
+
+        {/* Source tags: small labels near each artifact */}
+        {sourceTags.map(({ artifact: ai, labels, side }, si) => {
+          const a = artifacts[ai];
+          const yOff = side === "above" ? -32 : 38;
+          return (
+            <g class="source-tag chain-el" data-step={a.step} data-source={si}>
+              {labels.map((label, li) => (
+                <g key={li}>
+                  <rect
+                    x={a.x - 30 + li * 36}
+                    y={a.y + yOff - 7}
+                    width="34"
+                    height="14"
+                    rx="4"
+                    fill="var(--panel)"
+                    stroke="var(--border)"
+                    stroke-width="0.6"
+                  />
+                  <text
+                    x={a.x - 13 + li * 36}
+                    y={a.y + yOff + 3}
+                    text-anchor="middle"
+                    fill="var(--faint)"
+                    font-family="var(--font-mono)"
+                    font-size="6.5"
+                  >
+                    {label}
+                  </text>
+                </g>
+              ))}
+            </g>
+          );
+        })}
+
+        {/* Artifact nodes */}
+        {artifacts.map((a, i) => (
+          <g class="artifact-node chain-el" data-step={a.step} data-artifact={i}>
+            {/* Glow ring for seed and confirmed */}
+            {(i === 0 || i === 7) && (
+              <circle cx={a.x} cy={a.y} r="30" fill="none" stroke={i === 0 ? "var(--accent)" : "var(--ok)"} stroke-width="0.8" opacity="0.3" filter={i === 0 ? "url(#glow-amber)" : "url(#glow-green)"} />
+            )}
+            {/* Node circle */}
+            <circle
+              cx={a.x}
+              cy={a.y}
+              r="22"
+              fill="var(--panel-strong)"
+              stroke={i === 0 ? "var(--accent)" : i === 7 ? "var(--ok)" : "var(--info)"}
+              stroke-width="1.5"
+              filter={i === 0 ? "url(#glow-amber)" : i === 7 ? "url(#glow-green)" : "url(#glow-cyan)"}
+            />
+            {/* Icon */}
+            <g transform={`translate(${a.x - 9}, ${a.y - 9})`} stroke={i === 0 ? "var(--accent)" : i === 7 ? "var(--ok)" : "var(--info)"} stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none">
+              <path d={icons[a.icon]} />
+            </g>
+            {/* Label */}
+            <text x={a.x} y={a.y + 36} text-anchor="middle" fill="var(--muted)" font-size="8.5" font-family="var(--font-mono)">
+              {a.label}
+            </text>
+          </g>
+        ))}
+
+        {/* Legend */}
+        <g class="chain-el" data-step="1" font-family="var(--font-mono)" font-size="8" fill="var(--muted)">
+          <circle cx="460" cy="355" r="5" fill="var(--accent)" />
+          <text x="472" y="359">seed</text>
+          <circle cx="510" cy="355" r="5" fill="var(--info)" />
+          <text x="522" y="359">artifact</text>
+        </g>
+      </svg>
+    </div>
+  </div>
+
+  <div class="scroll-story-steps">
+    <div class="scroll-story-intro">
+      <p class="eyebrow">{hero.eyebrow}</p>
+      <h1>
+        {hero.headingA}
+        <span class="accent-word">{hero.headingB}</span>
+      </h1>
+      <p class="hero-sub">{hero.sub}</p>
+      <div class="hero-ctas">
+        <a class="btn btn-primary" href={hero.ctaPrimary.href}>{hero.ctaPrimary.label}</a>
+        <a class="btn btn-ghost" href={hero.ctaSecondary.href}>{hero.ctaSecondary.label}</a>
+      </div>
+      <p class="hero-note">{hero.note}</p>
+    </div>
+
+    {
+      steps.map((step, i) => (
+        <div class={`scroll-step${i === 0 ? " active" : ""}`} data-step={step.num} data-step-idx={i + 1}>
+          <div class="scroll-step-inner">
+            <span class="scroll-step-num">{step.num}</span>
+            <h2>{step.title}</h2>
+            <p>{step.body}</p>
+          </div>
+        </div>
+      ))
+    }
+
+    <div class="scroll-story-stats">
+      {hero.stats.map((stat) => (
+        <div class="story-stat">
+          <div class="stat-num">{stat.num}</div>
+          <p class="stat-label">{stat.label}</p>
+        </div>
+      ))}
+    </div>
+  </div>
+</section>
+
+<script>
+  const stepActions = [
+    "Seed identified",
+    "Line verified → profiles found",
+    "Username pivoted → email exposed",
+    "Breaches searched → identity revealed",
+    "Records matched → case corroborated",
+  ];
+
+  let currentStep = 0;
+
+  function setGraphStep(step: number) {
+    if (step === currentStep) return;
+    currentStep = step;
+
+    // Update action label
+    const actionLabel = document.querySelector<HTMLElement>("[data-action-label]");
+    if (actionLabel) {
+      actionLabel.classList.remove("revealed");
+      requestAnimationFrame(() => {
+        const text = actionLabel.querySelector(".graph-action-text");
+        if (text) text.textContent = stepActions[step - 1];
+        requestAnimationFrame(() => actionLabel.classList.add("revealed"));
+      });
+    }
+
+    // Reveal/hide chain elements
+    document.querySelectorAll<HTMLElement>(".chain-el[data-step]").forEach((el) => {
+      const elStep = Number.parseInt(el.dataset.step ?? "99", 10);
+      const shouldReveal = elStep <= step;
+      const wasRevealed = el.classList.contains("revealed");
+      el.classList.toggle("revealed", shouldReveal);
+
+      // Flash effect on newly revealed artifacts
+      if (shouldReveal && !wasRevealed && el.classList.contains("artifact-node")) {
+        el.classList.remove("flash");
+        requestAnimationFrame(() => el.classList.add("flash"));
+      }
+    });
+
+    // Stagger artifact node entrances within the current step
+    document.querySelectorAll<HTMLElement>(".artifact-node[data-artifact]").forEach((el) => {
+      const artStep = Number.parseInt(el.dataset.step ?? "99", 10);
+      const artIdx = Number.parseInt(el.dataset.artifact ?? "0", 10);
+      if (artStep === step) {
+        // Only stagger within the current step's artifacts
+        const sameStep = document.querySelectorAll(`.artifact-node[data-step="${step}"]`);
+        const posInStep = Array.from(sameStep).indexOf(el);
+        el.style.transitionDelay = `${posInStep * 100}ms`;
+      } else {
+        el.style.transitionDelay = "0ms";
+      }
+    });
+
+    // Stagger chain edges: edges to current step artifacts appear first
+    document.querySelectorAll<HTMLElement>(".chain-edge[data-chain-edge]").forEach((el) => {
+      const edgeStep = Number.parseInt(el.dataset.step ?? "99", 10);
+      if (edgeStep === step) {
+        const sameStep = document.querySelectorAll(`.chain-edge[data-step="${step}"]`);
+        const posInStep = Array.from(sameStep).indexOf(el);
+        el.style.transitionDelay = `${posInStep * 80}ms`;
+      } else {
+        el.style.transitionDelay = "0ms";
+      }
+    });
+
+    // Stagger source tags
+    document.querySelectorAll<HTMLElement>(".source-tag[data-source]").forEach((el) => {
+      const tagStep = Number.parseInt(el.dataset.step ?? "99", 10);
+      if (tagStep === step) {
+        const sameStep = document.querySelectorAll(`.source-tag[data-step="${step}"]`);
+        const posInStep = Array.from(sameStep).indexOf(el);
+        el.style.transitionDelay = `${posInStep * 60 + 300}ms`;
+      } else {
+        el.style.transitionDelay = "0ms";
+      }
+    });
+
+    // Update rail
+    document.querySelectorAll<HTMLElement>(".story-rail-dot").forEach((el) => {
+      const railStep = Number.parseInt(el.dataset.rail ?? "0", 10);
+      el.classList.toggle("active", railStep <= step);
+    });
+
+    const fill = document.querySelector<HTMLElement>("[data-rail-fill]");
+    if (fill) {
+      const pct = ((step - 1) / 4) * 100;
+      fill.style.height = `${pct}%`;
+    }
+
+    // Update active step
+    document.querySelectorAll<HTMLElement>(".scroll-step").forEach((el) => {
+      const stepIdx = Number.parseInt(el.dataset.stepIdx ?? "0", 10);
+      el.classList.toggle("active", stepIdx === step);
+    });
+  }
+
+  setGraphStep(1);
+
+  const observer = new IntersectionObserver(
+    (entries) => {
+      for (const entry of entries) {
+        if (!entry.isIntersecting) continue;
+        const step = entry.target.dataset.stepIdx;
+        if (!step) continue;
+        setGraphStep(Number.parseInt(step, 10));
+      }
+    },
+    { rootMargin: "-35% 0px -35% 0px", threshold: 0.1 },
+  );
+
+  document.querySelectorAll(".scroll-step").forEach((el) => observer.observe(el));
+</script>

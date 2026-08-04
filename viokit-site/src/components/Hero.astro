@@ -1,0 +1,34 @@
+---
+import { hero } from "../copy";
+import GraphHero from "./GraphHero.astro";
+---
+
+<section class="hero">
+	<div class="container">
+		<div class="hero-grid">
+			<div>
+				<p class="eyebrow">{hero.eyebrow}</p>
+				<h1>
+					{hero.headingA}
+					<span class="accent-word">{hero.headingB}</span>
+				</h1>
+				<p class="hero-sub">{hero.sub}</p>
+				<div class="hero-ctas">
+					<a class="btn btn-primary" href={hero.ctaPrimary.href}>{hero.ctaPrimary.label}</a>
+					<a class="btn btn-ghost" href={hero.ctaSecondary.href}>{hero.ctaSecondary.label}</a>
+				</div>
+				<p class="hero-note">{hero.note}</p>
+			</div>
+			<GraphHero />
+		</div>
+
+		<div class="hero-stats">
+			{hero.stats.map((stat) => (
+				<div>
+					<div class="stat-num">{stat.num}</div>
+					<p class="stat-label">{stat.label}</p>
+				</div>
+			))}
+		</div>
+	</div>
+</section>

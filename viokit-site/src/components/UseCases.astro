@@ -1,0 +1,21 @@
+---
+import { useCases, useCasesSection } from "../copy";
+---
+
+<section class="section" id="use-cases">
+	<div class="container">
+		<h2 class="h2">{useCasesSection.heading}</h2>
+		<p class="lead">{useCasesSection.lead}</p>
+
+		<div class="grid usecase-grid" style="margin-top: 40px;">
+			{
+				useCases.map((u) => (
+					<div class="usecase">
+						<strong>{u.title}</strong>
+						<span>{u.body}</span>
+					</div>
+				))
+			}
+		</div>
+	</div>
+</section>

@@ -1,0 +1,21 @@
+---
+import { access } from "../copy";
+import InterestForm from "./InterestForm.astro";
+---
+
+<section class="section" id="access">
+	<div class="container">
+		<div class="access-panel">
+			<div class="access-aside">
+				<h3>{access.heading}</h3>
+				<p>{access.body}</p>
+				<ul class="access-perks">
+					{access.perks.map((perk) => (
+						<li>{perk}</li>
+					))}
+				</ul>
+			</div>
+			<InterestForm />
+		</div>
+	</div>
+</section>

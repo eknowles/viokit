@@ -1,0 +1,20 @@
+<svg
+  aria-label="Viokit"
+  role="img"
+  viewBox="0 0 128 128"
+  xmlns="http://www.w3.org/2000/svg"
+>
+  <rect fill="#0b1018" height="128" rx="26" width="128" />
+  <circle cx="64" cy="64" fill="#ffb454" r="12" />
+  <circle cx="24" cy="26" fill="#67d7ec" r="6" />
+  <circle cx="104" cy="24" fill="#67d7ec" r="6" />
+  <circle cx="26" cy="102" fill="#67d7ec" r="6" />
+  <circle cx="102" cy="104" fill="#67d7ec" r="6" />
+  <path
+    d="M30 32l24 20M98 32 74 52M30 96l24-20M98 96l-24-20"
+    fill="none"
+    stroke="#67d7ec"
+    stroke-linecap="round"
+    stroke-width="4"
+  />
+</svg>

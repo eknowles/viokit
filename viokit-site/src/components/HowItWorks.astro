@@ -1,0 +1,22 @@
+---
+import { howItWorks } from "../copy";
+---
+
+<section class="section" id="how-it-works">
+	<div class="container">
+		<h2 class="h2">{howItWorks.heading}</h2>
+		<p class="lead">{howItWorks.lead}</p>
+
+		<div class="steps" style="margin-top: 44px;">
+			{
+				howItWorks.steps.map((s, i) => (
+					<div class="step">
+						<span class="step-num">0{i + 1}</span>
+						<h3>{s.title}</h3>
+						<p>{s.body}</p>
+					</div>
+				))
+			}
+		</div>
+	</div>
+</section>

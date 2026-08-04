@@ -1,0 +1,17 @@
+---
+import { site } from "../copy";
+import BaseLayout from "../layouts/BaseLayout.astro";
+import ScrollStory from "../components/ScrollStory.astro";
+import Capabilities from "../components/Capabilities.astro";
+import EvidenceTrail from "../components/EvidenceTrail.astro";
+import UseCases from "../components/UseCases.astro";
+import Access from "../components/Access.astro";
+---
+
+<BaseLayout title={`${site.name} — ${site.tagline}`}>
+	<ScrollStory />
+	<Capabilities />
+	<EvidenceTrail />
+	<UseCases />
+	<Access />
+</BaseLayout>

@@ -1,0 +1,52 @@
+---
+import { privacy, site } from "../copy";
+import BaseLayout from "../layouts/BaseLayout.astro";
+---
+
+<BaseLayout title={`${privacy.title} — ${site.name}`}>
+	<section class="section">
+		<div class="container prose">
+			<h1>{privacy.title}</h1>
+			<p class="updated">{privacy.updated}</p>
+
+			{
+				privacy.sections.map((section) => (
+					<>
+						<h2>{section.heading}</h2>
+						{section.body && (
+							<p>
+								{section.body.split('{email}').map((part, i, parts) => (
+									<Fragment>
+										{part}
+										{i < parts.length - 1 && (
+											<a href={`mailto:${site.email}`}>{site.email}</a>
+										)}
+									</Fragment>
+								))}
+							</p>
+						)}
+						{section.list && (
+							<ul>
+								{section.list.map((item) => (
+									<li>{item}</li>
+								))}
+							</ul>
+						)}
+						{section.reply && (
+							<p>
+								{section.reply.split('{email}').map((part, i, parts) => (
+									<Fragment>
+										{part}
+										{i < parts.length - 1 && (
+											<a href={`mailto:${site.email}`}>{site.email}</a>
+										)}
+									</Fragment>
+								))}
+							</p>
+						)}
+					</>
+				))
+			}
+		</div>
+	</section>
+</BaseLayout>

@@ -1,0 +1,21 @@
+{
+  "name": "labs",
+  "private": true,
+  "workspaces": [
+    "viokit-site"
+  ],
+  "scripts": {
+    "astro:check": "bun run --filter viokit-site astro check",
+    "build": "bun run --filter viokit-site build",
+    "check": "ultracite check",
+    "dev": "bun run --filter viokit-site dev",
+    "fix": "ultracite fix",
+    "prepare": "git rev-parse --is-inside-work-tree >/dev/null 2>&1 && lefthook install || echo 'not a git repo; skipping lefthook install'",
+    "preview": "bun run --filter viokit-site preview"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.6",
+    "lefthook": "^2.1.10",
+    "ultracite": "^7.10.0"
+  }
+}
