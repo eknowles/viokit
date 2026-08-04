@@ -8,7 +8,7 @@
 
 | TDR | Topic | Status | Lean / direction noted |
 |---|---|---|---|
-| TDR-001 | Runtime — Bun vs Node vs Deno | proposed | Bun (fast start, native TS), Node as drop-in |
+| TDR-001 | Runtime — Bun vs Node vs Deno | decided 2026-08-04 | Bun primary + manager; Node drop-in via Effect platform |
 | TDR-002 | Client state & routing | proposed | Effect-lean; no routing framework; hash router only if deep-linking |
 | TDR-003 | Real-time transport — WebSocket vs SSE | proposed | WebSocket + Arrow IPC frames for large result batches |
 | TDR-004 | Docking layout — dockview vs flexlayout-react vs react-mosaic vs custom | proposed | dockview, unless it fights 4D canvas / linked selection |
