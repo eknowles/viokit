@@ -1,12 +1,12 @@
 # TDR-013 — Source-catalog store: SQLite vs filesystem vs in-memory
 
-- **Status:** in-review
+- **Status:** decided
 - **Owner:** core
 - **Date:** 2026-08-05
 - **Related:** TDR-001 (runtime), TDR-006 (cache), TDR-007 (evidence store); ROADMAP P1; STAGED_BUILD.md Stage 2; CONTRACT I8 (agent parity), I9 (provenance); `openspec/exploration/02-osint-landscape.md` §4/§5 (machine-readable source index)
 
 ## Decision summary
-> (Fill in when decided.) Lean: a `CandidateStore` + `WorkQueue` behind narrow seams, backed by **SQLite** as the first backend, for atomic compare-and-set claims and durable, concurrency-safe dedup in the multi-agent source-discovery harness.
+> Adopt `CandidateStore` + `WorkQueue` behind narrow seams, backed by **SQLite (single file)** as the first backend, for atomic compare-and-set claims and durable, concurrency-safe dedup in the multi-agent source-discovery harness. In-memory is retained as the test seam; filesystem-with-locks is the documented fallback. Decided 2026-08-05.
 
 ## Context
 - The **source-discovery harness** (`packages/source-catalog`) lets many agents, in parallel, discover, classify, and document potential OSINT sources (from the Bellingcat toolkit, open datasets, APIs). Each agent: claims a work unit → runs its own search → submits a lightweight `SourceCandidate` → (later) promotes to a `SourceSpec` written into a pack.
