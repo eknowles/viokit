@@ -1,6 +1,9 @@
 # Dependencies
 node_modules/
 
+# Vendored Effect source (research only, bootstrapped by prepare)
+.repos/effect
+
 # Build output
 dist/
 build/

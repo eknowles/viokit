@@ -1,0 +1,21 @@
+{
+  "name": "@viokit/schema",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "effect": "4.0.0-beta.103"
+  },
+  "devDependencies": {
+    "@effect/vitest": "4.0.0-beta.103",
+    "typescript": "7.0.2",
+    "vitest": "^4.1.0"
+  }
+}

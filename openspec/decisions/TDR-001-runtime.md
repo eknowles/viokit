@@ -52,8 +52,20 @@ Trade-off made explicit: we accept a slightly narrower ecosystem window in excha
 - **Chosen:** Bun, primary runtime + package manager. Node remains a supported drop-in for deployment where required.
 - **What would change this decision:** a demonstrated Effect-platform incompatibility on Bun, or a production requirement for a Node-only native dependency. Either would be re-evaluated via a superseding TDR, not a silent change.
 
+## Version pinning (Stage 0)
+Pinned dependency set (aligned with `effect@4.0.0-beta.103`) for the `packages/*` workspace:
+
+- `effect@4.0.0-beta.103`
+- `@effect/vitest@4.0.0-beta.103` (requires `vitest@^4.1.0`)
+- `vitest@^4.1.0`
+- `typescript@7.0.2` (tsgo-patched via `effect-tsgo@0.31.0`, `@effect/language-service` plugin in root `tsconfig.json`)
+- `@viokit/schema`, `@viokit/engine`, `@viokit/sources` are workspace packages
+- Runtime/manager: `bun@1.3.13` (`bun.lock`)
+
+All versions are recorded in `packages/*/package.json` and the root `package.json`; this TDR row in `README.md` is the canonical reference.
+
 ## Open questions
-- Pin the exact `effect@beta` aligned dependency set before Stage 0 implementation.
+- Pin the exact `effect@beta` aligned dependency set before Stage 0 implementation. *(resolved — see Version pinning above)*
 
 ## References
 - `ROADMAP.md` P0; `STAGED_BUILD.md` Stage 0; `openspec/decisions/README.md` TDR-001 row.

@@ -2,7 +2,8 @@
   "name": "labs",
   "private": true,
   "workspaces": [
-    "viokit-site"
+    "viokit-site",
+    "packages/*"
   ],
   "scripts": {
     "astro:check": "bun run --filter viokit-site astro check",
@@ -10,12 +11,16 @@
     "check": "ultracite check",
     "dev": "bun run --filter viokit-site dev",
     "fix": "ultracite fix",
-    "prepare": "git rev-parse --is-inside-work-tree >/dev/null 2>&1 && lefthook install || echo 'not a git repo; skipping lefthook install'",
-    "preview": "bun run --filter viokit-site preview"
+    "prepare": "./scripts/prepare-effect.sh; git rev-parse --is-inside-work-tree >/dev/null 2>&1 && lefthook install || echo 'not a git repo; skipping lefthook install' && effect-tsgo patch --typescript --no-oxlint",
+    "preview": "bun run --filter viokit-site preview",
+    "test": "bun run --filter './packages/*' test",
+    "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.6",
+    "@effect/tsgo": "0.31.0",
     "lefthook": "^2.1.10",
+    "typescript": "7.0.2",
     "ultracite": "^7.10.0"
   }
 }
