@@ -1,11 +1,14 @@
 import { assert, describe, layer } from "@effect/vitest";
 import { evidenceId } from "@viokit/schema";
-import { Effect, Option } from "effect";
-import { EvidenceLayer, EvidenceService } from "../src/evidence.js";
+import { Effect, Layer, Option } from "effect";
+import { EvidenceService } from "../src/evidence.js";
+import { EvidenceBackendMemory, EvidenceLayer } from "../src/evidence-fs.js";
 import { pastInput } from "./support.js";
 
+const MemoryEvidenceLayer = Layer.provide(EvidenceLayer, EvidenceBackendMemory);
+
 describe("stores and retrieves by id", () => {
-  layer(EvidenceLayer)((it) => {
+  layer(MemoryEvidenceLayer)((it) => {
     it.effect("", () =>
       Effect.gen(function* () {
         const store = yield* EvidenceService;
@@ -19,7 +22,7 @@ describe("stores and retrieves by id", () => {
 });
 
 describe("content hash is identity: identical bytes dedupe (I1)", () => {
-  layer(EvidenceLayer)((it) => {
+  layer(MemoryEvidenceLayer)((it) => {
     it.effect("", () =>
       Effect.gen(function* () {
         const store = yield* EvidenceService;
@@ -35,7 +38,7 @@ describe("content hash is identity: identical bytes dedupe (I1)", () => {
 });
 
 describe("different bytes produce different ids", () => {
-  layer(EvidenceLayer)((it) => {
+  layer(MemoryEvidenceLayer)((it) => {
     it.effect("", () =>
       Effect.gen(function* () {
         const store = yield* EvidenceService;
@@ -51,7 +54,7 @@ describe("different bytes produce different ids", () => {
 });
 
 describe("lists stored evidence", () => {
-  layer(EvidenceLayer)((it) => {
+  layer(MemoryEvidenceLayer)((it) => {
     it.effect("", () =>
       Effect.gen(function* () {
         const store = yield* EvidenceService;
@@ -65,7 +68,7 @@ describe("lists stored evidence", () => {
 });
 
 describe("missing id yields none", () => {
-  layer(EvidenceLayer)((it) => {
+  layer(MemoryEvidenceLayer)((it) => {
     it.effect("", () =>
       Effect.gen(function* () {
         const store = yield* EvidenceService;

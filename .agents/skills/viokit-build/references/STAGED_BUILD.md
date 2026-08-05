@@ -52,6 +52,9 @@ Validations: boundary tests for **I1, I2, I5, I6**; pipeline proof for **I9**.
 
 ## Stage 1 — Foundations, deepened (≈ ROADMAP P0)
 
+> **Status: complete (2026-08-05).** Filesystem evidence backend, ontology registry, and the
+> primitive suite + replay tests are all in place and verified below.
+
 - Filesystem evidence backend (behind the Stage-0 seam).
 - Ontology registry: register/validate types at runtime; primitives-only core.
 - Full primitive suite + replay tests.

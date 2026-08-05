@@ -11,6 +11,9 @@ code; `AGENTS.md`/ultracite clean; tests per component.
 
 ## P0 — Foundations
 
+> **Status: complete (2026-08-05).** Stage-0 spine plus Stage-1 deepening (filesystem evidence
+> backend, ontology registry, primitive + replay round-trip tests) have exited P0.
+
 **Goal:** a type-checked, tested skeleton with the primitives, the ontology registry, the evidence
 store, and the shared-schema contract. Nothing domain-specific.
 

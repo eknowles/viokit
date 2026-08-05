@@ -7,13 +7,100 @@ import {
 import {
   Cache,
   Entity,
+  Event,
   EvidenceInput,
   entityId,
+  eventId,
   GraphState,
+  Identifier,
   Live,
+  Relation,
+  relationId,
   SourceSpec,
+  SpatialExtent,
   TemporalExtent,
 } from "../src/index.js";
+
+const roundTrip = <
+  S extends Schema.ConstraintDecoder<unknown> &
+    Schema.ConstraintEncoder<unknown>,
+>(
+  schema: S,
+  value: S["Type"]
+): S["Type"] =>
+  Schema.decodeUnknownSync(schema)(Schema.encodeUnknownSync(schema)(value));
+
+describe("primitive suite round-trips (3.1)", () => {
+  const entity = Entity.make({
+    id: entityId("e1"),
+    identifiers: [Identifier.make({ kind: "email", value: "a@b" })],
+    kind: "person",
+    spatialExtent: SpatialExtent.make({ lat: 1, lon: 2 }),
+    temporalExtent: TemporalExtent.make({
+      validFrom: new Date("2024-01-01T00:00:00.000Z"),
+      validTo: new Date("2024-01-02T00:00:00.000Z"),
+    }),
+  });
+
+  it("round-trips an Identifier", () => {
+    const decoded = roundTrip(
+      Identifier,
+      Identifier.make({ kind: "email", value: "a@b" })
+    );
+    assert.strictEqual(decoded.kind, "email");
+    assert.strictEqual(decoded.value, "a@b");
+  });
+
+  it("round-trips a spatial extent", () => {
+    const decoded = roundTrip(
+      SpatialExtent,
+      SpatialExtent.make({ lat: 1, lon: 2 })
+    );
+    assert.strictEqual(decoded.lat, 1);
+    assert.strictEqual(decoded.lon, 2);
+  });
+
+  it("round-trips a temporal extent", () => {
+    const decoded = roundTrip(TemporalExtent, entity.temporalExtent);
+    assert.strictEqual(
+      decoded.validFrom.getTime(),
+      new Date("2024-01-01T00:00:00.000Z").getTime()
+    );
+  });
+
+  it("round-trips an Entity", () => {
+    const decoded = roundTrip(Entity, entity);
+    assert.strictEqual(decoded.id, entity.id);
+    assert.strictEqual(decoded.identifiers.length, 1);
+    assert.strictEqual(decoded.kind, "person");
+  });
+
+  it("round-trips a Relation", () => {
+    const relation = Relation.make({
+      id: relationId("r1"),
+      sourceId: entityId("e1"),
+      targetId: entityId("e2"),
+      temporalExtent: entity.temporalExtent,
+      type: "knows",
+    });
+    const decoded = roundTrip(Relation, relation);
+    assert.strictEqual(decoded.type, "knows");
+    assert.strictEqual(decoded.sourceId, relation.sourceId);
+  });
+
+  it("round-trips an Event", () => {
+    const event = Event.make({
+      entityIds: [entityId("e1")],
+      id: eventId("ev1"),
+      kind: "birth",
+      spatialExtent: SpatialExtent.make({ lat: 1, lon: 2 }),
+      temporalExtent: entity.temporalExtent,
+    });
+    const decoded = roundTrip(Event, event);
+    assert.strictEqual(decoded.kind, "birth");
+    assert.deepEqual(decoded.entityIds, event.entityIds);
+  });
+});
 
 describe("temporal extent boundary", () => {
   it.effect("accepts validFrom <= validTo", () =>

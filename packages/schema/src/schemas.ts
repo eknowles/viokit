@@ -181,3 +181,18 @@ export class SourceError extends Schema.TaggedErrorClass<SourceError>()(
     message: Schema.String,
   }
 ) {}
+
+export class RegistryError extends Schema.TaggedErrorClass<RegistryError>()(
+  "RegistryError",
+  {
+    message: Schema.String,
+  }
+) {}
+
+/**
+ * The primitive ontology types the registry accepts. Domain-specific types are
+ * never added here (open-domain rule): packs register conforming definitions at
+ * runtime, but core stays primitives-only.
+ */
+export const OntologyDefinition = Schema.Union([Entity, Relation, Event]);
+export type OntologyDefinition = typeof OntologyDefinition.Type;

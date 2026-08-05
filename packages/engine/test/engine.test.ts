@@ -15,6 +15,7 @@ import {
 } from "@viokit/schema";
 import { Effect, Layer, Option } from "effect";
 import { Engine, EngineLayer } from "../src/engine.js";
+import { EvidenceBackendMemory } from "../src/evidence-fs.js";
 
 const sourceSpec = SourceSpec.make({
   id: "s1",
@@ -52,7 +53,10 @@ const step = Step.make({
   operation: AddEntity.make({ entity }),
 });
 
-const engineLayer = Layer.provide(EngineLayer, fakeRuntime);
+const engineLayer = Layer.provide(
+  EngineLayer,
+  Layer.merge(fakeRuntime, EvidenceBackendMemory)
+);
 
 describe("acquire stores evidence with a live acquisition path (I9)", () => {
   layer(engineLayer)((it) => {

@@ -12,7 +12,8 @@ import type {
 import { SourceRuntimeService } from "@viokit/schema";
 import type { Option } from "effect";
 import { Context, Effect, Layer } from "effect";
-import { EvidenceLayer, EvidenceService } from "./evidence.js";
+import { EvidenceService } from "./evidence.js";
+import { EvidenceLayer } from "./evidence-fs.js";
 import { GraphLayer, GraphService } from "./graph.js";
 
 export class Engine extends Context.Service<

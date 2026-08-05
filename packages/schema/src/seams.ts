@@ -18,7 +18,7 @@ export interface EvidenceStore {
   readonly get: (
     id: EvidenceId
   ) => Effect.Effect<Option.Option<Evidence>, EvidenceReadError>;
-  readonly list: Effect.Effect<readonly Evidence[]>;
+  readonly list: Effect.Effect<readonly Evidence[], EvidenceReadError>;
   readonly put: (
     input: EvidenceInput
   ) => Effect.Effect<Evidence, EvidenceWriteError>;

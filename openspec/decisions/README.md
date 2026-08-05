@@ -14,7 +14,7 @@
 | TDR-004 | Docking layout — dockview vs flexlayout-react vs react-mosaic vs custom | proposed | dockview, unless it fights 4D canvas / linked selection |
 | TDR-005 | Shared graph store — Postgres vs SurrealDB vs Neo4j | proposed | Postgres for Compose/K8s; SQLite standalone |
 | TDR-006 | Cache backends — Redis (L2), object store (L3) | proposed | Redis + S3/MinIO per topology |
-| TDR-007 | Evidence store — filesystem vs S3/MinIO | proposed | local dir standalone; S3/MinIO shared |
+| TDR-007 | Evidence store — filesystem vs S3/MinIO | decided 2026-08-05 | filesystem content-addressed first; S3/MinIO behind same seam |
 | TDR-008 | Schema→form generation — build vs adopt | proposed | open (real build item) |
 | TDR-009 | Effect Schema ↔ Arrow mapping approach | proposed | open (real build item) |
 | TDR-010 | Evidentiary bundle export format | proposed | open |

@@ -38,7 +38,7 @@ export class EvidenceService extends Context.Service<
   }),
 }) {}
 
-export const EvidenceLayer = Layer.effect(
+export const InMemoryEvidenceLayer = Layer.effect(
   EvidenceService,
   EvidenceService.make
 );

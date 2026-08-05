@@ -19,12 +19,16 @@ import {
 } from "@viokit/schema";
 import { Http, sourceRuntimeLayer } from "@viokit/sources";
 import { Effect, Layer, Option } from "effect";
+import { EvidenceBackendMemory } from "../src/evidence-fs.js";
 
 const fakeHttp = Layer.succeed(Http, {
   getBytes: () => Effect.succeed(new Uint8Array([0x1, 0x2, 0x3, 0x4])),
 });
 
-const spine = Layer.provide(EngineLayer, sourceRuntimeLayer(fakeHttp));
+const spine = Layer.provide(
+  EngineLayer,
+  Layer.merge(sourceRuntimeLayer(fakeHttp), EvidenceBackendMemory)
+);
 
 const source = SourceSpec.make({
   id: "s1",
