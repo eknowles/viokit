@@ -9,28 +9,38 @@
 import { Engine, EngineLayer } from "@viokit/engine";
 import {
   AddEntity,
+  CachePolicy,
   Entity,
   entityId,
   NonEmptyEvidenceIds,
   SourceSpec,
+  SourceTransportService,
   Step,
   stepId,
   TemporalExtent,
 } from "@viokit/schema";
-import { Http, sourceRuntimeLayer } from "@viokit/sources";
 import { Effect, Layer, Option } from "effect";
 import { EvidenceBackendMemory } from "../src/evidence-fs.js";
 
-const fakeHttp = Layer.succeed(Http, {
-  getBytes: () => Effect.succeed(new Uint8Array([0x1, 0x2, 0x3, 0x4])),
+const fakeHttp = Layer.succeed(SourceTransportService, {
+  fetch: () =>
+    Effect.succeed({
+      bytes: new Uint8Array([0x1, 0x2, 0x3, 0x4]),
+      contentType: "application/octet-stream",
+    }),
 });
 
 const spine = Layer.provide(
   EngineLayer,
-  Layer.merge(sourceRuntimeLayer(fakeHttp), EvidenceBackendMemory)
+  Layer.merge(EvidenceBackendMemory, fakeHttp)
 );
 
 const source = SourceSpec.make({
+  cache: CachePolicy.make({
+    maxStaleMs: 60_000,
+    mode: "cache-first",
+    ttlMs: 60_000,
+  }),
   id: "s1",
   transport: "http",
   url: "https://example.com/artefact",

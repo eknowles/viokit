@@ -29,6 +29,10 @@ store, and the shared-schema contract. Nothing domain-specific.
 
 ## P1 — Source runtime (cache + egress)
 
+> **Status: complete (2026-08-05).** The policy-owning acquisition pipeline exited P1: expanded
+> `SourceSpec`, cache L1/L2 + modes, egress direct/proxy/disabled, retry + rate-limit stages, and
+> both the HTTP and dataset transports run end-to-end behind `SourceRuntime.run` (P1 exit proof).
+
 **Goal:** one acquisition pipeline with policy-driven caching and egress.
 
 - `SourceSpec` schema: transport, auth, backoff/retry/timeout/rate-limit/key-rotation, cache policy,

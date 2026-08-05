@@ -201,3 +201,43 @@ describe("graph state", () => {
     assert.strictEqual(sourceSpec.transport, "http");
   });
 });
+
+describe("SourceSpec expansion with defaults (task 1.1)", () => {
+  it("decodes a minimal spec with policy defaults applied", () => {
+    const spec = Schema.decodeUnknownSync(SourceSpec)({
+      id: "s1",
+      transport: "http",
+      url: "https://x",
+    });
+    assert.strictEqual(spec.id, "s1");
+    assert.strictEqual(spec.transport, "http");
+    assert.strictEqual(spec.cache?.mode, "live-only");
+    assert.strictEqual(spec.egress?._tag, "direct");
+    assert.strictEqual(spec.projection, "bytes");
+    assert.strictEqual(spec.auth, undefined);
+    assert.strictEqual(spec.retry, undefined);
+    assert.strictEqual(spec.rateLimit, undefined);
+  });
+
+  it("keeps defaults when constructed via make", () => {
+    const spec = SourceSpec.make({
+      id: "s1",
+      transport: "http",
+      url: "https://x",
+    });
+    assert.strictEqual(spec.cache?.mode, "live-only");
+    assert.strictEqual(spec.egress?._tag, "direct");
+    assert.strictEqual(spec.projection, "bytes");
+  });
+
+  it("supports both transports and a rows projection", () => {
+    const dataset = Schema.decodeUnknownSync(SourceSpec)({
+      id: "d1",
+      projection: "rows",
+      transport: "dataset",
+      url: "/tmp/data.csv",
+    });
+    assert.strictEqual(dataset.transport, "dataset");
+    assert.strictEqual(dataset.projection, "rows");
+  });
+});

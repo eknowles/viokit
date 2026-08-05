@@ -1,10 +1,14 @@
 import type {
+  EgressDisabledError,
   Entity,
   Evidence,
   EvidenceInput,
   EvidenceWriteError,
   GraphState,
+  OfflineCacheMiss,
   ProvenanceError,
+  RateLimited,
+  RetryExhausted,
   SourceError,
   SourceSpec,
   Step,
@@ -12,16 +16,28 @@ import type {
 import { SourceRuntimeService } from "@viokit/schema";
 import type { Option } from "effect";
 import { Context, Effect, Layer } from "effect";
+import { CacheLayer } from "./cache.js";
+import { EgressLayer } from "./egress.js";
 import { EvidenceService } from "./evidence.js";
 import { EvidenceLayer } from "./evidence-fs.js";
 import { GraphLayer, GraphService } from "./graph.js";
+import { RateLimiterLayer } from "./rate-limit.js";
+import { SourceRuntimeLayer } from "./source-runtime.js";
 
 export class Engine extends Context.Service<
   Engine,
   {
     readonly acquire: (
       source: SourceSpec
-    ) => Effect.Effect<Evidence, EvidenceWriteError | SourceError>;
+    ) => Effect.Effect<
+      Evidence,
+      | EvidenceWriteError
+      | SourceError
+      | EgressDisabledError
+      | OfflineCacheMiss
+      | RateLimited
+      | RetryExhausted
+    >;
     readonly ingest: (
       input: EvidenceInput
     ) => Effect.Effect<Evidence, EvidenceWriteError>;
@@ -52,4 +68,11 @@ export const EngineLayer = Layer.effect(
       replay: graph.replay,
     };
   })
-).pipe(Layer.provide(EvidenceLayer), Layer.provide(GraphLayer));
+).pipe(
+  Layer.provide(EvidenceLayer),
+  Layer.provide(GraphLayer),
+  Layer.provide(SourceRuntimeLayer),
+  Layer.provide(CacheLayer),
+  Layer.provide(EgressLayer),
+  Layer.provide(RateLimiterLayer)
+);

@@ -66,6 +66,11 @@ filesystem backend; I1, I2, I5, I6 enforced by boundary tests.
 
 ## Stage 2 — Source runtime (≈ ROADMAP P1)
 
+> **Status: complete (2026-08-05).** Full `SourceSpec` (transport, auth, retry, rate-limit, cache,
+> egress, projection); cache L1 in-memory + L2 filesystem; egress direct/proxy/disabled; retry and
+> token-bucket rate-limit stages; and a second real transport (dataset, local file) behind the
+> `SourceTransportService` seam — all verified below.
+
 - Full `SourceSpec`: transport, auth, retry/backoff, timeout, rate-limit, key-rotation, cache
   policy, egress policy, response schema → projection.
 - `cache`: L1 in-memory + L2 filesystem; modes `live-only` / `cache-first` / `cache-only` / `refresh`;

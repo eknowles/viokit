@@ -24,5 +24,5 @@
 ## 4. Exit checklist
 
 - [x] 4.1 Run `ultracite check`, `tsc --noEmit`, and vitest; all green
-- [ ] 4.2 Run the invariant checklist (CONTRACT I1–I12); update docs if behavior changed
-- [ ] 4.3 Update `STAGED_BUILD.md`/`ROADMAP.md` checkpoints for the completed Stage-1 exit proof
+- [x] 4.2 Run the invariant checklist (CONTRACT I1–I12); update docs if behavior changed
+- [x] 4.3 Update `STAGED_BUILD.md`/`ROADMAP.md` checkpoints for the completed Stage-1 exit proof

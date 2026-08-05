@@ -1,4 +1,83 @@
-import { Schema } from "effect";
+import { Effect, Schema } from "effect";
+
+/** A transport selector — how a source reaches the outside world. */
+export const Transport = Schema.Literals(["http", "dataset"]);
+export type Transport = typeof Transport.Type;
+
+/** Authentication for a source. Credentials never enter the cache or evidence. */
+export class SourceAuth extends Schema.Class<SourceAuth>("SourceAuth")({
+  apiKey: Schema.optionalKey(Schema.String),
+  token: Schema.optionalKey(Schema.String),
+}) {}
+
+export class RetryPolicy extends Schema.Class<RetryPolicy>("RetryPolicy")({
+  baseDelayMs: Schema.Number,
+  factor: Schema.Finite,
+  maxAttempts: Schema.Int,
+}) {}
+
+export class RateLimitPolicy extends Schema.Class<RateLimitPolicy>(
+  "RateLimitPolicy"
+)({
+  capacity: Schema.Int,
+  refillPerSecond: Schema.Finite,
+}) {}
+
+export const CacheMode = Schema.Literals([
+  "live-only",
+  "cache-first",
+  "cache-only",
+  "refresh",
+]);
+export type CacheMode = typeof CacheMode.Type;
+
+export class CachePolicy extends Schema.Class<CachePolicy>("CachePolicy")({
+  maxStaleMs: Schema.Number,
+  mode: CacheMode,
+  ttlMs: Schema.Number,
+}) {}
+
+export class EgressDirect extends Schema.TaggedClass<EgressDirect>()(
+  "direct",
+  {}
+) {}
+
+export class EgressProxy extends Schema.TaggedClass<EgressProxy>()("proxy", {
+  proxyId: Schema.String,
+}) {}
+
+export class EgressOff extends Schema.TaggedClass<EgressOff>()(
+  "disabled",
+  {}
+) {}
+
+export const EgressPolicy = Schema.Union([
+  EgressDirect,
+  EgressProxy,
+  EgressOff,
+]);
+export type EgressPolicy = typeof EgressPolicy.Type;
+
+export const ResponseProjection = Schema.Literals(["bytes", "rows"]);
+export type ResponseProjection = typeof ResponseProjection.Type;
+
+const withDefault = <S extends Schema.Constraint>(
+  schema: S,
+  value: S["Type"]
+): Schema.optional<S> => {
+  const defaultValue = Effect.succeed(value as never);
+  const withConstructor = Schema.withConstructorDefault(defaultValue) as (
+    self: unknown
+  ) => unknown;
+  const withDecoding = Schema.withDecodingDefaultKey(defaultValue as never) as (
+    self: unknown
+  ) => unknown;
+  // biome-ignore lint/suspicious/noExplicitAny: casting through the pipeable protocol
+  const optional = (schema as any).pipe(Schema.optionalKey);
+  return withDecoding(
+    withConstructor(optional)
+  ) as unknown as Schema.optional<S>;
+};
 
 export const IdentifierId = Schema.String.pipe(Schema.brand("IdentifierId"));
 export type IdentifierId = typeof IdentifierId.Type;
@@ -143,8 +222,17 @@ export class Step extends Schema.Class<Step>("Step")({
 }) {}
 
 export class SourceSpec extends Schema.Class<SourceSpec>("SourceSpec")({
+  auth: Schema.optionalKey(SourceAuth),
+  cache: withDefault(
+    CachePolicy,
+    CachePolicy.make({ maxStaleMs: 0, mode: "live-only", ttlMs: 0 })
+  ),
+  egress: withDefault(EgressPolicy, EgressDirect.make({})),
   id: Schema.String,
-  transport: Schema.String,
+  projection: withDefault(ResponseProjection, "bytes"),
+  rateLimit: Schema.optionalKey(RateLimitPolicy),
+  retry: Schema.optionalKey(RetryPolicy),
+  transport: Transport,
   url: Schema.String,
 }) {}
 
@@ -177,6 +265,34 @@ export class EvidenceReadError extends Schema.TaggedErrorClass<EvidenceReadError
 
 export class SourceError extends Schema.TaggedErrorClass<SourceError>()(
   "SourceError",
+  {
+    message: Schema.String,
+  }
+) {}
+
+export class RetryExhausted extends Schema.TaggedErrorClass<RetryExhausted>()(
+  "RetryExhausted",
+  {
+    message: Schema.String,
+  }
+) {}
+
+export class RateLimited extends Schema.TaggedErrorClass<RateLimited>()(
+  "RateLimited",
+  {
+    message: Schema.String,
+  }
+) {}
+
+export class OfflineCacheMiss extends Schema.TaggedErrorClass<OfflineCacheMiss>()(
+  "OfflineCacheMiss",
+  {
+    message: Schema.String,
+  }
+) {}
+
+export class EgressDisabledError extends Schema.TaggedErrorClass<EgressDisabledError>()(
+  "EgressDisabled",
   {
     message: Schema.String,
   }
