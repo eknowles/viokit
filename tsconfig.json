@@ -3,7 +3,7 @@
   "extends": "./packages/tsconfig.base.json",
   "include": ["packages/*/src/**/*.ts", "packages/*/test/**/*.ts"],
   "compilerOptions": {
-    "types": ["node"],
+    "types": ["node", "bun-types"],
     "plugins": [
       {
         "name": "@effect/language-service",

@@ -21,6 +21,7 @@
 | TDR-011 | Egress / identity–proxy model | decided 2026-08-05 | runtime-owned `Egress` stage (direct/proxy/disabled); identity↔egress binding; gates browser transport |
 | TDR-012 | View-state persistence backend | proposed | schema-encoded, per user+investigation, server-backed |
 | TDR-013 | Source-catalog store — SQLite vs filesystem vs in-memory | decided 2026-08-05 | `CandidateStore`/`WorkQueue` seams; SQLite single-file first (atomic claims + dedup); filesystem fallback |
+| TDR-014 | Source-catalog front-end — MCP server + CLI | decided 2026-08-05 | stdio MCP (`@modelcontextprotocol/sdk` v1) for agents + thin CLI; both over one `SourceCatalogService` |
 
 ## Workflow
 1. Create a TDR from the template; fill **Context** and **Options**; mark `proposed`.
