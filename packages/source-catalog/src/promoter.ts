@@ -3,7 +3,9 @@ import { join } from "node:path";
 import { Effect, Layer } from "effect";
 import { PromoterService, PromotionError } from "./seams.js";
 
-const header = `// Promoted by the source-discovery harness. Add transport/auth/cache/egress
+const header = `import type { SourceSpec } from "@viokit/schema";
+
+// Promoted by the source-discovery harness. Add transport/auth/cache/egress
 // policy and a projection to make this a runnable source (see PACK_RECIPE).
 `;
 
