@@ -1,0 +1,25 @@
+{
+  "skill_name": "source-cataloging",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Add some sources to the Viokit source catalog under the web-dns category. Use the source-discovery workflow: claim a work unit, search the web for real authoritative sources, submit them as candidates, enrich, and promote the good ones. I want at least one candidate submitted and promoted by the end.",
+      "expected_output": "One or more real, authoritative web-dns sources submitted as candidates with valid category/archetype/access/transport enum values; at least one promoted to packs/web-dns/sources.ts. A concise summary of what was added and what was left for review."
+    },
+    {
+      "id": 2,
+      "prompt": "Catalog OSINT sources for geospatial-maps imagery — find sources for looking up satellite/aerial imagery. Work the claim loop and record what you find; flag anything uncertain for human review rather than promoting it.",
+      "expected_output": "Real geospatial/imagery sources submitted as candidates (e.g. authoritative imagery providers); uncertain ones left as new candidates, not promoted. Valid enum values; accurate category/archetype mapping."
+    },
+    {
+      "id": 3,
+      "prompt": "The source catalog seems empty. Set it up so the work queue has units, then claim one and tell me what I should research — I'll do the searching myself but you log my findings.",
+      "expected_output": "The queue is seeded (seed via CLI if claim returns nothing), a unit is claimed and its category/archetype reported to the user, and the agent is ready to submit what the user provides."
+    },
+    {
+      "id": 4,
+      "prompt": "Mine https://github.com/jivoi/awesome-osint for gold sources and add them to the Viokit catalog. Use the mine-list helper to extract the entries, map sections to categories, judge which are authoritative data sources (not client tools), and submit + promote the best ones. Aim for web-dns and data-breaches at minimum.",
+      "expected_output": "The agent runs the mine-list.ts helper to get a compact entry list, maps awesome-osint sections to Viokit categories, selects authoritative data sources (registries/APIs/datasets — not installable tools or browser extensions), and submits candidates with valid enums, promoting at least a couple. Concise summary of what was promoted and what was left as candidates."
+    }
+  ]
+}

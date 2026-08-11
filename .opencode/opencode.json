@@ -1,0 +1,13 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "viokit-source-catalog": {
+      "type": "local",
+      "command": ["bun", "packages/source-catalog/src/mcp.ts"],
+      "enabled": true,
+      "environment": {
+        "VIOKIT_CATALOG_DB": ".viokit/catalog.db"
+      }
+    }
+  }
+}

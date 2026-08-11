@@ -1,4 +1,5 @@
 export * from "./cache.js";
+export * from "./correlate.js";
 export * from "./egress.js";
 export * from "./engine.js";
 export * from "./evidence.js";
@@ -7,3 +8,4 @@ export * from "./graph.js";
 export * from "./hash.js";
 export * from "./ontology.js";
 export * from "./source-runtime.js";
+export * from "./transform.js";

@@ -19,6 +19,10 @@ coverage/
 *.log
 npm-debug.log*
 
+# Source-catalog runtime data
+.viokit/
+packs/
+
 # OS
 .DS_Store
 

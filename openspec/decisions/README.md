@@ -12,7 +12,7 @@
 | TDR-002 | Client state & routing | proposed | Effect-lean; no routing framework; hash router only if deep-linking |
 | TDR-003 | Real-time transport — WebSocket vs SSE | proposed | WebSocket + Arrow IPC frames for large result batches |
 | TDR-004 | Docking layout — dockview vs flexlayout-react vs react-mosaic vs custom | proposed | dockview, unless it fights 4D canvas / linked selection |
-| TDR-005 | Shared graph store — Postgres vs SurrealDB vs Neo4j | proposed | Postgres for Compose/K8s; SQLite standalone |
+| TDR-005 | Shared graph store — DuckDB vs Postgres+AGE vs ArcadeDB vs SurrealDB | decided 2026-08-11 | DuckDB (embedded, MIT): graph = replay projection over the step log, Arrow/Parquet output; spike confirmed recursive-SQL paths/relatedness fast at 1.2M edges; ArcadeDB fallback |
 | TDR-006 | Cache backends — filesystem (L2) vs Redis vs object store | decided 2026-08-05 | `CacheStore` seam; filesystem L2 first (standalone), Redis/object store deferred |
 | TDR-007 | Evidence store — filesystem vs S3/MinIO | decided 2026-08-05 | filesystem content-addressed first; S3/MinIO behind same seam |
 | TDR-008 | Schema→form generation — build vs adopt | proposed | open (real build item) |
@@ -22,6 +22,7 @@
 | TDR-012 | View-state persistence backend | proposed | schema-encoded, per user+investigation, server-backed |
 | TDR-013 | Source-catalog store — SQLite vs filesystem vs in-memory | decided 2026-08-05 | `CandidateStore`/`WorkQueue` seams; SQLite single-file first (atomic claims + dedup); filesystem fallback |
 | TDR-014 | Source-catalog front-end — MCP server + CLI | decided 2026-08-05 | stdio MCP (`@modelcontextprotocol/sdk` v1) for agents + thin CLI; both over one `SourceCatalogService` |
+| TDR-015 | Entity resolution / dedup (correlate) | decided | app-level `correlate` transform emitting evidence-attributed `ResolveEntity` steps (I2/I3); identifier **normalization to canonical forms is part of the mechanism** (strict deterministic match); schema rules in packs; fuzzy deferred to P4 veracity; store-rewrite rejected (I3/I11) |
 
 ## Workflow
 1. Create a TDR from the template; fill **Context** and **Options**; mark `proposed`.

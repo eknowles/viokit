@@ -212,7 +212,57 @@ export class AddEvent extends Schema.TaggedClass<AddEvent>()("AddEvent", {
   event: Event,
 }) {}
 
-export const StepOperation = Schema.Union([AddEntity, AddRelation, AddEvent]);
+/**
+ * A deterministic normalization transform applied to an identifier value before
+ * equality checking (TDR-015). Built-ins cover the realistic "close but not
+ * exact" variation (case, whitespace, punctuation) without probabilistic fuzzy
+ * matching; packs may register extra named rules via the seam.
+ */
+export const Normalization = Schema.Literals([
+  "trim",
+  "lower",
+  "stripPunctuation",
+  "collapseWhitespace",
+]);
+export type Normalization = typeof Normalization.Type;
+
+/** A per-identifier-kind match rule: normalize then exact-compare by kind. */
+export class MatchRule extends Schema.Class<MatchRule>("MatchRule")({
+  identifierKind: Schema.String,
+  normalizations: Schema.Array(Normalization),
+}) {}
+
+/**
+ * The evidence basis for a resolution: the identifier kind and its (normalized)
+ * value that the two entities share. Auditable in the step log (I2).
+ */
+export class MatchBasis extends Schema.Class<MatchBasis>("MatchBasis")({
+  identifierKind: Schema.String,
+  normalizedValue: Schema.String,
+}) {}
+
+/**
+ * A resolution: the evidence that the entity with `mergeId` is the same
+ * real-world entity as `canonicalId`, based on shared normalized identifiers.
+ * `confidence` is an explicit, auditable field (P2 keeps it at a strict/1.0
+ * baseline; P4 veracity may lower it for fuzzy evidence).
+ */
+export class ResolveEntity extends Schema.TaggedClass<ResolveEntity>()(
+  "ResolveEntity",
+  {
+    canonicalId: EntityId,
+    confidence: Schema.Number,
+    matchBasis: Schema.Array(MatchBasis),
+    mergeId: EntityId,
+  }
+) {}
+
+export const StepOperation = Schema.Union([
+  AddEntity,
+  AddRelation,
+  AddEvent,
+  ResolveEntity,
+]);
 export type StepOperation = typeof StepOperation.Type;
 
 export class Step extends Schema.Class<Step>("Step")({
@@ -235,6 +285,45 @@ export class SourceSpec extends Schema.Class<SourceSpec>("SourceSpec")({
   transport: Transport,
   url: Schema.String,
 }) {}
+
+/** A transform archetype — the shape of the derivation a transform performs. */
+export const TransformArchetype = Schema.Literals([
+  "lookup",
+  "search",
+  "resolve",
+  "geolocate",
+  "chronolocate",
+  "correlate",
+  "monitor",
+  "extract",
+  "archive",
+  "analyze",
+]);
+export type TransformArchetype = typeof TransformArchetype.Type;
+
+/**
+ * The input/output contract of a transform. Input is the `unknown` payload a
+ * caller hands the runner; output is `unknown` until projected by the
+ * `projection`. Both are decoded at the boundary (I6); domain shapes are
+ * contributed by packs, so core keeps them open rather than closed enums.
+ */
+export class TransformSpec extends Schema.Class<TransformSpec>("TransformSpec")(
+  {
+    archetype: TransformArchetype,
+    id: Schema.String,
+    input: Schema.Any,
+    output: Schema.Any,
+    projection: Schema.Any,
+    sourceId: Schema.String,
+  }
+) {}
+
+export class TransformError extends Schema.TaggedErrorClass<TransformError>()(
+  "TransformError",
+  {
+    message: Schema.String,
+  }
+) {}
 
 export class GraphState extends Schema.Class<GraphState>("GraphState")({
   entities: Schema.Array(Entity),
