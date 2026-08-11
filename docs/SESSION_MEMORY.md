@@ -9,7 +9,7 @@
 
 - **P0 (foundations)** — complete
 - **P1 (source runtime: cache + egress)** — complete
-- **P2 (transforms + graph)** — **in progress** (this is what we're building)
+- **P2 (transforms + graph)** — **complete** (transform framework, DuckDB graph store + query surfaces, entity correlate, and the `Engine` pipeline seam).
 - P3 (interfaces/UI), P4 (governance + first packs) — not started
 
 ---
@@ -35,8 +35,8 @@
   - Options considered: DuckDB / Postgres+AGE / ArcadeDB / SurrealDB (native graph DBs scoped out; ArangoDB, Kuzu, Neo4j, Memgraph, Turso recorded with reasons).
   - De-risked by a spike (`@duckdb/node-api` 1.5.5-r.4): 200k verts / 1.2M edges — load+index+project 478ms; timeline 1ms; spatial 1ms; recursive-CTE path (depth≤4) 3ms; BFS `relatedness` (depth≤3) 5ms. Recursive SQL is adequate.
   - Fallback if recursive SQL proves inadequate at scale: **ArcadeDB**.
-- **TDR-015 — entity resolution (correlate)** — status **`proposed`** (`openspec/decisions/TDR-015-entity-resolution.md`). **NOT yet decided — do not implement Workstream 3 until it is.**
-  - Chosen approach: app-level `correlate` transform emitting evidence-attributed `ResolveEntity` steps (append-only, preserves I3/I2). Strict identifier matching, schema rules in packs. Store-level rewrite rejected (violates I3/I11). Fuzzy matching deferred to P4.
+- **TDR-015 — entity resolution (correlate)** — status **`decided` 2026-08-11** (`openspec/decisions/TDR-015-entity-resolution.md`).
+  - Chosen approach: app-level `correlate` transform emitting evidence-attributed `ResolveEntity` steps (append-only, preserves I3/I2). Identifier **normalization to canonical forms is part of the mechanism** (strict deterministic match), per-kind `MatchRule`s in packs; fuzzy deferred to P4. Store-level rewrite rejected (violates I3/I11). Exercised through `Engine.correlate` in `pipeline-seam.test.ts`.
 
 ---
 
@@ -59,6 +59,7 @@
 **Workstream 4 — P2 exit proof: mini-investigation e2e (DONE, tested):**
 - `packages/engine/test/mini-investigation.test.ts` (2 tests): threads whois → dns → breach through the real pipeline — `SourceRuntime.run` (real layers: Cache/Egress/RateLimit + a dispatch transport) → `EvidenceService.put` → `TransformRunner.run` (project evidence → graph operations) → `DuckDBGraphService.insert` → `replay`. Asserts entities/relations land in the graph, every step attributed to its evidence (I2), replay is deterministic (I3), and `relatedness("domain")` ranks acme (dist 1), ip (dist 1), breachX (dist 2). Full engine suite: **61 tests passing.**
 - **Bug found & fixed along the way:** the transform runner built steps as plain object literals `{ evidenceIds, id, operation }`, which **fail `Schema.encodeUnknownSync(Step)`** (the `Step` `Schema.Class` requires `Step.make` instances). Fixed `packages/engine/src/transform.ts` to build `StepSchema.make(...)` + `NonEmptyEvidenceIds.make([stored.id])`.
+- Full engine suite at the end of P2 (post pipeline-seam): **68 tests passing.**
 
 ---
 
@@ -77,12 +78,23 @@
 
 ---
 
+## P2 work completed in this session (Pipeline seam, `p2-pipeline-seam`)
+
+**Task scope — thread P2 services through the public `Engine` seam and default it to DuckDB (DONE, tested):**
+- `packages/engine/src/engine.ts`: extended the `Engine` service with the four graph query methods (`paths`, `timeline`, `spatial`, `relatedness`), `runTransform(spec, source, project, input)` (→ `TransformRunnerService.run`), and `correlate(staged, existing, rules)` (→ `CorrelateResolverService.resolve`). The default `EngineLayer` now runs on `DuckDBGraphLayer` (TDR-005); the in-memory `GraphLayer` remains exported as a documented fallback. Layer gotchas: `TransformRunnerLayer` newly requires `EvidenceService`, so `EvidenceLayer` must be provided **last** in the pipe (`Layer.provide(EvidenceLayer)` after the transform/correlate/graph slices) or the sequential provides re-expose it as an unsatisfied requirement.
+- `packages/engine/src/index.ts`: added `export * from "./graph-duckdb.js"`.
+- `packages/engine/test/engine.test.ts`: the round-trip test now calls `replay` before `queryEntity` — the retained DuckDB store materializes the projection on replay, unlike the in-memory store which folds on insert. Added a comment documenting this.
+- `packages/engine/test/pipeline-seam.test.ts` (3 tests): full pipeline through the public `Engine` seam — `runTransform` stages evidenced steps (I2), `insert` commits, `replay` is deterministic (I3), `correlate` folds a normalized duplicate into a `ResolveEntity` merge, and `relatedness` queries over DuckDB.
+- Full engine suite: **68 tests passing.** `ultracite check` clean; only pre-existing codebase-wide `tsc` errors remain (evidence-fs `unknown`, node/DOM lib types).
+
+---
+
 ## P2 work remaining
 
-**Workstream 3 — Entity resolution** — **BLOCKED on TDR-015 being decided.** Get human review → flip TDR-015 to `decided` before implementing.
+**Workstream 3 — Entity resolution** — **DONE** (TDR-015 `decided`, `correlate.ts` + tests; exercised through `Engine.correlate` in `pipeline-seam.test.ts`).
 
 **Other P2 follow-ups (post-e2e, optional):**
-- Expose the 4 graph query surfaces (`paths`/`timeline`/`spatial`/`relatedness`) and the transform runner on the `Engine` service seam (`packages/engine/src/engine.ts` currently only exposes insert/log/queryEntity/replay, and uses the in-memory `GraphLayer`). A future mini-investigation app layer can thread them through `Engine`.
+- ~~Expose the 4 graph query surfaces (`paths`/`timeline`/`spatial`/`relatedness`) and the transform runner on the `Engine` service seam~~ — **DONE** (see above; `openspec/changes/p2-pipeline-seam`).
 - DuckDB graph persistence: currently `DuckDBInstance.create()` is in-memory (fresh per process); file/SQLite step-log persistence is a follow-up.
 
 ---

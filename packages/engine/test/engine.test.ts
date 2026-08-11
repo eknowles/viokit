@@ -89,6 +89,9 @@ describe("insert + queryEntity round-trips a step", () => {
       Effect.gen(function* () {
         const engine = yield* Engine;
         yield* engine.insert(step);
+        // The retained (DuckDB) store materializes the projection via replay;
+        // the in-memory fallback folds on insert. Query after replay either way.
+        yield* engine.replay;
         const found = yield* engine.queryEntity(entity.id);
         assert.isTrue(Option.isSome(found));
       })
