@@ -64,6 +64,12 @@ export interface RelatedEntity {
 }
 
 export interface GraphStore {
+  /**
+   * Release the store's backing resources (close the database file). Persisted
+   * stores release the path so it can be reopened elsewhere; in-memory stores
+   * are no-ops. Safe to call once.
+   */
+  readonly dispose: Effect.Effect<void>;
   readonly insert: (step: Step) => Effect.Effect<Step, ProvenanceError>;
   readonly log: Effect.Effect<readonly Step[]>;
   /** Shortest paths (depth-bounded) between two entities, via relation edges. */
@@ -170,3 +176,17 @@ export class CorrelateResolverService extends Context.Service<
   CorrelateResolverService,
   CorrelateResolver
 >()("CorrelateResolverService") {}
+
+/**
+ * Config for the DuckDB-backed graph store: the database file path. An empty
+ * path (which is also the default when no value is provided) selects an
+ * anonymous in-memory DuckDB instance; a non-empty path opens a durable,
+ * named database. Kept in the seams so engine layers and callers share one
+ * config contract.
+ */
+export class DuckDBConfig extends Context.Service<DuckDBConfig, string>()(
+  "DuckDBConfig"
+) {}
+
+/** The default duckdb-graph-persistence choice: in-memory (no persistent file). */
+export const defaultDuckDBConfig = "";

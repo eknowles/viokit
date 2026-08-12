@@ -90,6 +90,7 @@ export class GraphService extends Context.Service<GraphService, GraphStore>()(
       ];
 
       const store: GraphStore = {
+        dispose: Effect.void,
         insert: (step) =>
           Effect.gen(function* () {
             if (step.evidenceIds.length === 0) {

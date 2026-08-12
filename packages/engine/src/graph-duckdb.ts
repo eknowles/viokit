@@ -1,5 +1,6 @@
 import { DuckDBInstance, type DuckDBValue } from "@duckdb/node-api";
 import {
+  DuckDBConfig,
   Entity,
   Event,
   type ExtentHit,
@@ -81,11 +82,19 @@ export class DuckDBGraphService extends Context.Service<
   DuckDBGraphService,
   GraphStore
 >()("DuckDBGraphService", {
-  make: Effect.tryPromise(async () => {
-    const instance = await DuckDBInstance.create();
-    const connection = await instance.connect();
+  make: Effect.gen(function* () {
+    const path = Option.getOrElse(
+      yield* Effect.serviceOption(DuckDBConfig),
+      () => ""
+    );
 
-    await connection.run(`
+    const graphStore = yield* Effect.tryPromise(async () => {
+      const instance = await DuckDBInstance.create(
+        path === "" ? undefined : path
+      );
+      const connection = await instance.connect();
+
+      await connection.run(`
       CREATE TABLE IF NOT EXISTS ${logTable} (
         seq BIGINT,
         data JSON
@@ -119,157 +128,163 @@ export class DuckDBGraphService extends Context.Service<
       );
     `);
 
-    const clearProjection = (): Promise<unknown> =>
-      Promise.all([
-        connection.run(`DELETE FROM ${entityTable}`),
-        connection.run(`DELETE FROM ${relationTable}`),
-        connection.run(`DELETE FROM ${eventTable}`),
-      ]);
+      const clearProjection = (): Promise<unknown> =>
+        Promise.all([
+          connection.run(`DELETE FROM ${entityTable}`),
+          connection.run(`DELETE FROM ${relationTable}`),
+          connection.run(`DELETE FROM ${eventTable}`),
+        ]);
 
-    /** Rebuild the materialized projection from the step log (I3/I11). */
-    const replay = async (): Promise<GraphState> => {
-      await clearProjection();
+      /** Rebuild the materialized projection from the step log (I3/I11). */
+      const replay = async (): Promise<GraphState> => {
+        await clearProjection();
 
-      const reader = await connection.runAndReadAll(readStepsSql);
-      reader.readAll();
-      const steps = reader
-        .getRowObjectsJS()
-        .map((row: Row) => decodeStep(parseJson(row.data)));
-
-      const entities = new Map<string, Entity>();
-      const relations = new Map<string, Relation>();
-      const events = new Map<string, Event>();
-      for (const step of steps) {
-        if (step.operation._tag === "AddEntity") {
-          const { entity } = step.operation;
-          entities.set(entity.id, entity);
-        } else if (step.operation._tag === "AddRelation") {
-          const { relation } = step.operation;
-          relations.set(relation.id, relation);
-        } else if (step.operation._tag === "AddEvent") {
-          const { event } = step.operation;
-          events.set(event.id, event);
-        }
-        // ResolveEntity is a merge step: it does not create or modify any
-        // vertex and is intentionally a no-op in the replay projection.
-      }
-
-      const entityRows = Array.from(entities.values()).map((entity) => [
-        entity.id,
-        entity.kind,
-        entity.spatialExtent.lat,
-        entity.spatialExtent.lon,
-        asMs(entity.temporalExtent.validFrom),
-        asMs(entity.temporalExtent.validTo),
-        JSON.stringify(encodeEntity(entity)),
-      ]);
-      const relationRows = Array.from(relations.values()).map((relation) => [
-        relation.id,
-        relation.sourceId,
-        relation.targetId,
-        relation.type,
-        asMs(relation.temporalExtent.validFrom),
-        asMs(relation.temporalExtent.validTo),
-        JSON.stringify(encodeRelation(relation)),
-      ]);
-      const eventRows = Array.from(events.values()).map((event) => [
-        event.id,
-        event.kind,
-        event.spatialExtent.lat,
-        event.spatialExtent.lon,
-        asMs(event.temporalExtent.validFrom),
-        asMs(event.temporalExtent.validTo),
-        JSON.stringify(encodeEvent(event)),
-      ]);
-
-      const insertRows = (
-        table: string,
-        rows: readonly (readonly unknown[])[]
-      ): Promise<unknown> => {
-        if (rows.length === 0) {
-          return Promise.resolve();
-        }
-        const placeholders = rows.map(() => "(?, ?, ?, ?, ?, ?, ?)").join(", ");
-        const values = rows.flat();
-        return connection.run(
-          `INSERT INTO ${table} VALUES ${placeholders}`,
-          values as DuckDBValue[]
-        );
-      };
-
-      await Promise.all([
-        insertRows(entityTable, entityRows),
-        insertRows(relationTable, relationRows),
-        insertRows(eventTable, eventRows),
-      ]);
-
-      return readState();
-    };
-
-    const readState = async (): Promise<GraphState> => {
-      const [eReader, rReader, evReader] = await Promise.all([
-        connection.runAndReadAll(`SELECT data FROM ${entityTable}`),
-        connection.runAndReadAll(`SELECT data FROM ${relationTable}`),
-        connection.runAndReadAll(`SELECT data FROM ${eventTable}`),
-      ]);
-      await Promise.all([
-        eReader.readAll(),
-        rReader.readAll(),
-        evReader.readAll(),
-      ]);
-      const entities = eReader
-        .getRowObjectsJS()
-        .map((row: Row) => decodeEntity(parseJson(row.data)));
-      const relations = rReader
-        .getRowObjectsJS()
-        .map((row: Row) => decodeRelation(parseJson(row.data)));
-      const events = evReader
-        .getRowObjectsJS()
-        .map((row: Row) => decodeEvent(parseJson(row.data)));
-      return GraphState.make({ entities, events, relations });
-    };
-
-    const store: GraphStore = {
-      insert: (step) =>
-        Effect.gen(function* () {
-          if (step.evidenceIds.length === 0) {
-            return yield* ProvenanceError.make({
-              message: "step must reference at least one evidence id",
-            });
-          }
-          const result = yield* Effect.tryPromise(async () => {
-            const countReader = await connection.runAndReadAll(
-              `SELECT COALESCE(MAX(seq), 0) AS seq FROM ${logTable}`
-            );
-            countReader.readAll();
-            const nextSeq =
-              Number((countReader.getRowObjects()[0] as { seq: unknown }).seq) +
-              1;
-            await connection.run(`INSERT INTO ${logTable} VALUES (?, ?)`, [
-              nextSeq,
-              JSON.stringify(encodeStep(step)),
-            ]);
-            return step;
-          }).pipe(
-            Effect.mapError((error) =>
-              ProvenanceError.make({
-                message: `failed to append step to log: ${String(error)}`,
-              })
-            )
-          );
-          return result;
-        }),
-      log: Effect.tryPromise(async () => {
         const reader = await connection.runAndReadAll(readStepsSql);
         reader.readAll();
-        return reader
+        const steps = reader
           .getRowObjectsJS()
           .map((row: Row) => decodeStep(parseJson(row.data)));
-      }),
-      paths: (from, to, maxDepth = 4) =>
-        Effect.tryPromise(async () => {
-          const reader = await connection.runAndReadAll(
-            `
+
+        const entities = new Map<string, Entity>();
+        const relations = new Map<string, Relation>();
+        const events = new Map<string, Event>();
+        for (const step of steps) {
+          if (step.operation._tag === "AddEntity") {
+            const { entity } = step.operation;
+            entities.set(entity.id, entity);
+          } else if (step.operation._tag === "AddRelation") {
+            const { relation } = step.operation;
+            relations.set(relation.id, relation);
+          } else if (step.operation._tag === "AddEvent") {
+            const { event } = step.operation;
+            events.set(event.id, event);
+          }
+          // ResolveEntity is a merge step: it does not create or modify any
+          // vertex and is intentionally a no-op in the replay projection.
+        }
+
+        const entityRows = Array.from(entities.values()).map((entity) => [
+          entity.id,
+          entity.kind,
+          entity.spatialExtent.lat,
+          entity.spatialExtent.lon,
+          asMs(entity.temporalExtent.validFrom),
+          asMs(entity.temporalExtent.validTo),
+          JSON.stringify(encodeEntity(entity)),
+        ]);
+        const relationRows = Array.from(relations.values()).map((relation) => [
+          relation.id,
+          relation.sourceId,
+          relation.targetId,
+          relation.type,
+          asMs(relation.temporalExtent.validFrom),
+          asMs(relation.temporalExtent.validTo),
+          JSON.stringify(encodeRelation(relation)),
+        ]);
+        const eventRows = Array.from(events.values()).map((event) => [
+          event.id,
+          event.kind,
+          event.spatialExtent.lat,
+          event.spatialExtent.lon,
+          asMs(event.temporalExtent.validFrom),
+          asMs(event.temporalExtent.validTo),
+          JSON.stringify(encodeEvent(event)),
+        ]);
+
+        const insertRows = (
+          table: string,
+          rows: readonly (readonly unknown[])[]
+        ): Promise<unknown> => {
+          if (rows.length === 0) {
+            return Promise.resolve();
+          }
+          const placeholders = rows
+            .map(() => "(?, ?, ?, ?, ?, ?, ?)")
+            .join(", ");
+          const values = rows.flat();
+          return connection.run(
+            `INSERT INTO ${table} VALUES ${placeholders}`,
+            values as DuckDBValue[]
+          );
+        };
+
+        await Promise.all([
+          insertRows(entityTable, entityRows),
+          insertRows(relationTable, relationRows),
+          insertRows(eventTable, eventRows),
+        ]);
+
+        return readState();
+      };
+
+      const readState = async (): Promise<GraphState> => {
+        const [eReader, rReader, evReader] = await Promise.all([
+          connection.runAndReadAll(`SELECT data FROM ${entityTable}`),
+          connection.runAndReadAll(`SELECT data FROM ${relationTable}`),
+          connection.runAndReadAll(`SELECT data FROM ${eventTable}`),
+        ]);
+        await Promise.all([
+          eReader.readAll(),
+          rReader.readAll(),
+          evReader.readAll(),
+        ]);
+        const entities = eReader
+          .getRowObjectsJS()
+          .map((row: Row) => decodeEntity(parseJson(row.data)));
+        const relations = rReader
+          .getRowObjectsJS()
+          .map((row: Row) => decodeRelation(parseJson(row.data)));
+        const events = evReader
+          .getRowObjectsJS()
+          .map((row: Row) => decodeEvent(parseJson(row.data)));
+        return GraphState.make({ entities, events, relations });
+      };
+
+      const store: GraphStore = {
+        dispose: Effect.try(() => {
+          instance.closeSync();
+        }),
+        insert: (step) =>
+          Effect.gen(function* () {
+            if (step.evidenceIds.length === 0) {
+              return yield* ProvenanceError.make({
+                message: "step must reference at least one evidence id",
+              });
+            }
+            const result = yield* Effect.tryPromise(async () => {
+              const countReader = await connection.runAndReadAll(
+                `SELECT COALESCE(MAX(seq), 0) AS seq FROM ${logTable}`
+              );
+              countReader.readAll();
+              const nextSeq =
+                Number(
+                  (countReader.getRowObjects()[0] as { seq: unknown }).seq
+                ) + 1;
+              await connection.run(`INSERT INTO ${logTable} VALUES (?, ?)`, [
+                nextSeq,
+                JSON.stringify(encodeStep(step)),
+              ]);
+              return step;
+            }).pipe(
+              Effect.mapError((error) =>
+                ProvenanceError.make({
+                  message: `failed to append step to log: ${String(error)}`,
+                })
+              )
+            );
+            return result;
+          }),
+        log: Effect.tryPromise(async () => {
+          const reader = await connection.runAndReadAll(readStepsSql);
+          reader.readAll();
+          return reader
+            .getRowObjectsJS()
+            .map((row: Row) => decodeStep(parseJson(row.data)));
+        }),
+        paths: (from, to, maxDepth = 4) =>
+          Effect.tryPromise(async () => {
+            const reader = await connection.runAndReadAll(
+              `
             WITH RECURSIVE search(
               entity_id, depth, path_entities, path_rels, reached
             ) AS (
@@ -291,31 +306,31 @@ export class DuckDBGraphService extends Context.Service<
             FROM search
             WHERE entity_id = ?
             `,
-            [from, maxDepth, to]
-          );
-          reader.readAll();
-          return (reader.getRowObjectsJS() as Row[]).map((row) => ({
-            entityIds: row.path_entities as string[],
-            relationIds: row.path_rels as string[],
-          }));
-        }),
-      queryEntity: (id) =>
-        Effect.tryPromise(async () => {
-          const reader = await connection.runAndReadAll(
-            `SELECT data FROM ${entityTable} WHERE id = ?`,
-            [id]
-          );
-          reader.readAll();
-          const rows = reader.getRowObjectsJS() as Row[];
-          const [first] = rows;
-          return first === undefined
-            ? Option.none()
-            : Option.some(decodeEntity(parseJson(first.data)));
-        }),
-      relatedness: (seed, maxDepth = 3) =>
-        Effect.tryPromise(async () => {
-          const reader = await connection.runAndReadAll(
-            `
+              [from, maxDepth, to]
+            );
+            reader.readAll();
+            return (reader.getRowObjectsJS() as Row[]).map((row) => ({
+              entityIds: row.path_entities as string[],
+              relationIds: row.path_rels as string[],
+            }));
+          }),
+        queryEntity: (id) =>
+          Effect.tryPromise(async () => {
+            const reader = await connection.runAndReadAll(
+              `SELECT data FROM ${entityTable} WHERE id = ?`,
+              [id]
+            );
+            reader.readAll();
+            const rows = reader.getRowObjectsJS() as Row[];
+            const [first] = rows;
+            return first === undefined
+              ? Option.none()
+              : Option.some(decodeEntity(parseJson(first.data)));
+          }),
+        relatedness: (seed, maxDepth = 3) =>
+          Effect.tryPromise(async () => {
+            const reader = await connection.runAndReadAll(
+              `
             WITH RECURSIVE bfs(
               entity_id, depth, relation_type, reached
             ) AS (
@@ -335,63 +350,71 @@ export class DuckDBGraphService extends Context.Service<
             GROUP BY entity_id
             ORDER BY distance
             `,
-            [seed, maxDepth]
-          );
-          reader.readAll();
-          return (reader.getRowObjectsJS() as Row[]).map((row) => ({
-            distance: Number(row.distance),
-            entityId: row.entity_id as string,
-            relationType: row.relation_type as string | null,
-          }));
-        }),
-      replay: Effect.tryPromise(() => replay()),
-      spatial: (bbox) =>
-        Effect.tryPromise(async () => {
-          const [e, ev] = await Promise.all([
-            connection.runAndReadAll(
-              `SELECT id, kind, valid_from, valid_to, lat, lon
+              [seed, maxDepth]
+            );
+            reader.readAll();
+            return (reader.getRowObjectsJS() as Row[]).map((row) => ({
+              distance: Number(row.distance),
+              entityId: row.entity_id as string,
+              relationType: row.relation_type as string | null,
+            }));
+          }),
+        replay: Effect.tryPromise(() => replay()),
+        spatial: (bbox) =>
+          Effect.tryPromise(async () => {
+            const [e, ev] = await Promise.all([
+              connection.runAndReadAll(
+                `SELECT id, kind, valid_from, valid_to, lat, lon
                FROM ${entityTable}
                WHERE lat BETWEEN ? AND ? AND lon BETWEEN ? AND ?`,
-              [bbox.minLat, bbox.maxLat, bbox.minLon, bbox.maxLon]
-            ),
-            connection.runAndReadAll(
-              `SELECT id, kind, valid_from, valid_to, lat, lon
+                [bbox.minLat, bbox.maxLat, bbox.minLon, bbox.maxLon]
+              ),
+              connection.runAndReadAll(
+                `SELECT id, kind, valid_from, valid_to, lat, lon
                FROM ${eventTable}
                WHERE lat BETWEEN ? AND ? AND lon BETWEEN ? AND ?`,
-              [bbox.minLat, bbox.maxLat, bbox.minLon, bbox.maxLon]
-            ),
-          ]);
-          await Promise.all([e.readAll(), ev.readAll()]);
-          return [
-            ...(e.getRowObjectsJS() as Row[]).map(toExtentHit),
-            ...(ev.getRowObjectsJS() as Row[]).map(toExtentHit),
-          ];
-        }),
-      timeline: (from, to) =>
-        Effect.tryPromise(async () => {
-          const [e, ev] = await Promise.all([
-            connection.runAndReadAll(
-              `SELECT id, kind, valid_from, valid_to, lat, lon
+                [bbox.minLat, bbox.maxLat, bbox.minLon, bbox.maxLon]
+              ),
+            ]);
+            await Promise.all([e.readAll(), ev.readAll()]);
+            return [
+              ...(e.getRowObjectsJS() as Row[]).map(toExtentHit),
+              ...(ev.getRowObjectsJS() as Row[]).map(toExtentHit),
+            ];
+          }),
+        timeline: (from, to) =>
+          Effect.tryPromise(async () => {
+            const [e, ev] = await Promise.all([
+              connection.runAndReadAll(
+                `SELECT id, kind, valid_from, valid_to, lat, lon
                FROM ${entityTable}
                WHERE valid_from <= ? AND valid_to >= ?`,
-              [asMs(to), asMs(from)]
-            ),
-            connection.runAndReadAll(
-              `SELECT id, kind, valid_from, valid_to, lat, lon
+                [asMs(to), asMs(from)]
+              ),
+              connection.runAndReadAll(
+                `SELECT id, kind, valid_from, valid_to, lat, lon
                FROM ${eventTable}
                WHERE valid_from <= ? AND valid_to >= ?`,
-              [asMs(to), asMs(from)]
-            ),
-          ]);
-          await Promise.all([e.readAll(), ev.readAll()]);
-          return [
-            ...(e.getRowObjectsJS() as Row[]).map(toExtentHit),
-            ...(ev.getRowObjectsJS() as Row[]).map(toExtentHit),
-          ];
-        }),
-    };
+                [asMs(to), asMs(from)]
+              ),
+            ]);
+            await Promise.all([e.readAll(), ev.readAll()]);
+            return [
+              ...(e.getRowObjectsJS() as Row[]).map(toExtentHit),
+              ...(ev.getRowObjectsJS() as Row[]).map(toExtentHit),
+            ];
+          }),
+      };
 
-    return store;
+      // Rebuild the materialized projection from the persisted step log when
+      // reopening a durable path, so queries reflect prior writes (I3/I11).
+      if (path !== "") {
+        await replay();
+      }
+
+      return store;
+    });
+    return graphStore;
   }),
 }) {}
 

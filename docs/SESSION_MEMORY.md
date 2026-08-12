@@ -95,7 +95,7 @@
 
 **Other P2 follow-ups (post-e2e, optional):**
 - ~~Expose the 4 graph query surfaces (`paths`/`timeline`/`spatial`/`relatedness`) and the transform runner on the `Engine` service seam~~ — **DONE** (see above; `openspec/changes/p2-pipeline-seam`).
-- DuckDB graph persistence: currently `DuckDBInstance.create()` is in-memory (fresh per process); file/SQLite step-log persistence is a follow-up.
+- ~~DuckDB graph persistence: file-path step-log persistence is a follow-up~~ — **DONE** (`openspec/changes/duckdb-graph-persistence`). Provide a `DuckDBConfig` (path string) to persist a durable store: `DuckDBGraphService.make` opens `DuckDBInstance.create(path)` (in-memory when absent/empty), keeps `CREATE TABLE IF NOT EXISTS` idempotent, and `dispose` (`closeSync`) releases a path for reopen. Reopening an existing path rebuilds the projection from the retained step log via `replay()` (I3/I11). See capabilities: `graph-persistence`, `graph-query`.
 
 ---
 
