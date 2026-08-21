@@ -181,7 +181,12 @@ export class GraphService extends Context.Service<GraphService, GraphStore>()(
                 relationType: type.get(id) ?? null,
               });
             }
-            return out.sort((a, b) => a.distance - b.distance);
+            // Tie-break on id so equal-distance results are ordered the same
+            // here and in the DuckDB seam, whose GROUP BY is unordered.
+            return out.sort(
+              (a, b) =>
+                a.distance - b.distance || a.entityId.localeCompare(b.entityId)
+            );
           }),
         replay: Effect.sync(() => toState(fold())),
         spatial: (bbox) =>

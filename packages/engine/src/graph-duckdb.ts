@@ -348,7 +348,7 @@ export class DuckDBGraphService extends Context.Service<
                    arg_min(relation_type, depth) AS relation_type
             FROM bfs
             GROUP BY entity_id
-            ORDER BY distance
+            ORDER BY distance, entity_id
             `,
               [seed, maxDepth]
             );
