@@ -1,4 +1,4 @@
-# Viokit — Session Memory (2026-08-11)
+# Viokit — Session Memory (2026-08-21)
 
 > Working state for the next session. Project: **Viokit** — Effect v4 OSINT investigation engine.
 > Guardrails enforced by the `viokit-build` skill (hard TDR gate, invariants I1–I12, open-domain rule, build-order gates in ROADMAP.md). Use the `effect-ts` skill for all Effect code.
@@ -11,13 +11,15 @@
 - **P1 (source runtime: cache + egress)** — complete
 - **P2 (transforms + graph)** — **complete** (transform framework, DuckDB graph store + query surfaces, entity correlate, and the `Engine` pipeline seam).
 - P3 (interfaces/UI), P4 (governance + first packs) — not started
+- **Next agreed build:** the first real pack, `web-dns`, driven through the source-discovery harness
+  (see the promote-path defect under the 2026-08-21 section — it blocks promotion).
 
 ---
 
 ## Key facts about the codebase
 
-- **Monorepo:** `packages/{schema,engine,sources,source-catalog}` + `viokit-site`.
-- **Packages:** `@viokit/schema`, `@viokit/engine`, `@viokit/sources`, `@viokit/source-catalog`.
+- **Monorepo:** `packages/{schema,config,engine,sources,source-catalog}` + `viokit-site`.
+- **Packages:** `@viokit/schema`, `@viokit/config`, `@viokit/engine`, `@viokit/sources`, `@viokit/source-catalog`.
 - **Runtime:** Bun. **Stack:** Effect 4.0.0-beta.103, Effect Schema (schema-first, decode at every boundary = I6), vitest + `@effect/vitest`, ultracite (biome).
 - **`effect` version is `4.0.0-beta.103`.** ⚠️ This beta's API differs from docs in several ways:
   - **No `Effect.catchAll`** — it does NOT exist. Error-catching tools available: `Effect.catchTag`, `Effect.catchTags`, `Effect.mapError`, `Effect.catchIf`. For a catch-all typed-error map, use `Effect.mapError(fn)` on the whole channel.
@@ -96,6 +98,50 @@
 **Other P2 follow-ups (post-e2e, optional):**
 - ~~Expose the 4 graph query surfaces (`paths`/`timeline`/`spatial`/`relatedness`) and the transform runner on the `Engine` service seam~~ — **DONE** (see above; `openspec/changes/p2-pipeline-seam`).
 - ~~DuckDB graph persistence: file-path step-log persistence is a follow-up~~ — **DONE** (`openspec/changes/duckdb-graph-persistence`). Provide a `DuckDBConfig` (path string) to persist a durable store: `DuckDBGraphService.make` opens `DuckDBInstance.create(path)` (in-memory when absent/empty), keeps `CREATE TABLE IF NOT EXISTS` idempotent, and `dispose` (`closeSync`) releases a path for reopen. Reopening an existing path rebuilds the projection from the retained step log via `replay()` (I3/I11). See capabilities: `graph-persistence`, `graph-query`.
+
+---
+
+## Toolchain + config session (2026-08-21)
+
+**Toolchain (the day it bit us):**
+- **Bun must be >= 1.1.14.** `@effect/sql-sqlite-bun` calls `statement.safeIntegers()` on every
+  prepare; that method landed in Bun v1.1.14. On older Bun every statement throws a TypeError that
+  the client rewraps as the opaque `SqlError: Failed to execute statement` — all 12 store-backed
+  `source-catalog` tests fail identically with no hint of the real cause. The machine had 1.1.10;
+  upgraded to 1.4.0. Floor now recorded in root `package.json` `engines` and `devbox.json`.
+- `.bun-version` is inert on its own — verified Bun does not auto-switch on it.
+- **`devbox.json`** pins `bun@1.3.13` + `nodejs@22.23.2` (newest on nixhub) and puts
+  `node_modules/.bin` on PATH. Requires devbox + Nix, which need a root install — not yet installed.
+- **openspec CLI is `@fission-ai/openspec`** (the bare `openspec` npm name is an unrelated stub with
+  no bin). Pinned as a root devDependency; run it as `bunx openspec` unless `node_modules/.bin` is
+  on PATH. `openspec validate --all` passes on all 10 specs.
+
+**`@viokit/config` (new package) — one place paths come from:**
+- `findProjectRoot` walks up for `viokit.config.json` then `openspec/`, so nothing depends on the
+  directory a CLI was invoked from. `loadViokitConfig` resolves env > `viokit.config.json` >
+  defaults, decodes the file through Effect Schema (I6), and exposes `ViokitConfigService`.
+- Deliberately **no c12/unjs dependency** — the defects were cwd-vs-root and a module-scope
+  `process.env` read, both fixed in ~30 lines. Revisit c12 only if `.env`/extends chains are needed.
+- `source-catalog` now takes `catalogDb` and `packsDir` from config;
+  `SourceCatalogProgramLayer` resolves lazily via `Layer.unwrap` instead of reading env at import.
+- Packs now default to `packages/sources/packs/<category>`.
+
+**Bugs found and fixed along the way:**
+- **`relatedness` was nondeterministic** — `ORDER BY distance` with no tiebreak meant equal-distance
+  results came back in arbitrary order; `mini-investigation.test.ts` failed ~3 runs in 5. Both the
+  DuckDB and in-memory seams now tie-break on `entityId`.
+- **The catalog CLI had never worked on a fresh checkout** — SQLite will not create missing parent
+  directories, so the default `.viokit/catalog.db` failed with "unable to open database file".
+  `makeSourceCatalogSqliteLayerFor` now creates the parent first.
+- **`.gitignore` had an unanchored `packs/`**, which matches at any depth — it would have silently
+  ignored `packages/sources/packs/**`, i.e. the pack deliverables. Now root-anchored `/packs/`.
+
+**Known defect, not yet fixed (blocks the web-dns pack):**
+- `promote_source` takes `spec: unknown` and never validates it — the promoter `JSON.stringify`s
+  whatever it gets into `export const X: SourceSpec = {…}`. The shape the `source-cataloging` skill
+  documents (`name`/`category`/`domain`/`description`/`access`) is **not** a `SourceSpec` and emits a
+  pack file that fails `tsc`. Fix by decoding against `SourceSpec` at the boundary (I6) before
+  writing, and correct the skill's documented shape.
 
 ---
 
