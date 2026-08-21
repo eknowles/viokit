@@ -21,7 +21,9 @@ npm-debug.log*
 
 # Source-catalog runtime data
 .viokit/
-packs/
+# Root-anchored: stray promotions written to ./packs are scratch, but real packs
+# (packages/sources/packs/<name>) are deliverables and must stay tracked.
+/packs/
 
 # OS
 .DS_Store

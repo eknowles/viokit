@@ -30,7 +30,7 @@ const toExportName = (sourceId: string): string => {
 };
 
 /**
- * Appends an exported `SourceSpec` constant to `packs/<category>/sources.ts`.
+ * Appends an exported `SourceSpec` constant to `<packsDir>/<category>/sources.ts`.
  * Creates the pack dir/file if absent. `source` is a serializable object
  * matching the `SourceSpec` schema shape.
  */
@@ -41,29 +41,36 @@ const renderSourceExport = (sourceId: string, source: unknown): string =>
     2
   )};\n`;
 
-const appendSource = (category: string, sourceId: string, source: unknown) =>
-  Effect.gen(function* () {
-    const dir = join(process.cwd(), "packs", category);
-    const path = join(dir, "sources.ts");
-    yield* Effect.tryPromise({
-      catch: (cause) => new PromotionError({ cause, id: sourceId }),
-      try: () => mkdir(dir, { recursive: true }),
+const appendSource =
+  (packsDir: string) => (category: string, sourceId: string, source: unknown) =>
+    Effect.gen(function* () {
+      const dir = join(packsDir, category);
+      const path = join(dir, "sources.ts");
+      yield* Effect.tryPromise({
+        catch: (cause) => new PromotionError({ cause, id: sourceId }),
+        try: () => mkdir(dir, { recursive: true }),
+      });
+      const existing = yield* Effect.tryPromise({
+        catch: (cause) => new PromotionError({ cause, id: sourceId }),
+        try: () => readExisting(path),
+      });
+      const next =
+        existing.trim().length === 0
+          ? header + renderSourceExport(sourceId, source)
+          : existing + renderSourceExport(sourceId, source);
+      yield* Effect.tryPromise({
+        catch: (cause) => new PromotionError({ cause, id: sourceId }),
+        try: () => writeFile(path, next, "utf8"),
+      });
     });
-    const existing = yield* Effect.tryPromise({
-      catch: (cause) => new PromotionError({ cause, id: sourceId }),
-      try: () => readExisting(path),
-    });
-    const next =
-      existing.trim().length === 0
-        ? header + renderSourceExport(sourceId, source)
-        : existing + renderSourceExport(sourceId, source);
-    yield* Effect.tryPromise({
-      catch: (cause) => new PromotionError({ cause, id: sourceId }),
-      try: () => writeFile(path, next, "utf8"),
-    });
-  });
 
-export const PromoterLayer = Layer.effect(
-  PromoterService,
-  Effect.sync(() => ({ writeSource: appendSource }))
-);
+/**
+ * Writes promoted sources under `packsDir`, which the caller takes from
+ * `ViokitConfig` — the path is resolved from the workspace root, not from the
+ * directory the CLI happened to be invoked in.
+ */
+export const makePromoterLayer = (packsDir: string) =>
+  Layer.effect(
+    PromoterService,
+    Effect.sync(() => ({ writeSource: appendSource(packsDir) }))
+  );

@@ -1,3 +1,5 @@
+import { mkdirSync } from "node:fs";
+import { dirname } from "node:path";
 import { layer as sqliteClientLayer } from "@effect/sql-sqlite-bun/SqliteClient";
 import {
   fromRecord,
@@ -433,6 +435,23 @@ const makeSourceCatalogSqliteLayer = (filename: string) => {
 export const SourceCatalogSqliteLayer =
   makeSourceCatalogSqliteLayer(":memory:");
 
+/**
+ * SQLite will not create missing intermediate directories, so a configured path
+ * like `<root>/.viokit/catalog.db` fails to open on a fresh checkout unless the
+ * parent exists.
+ */
+const ensureParentDir = (filename: string): void => {
+  if (filename === ":memory:" || filename.trim() === "") {
+    return;
+  }
+  mkdirSync(dirname(filename), { recursive: true });
+};
+
 /** File-backed store for the CLI/MCP harness (persists across processes). */
 export const makeSourceCatalogSqliteLayerFor = (filename: string) =>
-  makeSourceCatalogSqliteLayer(filename);
+  Layer.unwrap(
+    Effect.sync(() => {
+      ensureParentDir(filename);
+      return makeSourceCatalogSqliteLayer(filename);
+    })
+  );

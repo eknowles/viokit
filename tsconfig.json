@@ -44,6 +44,17 @@
             }
           },
           {
+            "include": ["packages/config/src/*.ts"],
+            "options": {
+              "diagnosticSeverity": {
+                "nodeBuiltinImport": "off",
+                "preferSchemaOverJson": "off",
+                "processEnv": "off",
+                "schemaSyncInEffect": "off"
+              }
+            }
+          },
+          {
             "include": ["packages/engine/src/evidence-fs.ts"],
             "options": {
               "diagnosticSeverity": {
