@@ -8,6 +8,8 @@ import {
   PackManifest,
   runnabilityOf,
   SourceSpec,
+  Step,
+  UNVERSIONED,
 } from "../src/index.js";
 
 describe("CatalogEntry decode (I6)", () => {
@@ -346,5 +348,69 @@ describe("browser sources (TDR-019)", () => {
       () => true
     );
     assert.strictEqual(verdict.runnable, true);
+  });
+});
+
+describe("source versions and step attribution (I7)", () => {
+  it("carries a declared version", () => {
+    const spec = Schema.decodeUnknownSync(SourceSpec)({
+      id: "s",
+      transport: "http",
+      url: "https://x.test",
+      version: "2024-06",
+    });
+    assert.strictEqual(spec.version, "2024-06");
+  });
+
+  it("reads an undeclared version as explicitly unversioned", () => {
+    const spec = Schema.decodeUnknownSync(SourceSpec)({
+      id: "s",
+      transport: "http",
+      url: "https://x.test",
+    });
+    // Not "1", not "latest" — an unversioned source must read as unversioned
+    // rather than assert a currency it does not have.
+    assert.strictEqual(spec.version, UNVERSIONED);
+  });
+
+  it("decodes a step carrying its attribution", () => {
+    const step = Schema.decodeUnknownSync(Step)({
+      evidenceIds: ["e1"],
+      id: "s1",
+      operation: {
+        _tag: "AddEntity",
+        entity: {
+          id: "acme.test",
+          identifiers: [],
+          kind: "domain",
+          spatialExtent: { lat: 0, lon: 0 },
+          temporalExtent: {
+            validFrom: new Date("2024-01-01T00:00:00.000Z"),
+            validTo: new Date("2024-12-31T00:00:00.000Z"),
+          },
+        },
+      },
+      sourceId: "crt.sh",
+      sourceVersion: "2024-06",
+      transformId: "crt-sh-certificate-search",
+    });
+    assert.strictEqual(step.transformId, "crt-sh-certificate-search");
+    assert.strictEqual(step.sourceVersion, "2024-06");
+  });
+
+  it("decodes a step with no attribution, rather than requiring an invented one", () => {
+    const step = Schema.decodeUnknownSync(Step)({
+      evidenceIds: ["e1"],
+      id: "s1",
+      operation: {
+        _tag: "ResolveEntity",
+        canonicalId: "a",
+        confidence: 1,
+        matchBasis: [],
+        mergeId: "b",
+      },
+    });
+    assert.strictEqual(step.sourceId, undefined);
+    assert.strictEqual(step.transformId, undefined);
   });
 });

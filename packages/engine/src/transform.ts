@@ -91,6 +91,14 @@ export const TransformRunnerLayer: Layer.Layer<
                   fnv1aHex(new TextEncoder().encode(`${stored.id}:${counter}`))
                 ),
                 operation,
+                // Stamped here rather than passed in: the runner holds the spec
+                // and the source, and provenance a caller could supply is
+                // provenance that could lie (I7).
+                sourceId: source.id,
+                ...(source.version === undefined
+                  ? {}
+                  : { sourceVersion: source.version }),
+                transformId: spec.id,
               })
             );
             counter += 1;

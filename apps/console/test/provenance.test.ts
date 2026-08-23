@@ -4,6 +4,7 @@ import {
   decodeContent,
   describeAcquisition,
   describeOperation,
+  describeOrigin,
   isPreviewable,
   stepsFor,
 } from "../src/provenance.js";
@@ -126,5 +127,44 @@ describe("previewing artifacts", () => {
 
   it("yields nothing for malformed content rather than throwing", () => {
     assert.strictEqual(decodeContent("!!!not base64!!!"), "");
+  });
+});
+
+describe("describing what produced a step (I7)", () => {
+  it("names the transform and the versioned source", () => {
+    const described = describeOrigin({
+      evidenceIds: ["e1"],
+      id: "s1",
+      operation: { _tag: "AddEntity" },
+      sourceId: "crt.sh",
+      sourceVersion: "2024-06",
+      transformId: "crt-sh-certificate-search",
+    });
+    assert.include(described ?? "", "crt-sh-certificate-search");
+    assert.include(described ?? "", "crt.sh");
+    assert.include(described ?? "", "2024-06");
+  });
+
+  it("says unversioned rather than implying currency", () => {
+    const described = describeOrigin({
+      evidenceIds: ["e1"],
+      id: "s1",
+      operation: { _tag: "AddEntity" },
+      sourceId: "crt.sh",
+      sourceVersion: "unversioned",
+      transformId: "t",
+    });
+    assert.include(described ?? "", "unversioned");
+    assert.notInclude(described ?? "", "version unversioned");
+  });
+
+  it("claims nothing for a step that records no origin", () => {
+    assert.isNull(
+      describeOrigin({
+        evidenceIds: ["e1"],
+        id: "s1",
+        operation: { _tag: "ResolveEntity" },
+      })
+    );
   });
 });

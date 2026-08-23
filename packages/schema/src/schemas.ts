@@ -288,10 +288,23 @@ export const StepOperation = Schema.Union([
 ]);
 export type StepOperation = typeof StepOperation.Type;
 
+/**
+ * A step records what it derives from (`evidenceIds`, I2) and — where it was
+ * produced by an acquisition — what produced it (I7): the transform that ran,
+ * the source it acquired from, and that source's version *at run time*.
+ *
+ * Attribution is optional because a step derived by correlating existing graph
+ * state has no source, and inventing one would be worse than recording none.
+ * The version is copied rather than referenced: pointing at a source's current
+ * version would make history mutable, which is what I7 exists to prevent.
+ */
 export class Step extends Schema.Class<Step>("Step")({
   evidenceIds: NonEmptyEvidenceIds,
   id: StepId,
   operation: StepOperation,
+  sourceId: Schema.optionalKey(Schema.String),
+  sourceVersion: Schema.optionalKey(Schema.String),
+  transformId: Schema.optionalKey(Schema.String),
 }) {}
 
 /**
@@ -310,6 +323,13 @@ export const SourceAccess = Schema.Literals([
 ]);
 export type SourceAccess = typeof SourceAccess.Type;
 
+/**
+ * The version marker for a source nobody has versioned. Explicit rather than a
+ * number, so an unversioned source reads as unversioned in the trail instead of
+ * asserting a currency it does not have (I7).
+ */
+export const UNVERSIONED = "unversioned";
+
 export class SourceSpec extends Schema.Class<SourceSpec>("SourceSpec")({
   access: withDefault(SourceAccess, "unknown"),
   auth: Schema.optionalKey(SourceAuth),
@@ -324,6 +344,7 @@ export class SourceSpec extends Schema.Class<SourceSpec>("SourceSpec")({
   retry: Schema.optionalKey(RetryPolicy),
   transport: Transport,
   url: Schema.String,
+  version: withDefault(Schema.String, UNVERSIONED),
 }) {}
 
 /** A transform archetype — the shape of the derivation a transform performs. */

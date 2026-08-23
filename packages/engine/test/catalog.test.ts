@@ -450,3 +450,47 @@ describe("view state stays out of the evidentiary record (I3, I12)", () => {
     );
   });
 });
+
+/**
+ * I7: a claim should be traceable to what derived it and the state that thing
+ * was in — not only to the artifact it rests on.
+ */
+describe("steps record what produced them (I7)", () => {
+  layer(withPacks)((it) => {
+    it.effect("a transform stamps itself and its versioned source", () =>
+      Effect.gen(function* () {
+        const engine = yield* Engine;
+        const steps = yield* engine.runCatalogTransform("whois-lookup", {
+          domain: "attributed.test",
+        });
+
+        for (const step of steps) {
+          assert.strictEqual(step.transformId, "whois-lookup");
+          assert.strictEqual(step.sourceId, "whois");
+          // Unversioned, and visibly so, rather than asserting currency.
+          assert.strictEqual(step.sourceVersion, "unversioned");
+        }
+      })
+    );
+
+    it.effect("attribution survives commit and replay (I3)", () =>
+      Effect.gen(function* () {
+        const engine = yield* Engine;
+        const steps = yield* engine.runCatalogTransform("whois-lookup", {
+          domain: "persisted.test",
+        });
+        for (const step of steps) {
+          yield* engine.insert(step);
+        }
+        yield* engine.replay;
+
+        const log = yield* engine.log;
+        const committed = log.filter(
+          (step) => step.transformId === "whois-lookup"
+        );
+        assert.isAtLeast(committed.length, 1);
+        assert.isTrue(committed.every((step) => step.sourceId === "whois"));
+      })
+    );
+  });
+});

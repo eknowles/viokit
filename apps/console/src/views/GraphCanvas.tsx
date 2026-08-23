@@ -8,6 +8,7 @@ import {
   decodeContent,
   describeAcquisition,
   describeOperation,
+  describeOrigin,
   isPreviewable,
   stepsFor,
 } from "../provenance.js";
@@ -113,6 +114,9 @@ const Provenance = ({
       {steps.map((step) => (
         <div className="trail-step" key={step.id}>
           <div>{describeOperation(step)}</div>
+          {describeOrigin(step) === null ? null : (
+            <div className="hint">by {describeOrigin(step)}</div>
+          )}
           {step.evidenceIds.map((id) => {
             const record = evidence[id];
             return (

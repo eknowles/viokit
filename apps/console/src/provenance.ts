@@ -34,6 +34,9 @@ export interface StepRecord {
       readonly targetId: string;
     };
   };
+  readonly sourceId?: string;
+  readonly sourceVersion?: string;
+  readonly transformId?: string;
 }
 
 /** Every step whose operation names this entity, in log order. */
@@ -94,6 +97,26 @@ export const describeOperation = (step: StepRecord): string => {
       : `merged it into ${operation.canonicalId}`;
   }
   return operation._tag;
+};
+
+/**
+ * What ran, where a step records it (I7). A step derived from existing graph
+ * state records nothing, and none is invented for it — an absent provenance is
+ * better than a plausible one.
+ */
+export const describeOrigin = (step: StepRecord): string | null => {
+  if (step.transformId === undefined && step.sourceId === undefined) {
+    return null;
+  }
+  const transform = step.transformId ?? "an unnamed transform";
+  if (step.sourceId === undefined) {
+    return transform;
+  }
+  const version =
+    step.sourceVersion === undefined || step.sourceVersion === "unversioned"
+      ? "unversioned"
+      : `version ${step.sourceVersion}`;
+  return `${transform}, from ${step.sourceId} (${version})`;
 };
 
 /** Textual artifacts can be previewed; anything else is described, not rendered. */
