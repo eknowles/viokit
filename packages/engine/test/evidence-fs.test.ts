@@ -2,7 +2,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { assert, describe, it, layer } from "@effect/vitest";
-import { evidenceId } from "@viokit/schema";
+import { evidenceId, LOCAL_PRINCIPAL, Manual } from "@viokit/schema";
 import { Effect, Layer, Option } from "effect";
 import { afterAll, beforeAll } from "vitest";
 import { EvidenceService } from "../src/evidence.js";
@@ -111,4 +111,42 @@ describe("evidence backend boundary validation (1.1)", () => {
       assert.strictEqual(outcome, "rejected");
     })
   );
+});
+
+/**
+ * The two backends must agree about what an artifact holds.
+ *
+ * They did not: the filesystem one mapped fields by hand on read and silently
+ * dropped every field added to the record after it was written — `status` from
+ * the access probe, then `acquiredBy` — while the in-memory one spreads its
+ * input and kept them. Tests used the in-memory backend, so nothing noticed.
+ * It decodes against the schema now, and this asserts they cannot drift again.
+ */
+describe("both evidence backends hold the same fields", () => {
+  layer(FsLayer)((t) => {
+    t.effect("a round-trip through disk keeps every field", () =>
+      Effect.gen(function* () {
+        const input = {
+          acquiredAt: new Date("2024-06-01T00:00:00.000Z"),
+          acquiredBy: LOCAL_PRINCIPAL.id,
+          acquisitionPath: Manual.make({ by: "a colleague, by hand" }),
+          bytes: new TextEncoder().encode("custody"),
+          contentType: "text/plain",
+          observedAt: new Date("2024-06-01T00:00:00.000Z"),
+          status: 200,
+        };
+
+        const store = yield* EvidenceService;
+        const written = yield* store.put(input);
+        const read = yield* store.get(written.id);
+
+        assert.isTrue(Option.isSome(read));
+        if (Option.isSome(read)) {
+          assert.strictEqual(read.value.acquiredBy, LOCAL_PRINCIPAL.id);
+          assert.strictEqual(read.value.status, 200);
+          assert.strictEqual(read.value.acquisitionPath._tag, "manual");
+        }
+      })
+    );
+  });
 });

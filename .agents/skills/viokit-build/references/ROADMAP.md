@@ -147,6 +147,13 @@ Two things found while building the mechanisms, both worth knowing before that s
 - The HTTP transport had been recording every artifact as `application/octet-stream` and discarding
   response status entirely, so no evidence in the store before 2026-08-23 says what it actually holds,
   and a credential wall was indistinguishable from a successful fetch.
+- **Three separate places enumerated evidence fields by hand, and all three silently dropped every
+  field added afterwards** — `status` from the access probe, then `acquiredBy`. The filesystem
+  evidence backend on read, and the `evidence_get` boundary; the in-memory backend spread its input
+  and kept them, so the two backends disagreed and the suite, which uses the in-memory one, never
+  noticed. Both decode or spread now, with a test asserting the backends agree. Worth remembering the
+  shape: a hand-written field list across a boundary is a silent data-loss bug waiting for the next
+  field.
 - **Not one of the 38 specs addresses an endpoint.** 31 are bare hosts, 7 are landing or app pages, so
   every source in the catalog serves HTML and nothing about its access can be concluded. Read naively
   the first sweep said 32 of 36 classifications were wrong; it was measuring homepages. The classifier
@@ -191,7 +198,7 @@ Track B is unblocked: TDR-023 and TDR-024 now have a unit to apply to.
 | ~~`identity-and-authz`~~ | TDR-023 | **Done (2026-08-23).** A `Principal` — person or agent — resolved from a bearer credential through a seam; authorization is membership of an investigation. Two principals on one deployment cannot see each other's cases, which is this track's exit criterion. **The loopback rule was a comment**: `VIOKIT_HTTP_HOST=0.0.0.0` published an unauthenticated engine, and nothing refused. It refuses now. |
 | `redaction-and-retention` | **TDR-024** (new) | Secrets already stay out of cache and evidence; sensitive *content* does not. Needed before a bundle leaves a machine. |
 | `audit-log` | — | Governance's own trail: who ran what, who exported what. |
-| `bundle-signing` | unblocked — TDR-023 decided | An export attests integrity as of export and says nothing about custody before it. Signing at acquisition is what closes that, and it needs an identity first. |
+| `bundle-signing` | unblocked — TDR-023 decided; needs its own TDR for the scheme | An export attests integrity as of export and says nothing about custody before it. **`acquisition-custody` (2026-08-23) put the acquiring principal on the evidence record**, so a bundle now says who obtained each artifact — as an assertion by the exporting deployment, which the manifest states plainly. Signing is what turns that into proof. |
 | `veracity-model` | — | Confidence for leaked/unverified data; `correlate` upgrading claims to corroborated (an original P4 item, still unstarted). |
 
 ### Track C — The workbench (the rest of P3's visual half)

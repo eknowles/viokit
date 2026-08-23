@@ -29,10 +29,12 @@ const BAGIT_DECLARATION =
  * export, and it says so.
  */
 const INTEGRITY_NOTE =
-  "Each artifact's evidenceId IS the SHA-256 digest of its bytes, and manifest-sha256.txt records the same digest in BagIt form. Verifying an artifact therefore also confirms it is the one the steps reference: `shasum -a 256 -c manifest-sha256.txt`. This attests that the artifacts are as they were at export; it does not attest to custody before export, which would require signing at acquisition.";
+  "Each artifact's evidenceId IS the SHA-256 digest of its bytes, and manifest-sha256.txt records the same digest in BagIt form. Verifying an artifact therefore also confirms it is the one the steps reference: `shasum -a 256 -c manifest-sha256.txt`. This attests that the artifacts are as they were at export; it does not attest to custody before export, which would require signing at acquisition. Where an artifact records `acquiredBy`, that is the principal this deployment authenticated as obtaining it — an unsigned assertion by the exporting deployment, not a cryptographic proof.";
 
 export interface ExportedEvidence {
   readonly acquiredAt: string;
+  /** Who obtained it, where the deployment could say (TDR-023). */
+  readonly acquiredBy?: string;
   readonly acquisitionPath: unknown;
   readonly byteLength: number;
   readonly contentType: string;
@@ -106,6 +108,9 @@ export const writeBundle = (
       artifacts.set(record.id, record.bytes);
       exported.push({
         acquiredAt: record.acquiredAt.toISOString(),
+        ...(record.acquiredBy === undefined
+          ? {}
+          : { acquiredBy: record.acquiredBy }),
         acquisitionPath: Schema.encodeUnknownSync(Schema.Any)(
           record.acquisitionPath
         ),

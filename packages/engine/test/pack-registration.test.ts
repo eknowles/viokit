@@ -5,7 +5,11 @@ import { assert, describe, layer } from "@effect/vitest";
 import { manifest as peopleManifest } from "@viokit/packs/people-identity/manifest";
 import { judyrecords_com } from "@viokit/packs/people-identity/sources";
 import { manifest } from "@viokit/packs/web-dns/manifest";
-import { SourceTransportService, TransportCapabilities } from "@viokit/schema";
+import {
+  LOCAL_PRINCIPAL,
+  SourceTransportService,
+  TransportCapabilities,
+} from "@viokit/schema";
 import { Effect, Layer } from "effect";
 import { Engine, makeEngineLayer } from "../src/engine.js";
 import { EvidenceBackendMemory } from "../src/evidence-fs.js";
@@ -15,6 +19,8 @@ import { makeViewStateLayer } from "../src/view-state.js";
 /** A throwaway view-state root per run: the store is a deployment input. */
 const tempViewState = () =>
   makeViewStateLayer(mkdtempSync(join(tmpdir(), "viokit-vs-")));
+
+const ME = LOCAL_PRINCIPAL.id;
 
 const text = (value: string): Uint8Array => new TextEncoder().encode(value);
 
@@ -190,7 +196,9 @@ describe("registering a pack whose sources are browser-gated", () => {
     it.effect("refuses to acquire a browser-only source, with its reason", () =>
       Effect.gen(function* () {
         const engine = yield* Engine;
-        const result = yield* Effect.result(engine.acquire(judyrecords_com));
+        const result = yield* Effect.result(
+          engine.acquire(judyrecords_com, ME)
+        );
 
         assert.strictEqual(result._tag, "Failure");
         if (result._tag === "Failure") {

@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { assert, describe, layer } from "@effect/vitest";
 import { Engine, EngineLayer } from "@viokit/engine";
 import {
+  LOCAL_PRINCIPAL,
   SourceError,
   SourceSpec,
   SourceTransportService,
@@ -48,6 +49,8 @@ const dispatchTransport = Layer.succeed(SourceTransportService, {
         }),
 });
 
+const ME = LOCAL_PRINCIPAL.id;
+
 const exitProofLayer = Layer.provide(
   EngineLayer,
   Layer.mergeAll(
@@ -76,7 +79,7 @@ describe("P1 exit proof: two transports through the one pipeline", () => {
     it.effect("acquires an HTTP source into evidence", () =>
       Effect.gen(function* () {
         const engine = yield* Engine;
-        const evidence = yield* engine.acquire(httpSource);
+        const evidence = yield* engine.acquire(httpSource, ME);
         assert.strictEqual(evidence.acquisitionPath._tag, "live");
         assert.strictEqual(
           new TextDecoder().decode(evidence.bytes),
@@ -88,7 +91,7 @@ describe("P1 exit proof: two transports through the one pipeline", () => {
     it.effect("acquires a dataset source into evidence", () =>
       Effect.gen(function* () {
         const engine = yield* Engine;
-        const evidence = yield* engine.acquire(datasetSource);
+        const evidence = yield* engine.acquire(datasetSource, ME);
         assert.strictEqual(evidence.acquisitionPath._tag, "live");
         const text = new TextDecoder().decode(evidence.bytes);
         assert.isTrue(text.includes("alice"));

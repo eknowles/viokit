@@ -8,13 +8,13 @@ import {
 import { join } from "node:path";
 import type { EvidenceId, EvidenceInput, EvidenceStore } from "@viokit/schema";
 import {
-  AcquisitionPath,
   Evidence,
   EvidenceReadError,
   EvidenceWriteError,
   evidenceId,
+  reviveDates,
 } from "@viokit/schema";
-import { Context, DateTime, Effect, Layer, Option, Schema } from "effect";
+import { Context, Effect, Layer, Option, Schema } from "effect";
 import { EvidenceService } from "./evidence.js";
 import { sha256Hex } from "./hash.js";
 
@@ -118,6 +118,8 @@ const evidenceDir = (root: string, id: string): string => {
 const evidencePath = (root: string, id: string): string =>
   `${evidenceDir(root, id)}/${id}.json`;
 
+const decodeEvidence = Schema.decodeUnknownSync(Evidence);
+
 const encodeEvidence = (id: EvidenceId, input: EvidenceInput): Uint8Array => {
   const payload = {
     ...input,
@@ -136,27 +138,19 @@ const readEvidenceFile = (
     return yield* Effect.try({
       catch: toReadError,
       try: () => {
-        const parsed = JSON.parse(decodeText.decode(raw)) as {
-          id: string;
-          contentType: string;
-          bytes: number[];
-          acquiredAt: string;
-          observedAt: string;
-          acquisitionPath: unknown;
+        // Decoded against the schema, not mapped field by field.
+        //
+        // Hand-mapping is why this backend silently dropped every field added
+        // to the evidence record after it was written — `status` from the
+        // access probe, then `acquiredBy` — while the in-memory backend, which
+        // spreads the input, kept them. Two backends quietly disagreeing about
+        // what an artifact holds is worse than either being wrong.
+        const parsed = JSON.parse(decodeText.decode(raw), reviveDates) as {
+          readonly bytes: readonly number[];
         };
-        return Evidence.make({
-          acquiredAt: DateTime.toDateUtc(
-            DateTime.makeUnsafe(parsed.acquiredAt)
-          ),
-          acquisitionPath: Schema.decodeUnknownSync(AcquisitionPath)(
-            parsed.acquisitionPath
-          ),
+        return decodeEvidence({
+          ...parsed,
           bytes: new Uint8Array(parsed.bytes),
-          contentType: parsed.contentType,
-          id: evidenceId(parsed.id),
-          observedAt: DateTime.toDateUtc(
-            DateTime.makeUnsafe(parsed.observedAt)
-          ),
         });
       },
     });

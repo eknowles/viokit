@@ -78,7 +78,8 @@ export class Engine extends Context.Service<
   Engine,
   {
     readonly acquire: (
-      source: SourceSpec
+      source: SourceSpec,
+      by: PrincipalId
     ) => Effect.Effect<
       Evidence,
       | EvidenceWriteError
@@ -90,7 +91,8 @@ export class Engine extends Context.Service<
       | SourceNotRunnable
     >;
     readonly ingest: (
-      input: EvidenceInput
+      input: EvidenceInput,
+      by: PrincipalId
     ) => Effect.Effect<Evidence, EvidenceWriteError>;
     /** Read a stored artifact back. Absent for an unknown id: a caller
      * following a trail into a gap should see a gap, not an exception. */
@@ -245,10 +247,12 @@ const engineLayerWith = (registry: Layer.Layer<PackRegistry>) =>
       );
 
       return {
-        acquire: (source) =>
+        acquire: (source, by) =>
           Effect.gen(function* () {
             const input = yield* runtime.run(source);
-            return yield* evidenceStore.put(input);
+            // Custody: an export can already say the bytes are intact since it
+            // was written, and this is what lets it say who obtained them.
+            return yield* evidenceStore.put({ ...input, acquiredBy: by });
           }),
         addMember: (id, principal, by) => graph.addMember(id, principal, by),
         catalog: (filter) => catalog.list(filter),
@@ -274,7 +278,10 @@ const engineLayerWith = (registry: Layer.Layer<PackRegistry>) =>
           }),
         forkInvestigation: (from, name, by) =>
           graph.forkInvestigation(from, name, by),
-        ingest: (input) => evidenceStore.put(input),
+        // A manual submission carries two different facts: `Manual.by` is the
+        // self-asserted claim about who retrieved it, and this is who the
+        // deployment authenticated as submitting it.
+        ingest: (input, by) => evidenceStore.put({ ...input, acquiredBy: by }),
         insert: (step) => graph.insert(step),
         investigations: (by) => graph.investigations(by),
         loadViewState: (key, version) => viewState.load(key, version),

@@ -157,9 +157,10 @@ Affects `packages/schema` (a principal, membership), `packages/engine` (the chec
   member leaves is a case nobody can open.
 - **Whether a principal may see that an investigation exists without being a member.** Listing names
   is itself disclosure; hiding them makes "share this case with me" hard to ask for.
-- **What signs an export** (TDR-010/021 follow-on) — the principal that exported, or the principal
-  that acquired each artifact. Custody argues for the latter, which needs the acquiring principal on
-  the evidence record.
+- ~~**What signs an export**~~ — half answered by `acquisition-custody` (2026-08-23): the acquiring
+  principal is now *on* the evidence record and travels in the bundle manifest, so custody has
+  something to attest about. What remains is the signing itself — an unsigned `acquiredBy` is an
+  assertion by the exporting deployment, not proof, and the manifest says so.
 - Whether the audit log is a separate capability or a projection of the step log with principals
   attached.
 - Credential expiry and revocation, which the environment backend cannot express at all.

@@ -215,7 +215,8 @@ export const operations: readonly AgentOperation[] = [
           contentType: String(args.contentType),
           observedAt: acquiredAt,
         });
-        const stored = yield* engine((e) => e.ingest(input));
+        const me = yield* CurrentPrincipal;
+        const stored = yield* engine((e) => e.ingest(input, me.id));
         // Echoing the bytes back is waste — the caller just sent them, and a
         // JSON-encoded Uint8Array is an index-keyed object besides. The id is
         // the content hash, which is what a caller needs to attribute a step.
@@ -250,14 +251,13 @@ export const operations: readonly AgentOperation[] = [
           return null;
         }
         const record = found.value;
-        const summary = {
-          acquiredAt: record.acquiredAt,
-          acquisitionPath: record.acquisitionPath,
-          byteLength: record.bytes.byteLength,
-          contentType: record.contentType,
-          id: record.id,
-          observedAt: record.observedAt,
-        };
+        // Everything the record holds except the bytes, which travel
+        // separately. Deliberately not an enumerated list of fields: three
+        // places in this codebase enumerated evidence fields by hand, and all
+        // three silently dropped every field added afterwards — `status` from
+        // the access probe, then `acquiredBy`.
+        const { bytes, ...rest } = record;
+        const summary = { ...rest, byteLength: bytes.byteLength };
         if (args.includeContent !== true) {
           return summary;
         }
@@ -268,7 +268,7 @@ export const operations: readonly AgentOperation[] = [
           catch: (cause) =>
             cause instanceof Error ? cause : new Error(String(cause)),
           try: () =>
-            Schema.encodeUnknownSync(Schema.Uint8ArrayFromBase64)(record.bytes),
+            Schema.encodeUnknownSync(Schema.Uint8ArrayFromBase64)(bytes),
         });
         return { ...summary, content };
       }),

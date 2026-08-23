@@ -1,4 +1,5 @@
 import { Effect, Schema } from "effect";
+import { PrincipalId } from "./principal.js";
 
 /** A transport selector — how a source reaches the outside world. */
 export const Transport = Schema.Literals(["http", "dataset", "browser"]);
@@ -203,6 +204,20 @@ export type AcquisitionPath = typeof AcquisitionPath.Type;
 
 const evidenceFields = {
   acquiredAt: Schema.Date,
+  /**
+   * The principal that acquired this artifact (TDR-023).
+   *
+   * Custody, not authorship: an export attests that bytes are intact since
+   * export, and this is what lets it also say who obtained them. Absent on
+   * artifacts written before principals existed — evidence is write-once (I1),
+   * so a gap in the record stays a gap rather than being backfilled with a
+   * guess.
+   *
+   * Distinct from `Manual.by`, which is a *self-asserted* claim about who
+   * retrieved something by hand. This is who the deployment authenticated. A
+   * manual submission has both, and they are different facts.
+   */
+  acquiredBy: Schema.optionalKey(PrincipalId),
   acquisitionPath: AcquisitionPath,
   bytes: Schema.Uint8Array,
   contentType: Schema.String,

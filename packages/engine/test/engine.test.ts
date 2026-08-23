@@ -8,6 +8,7 @@ import {
   entityId,
   evidenceId,
   Live,
+  LOCAL_PRINCIPAL,
   NonEmptyEvidenceIds,
   SourceSpec,
   SourceTransportService,
@@ -24,6 +25,8 @@ import { makeViewStateLayer } from "../src/view-state.js";
 /** A throwaway view-state root per run: the store is a deployment input. */
 const tempViewState = () =>
   makeViewStateLayer(mkdtempSync(join(tmpdir(), "viokit-vs-")));
+
+const ME = LOCAL_PRINCIPAL.id;
 
 const sourceSpec = SourceSpec.make({
   id: "s1",
@@ -71,7 +74,7 @@ describe("acquire stores evidence with a live acquisition path (I9)", () => {
     it.effect("", () =>
       Effect.gen(function* () {
         const engine = yield* Engine;
-        const evidence = yield* engine.acquire(sourceSpec);
+        const evidence = yield* engine.acquire(sourceSpec, ME);
         assert.deepEqual(Array.from(evidence.bytes), [1, 2, 3]);
         assert.strictEqual(evidence.acquisitionPath._tag, "live");
       })
@@ -84,14 +87,19 @@ describe("ingest accepts external evidence", () => {
     it.effect("", () =>
       Effect.gen(function* () {
         const engine = yield* Engine;
-        const evidence = yield* engine.ingest({
-          acquiredAt: new Date("2024-01-01T00:00:00.000Z"),
-          acquisitionPath: Live.make({}),
-          bytes: new Uint8Array([7, 8]),
-          contentType: "application/octet-stream",
-          observedAt: new Date("2024-01-01T00:00:00.000Z"),
-        });
+        const evidence = yield* engine.ingest(
+          {
+            acquiredAt: new Date("2024-01-01T00:00:00.000Z"),
+            acquisitionPath: Live.make({}),
+            bytes: new Uint8Array([7, 8]),
+            contentType: "application/octet-stream",
+            observedAt: new Date("2024-01-01T00:00:00.000Z"),
+          },
+          LOCAL_PRINCIPAL.id
+        );
         assert.strictEqual(evidence.contentType, "application/octet-stream");
+        // Custody: who the deployment authenticated as submitting it.
+        assert.strictEqual(evidence.acquiredBy, LOCAL_PRINCIPAL.id);
       })
     );
   });

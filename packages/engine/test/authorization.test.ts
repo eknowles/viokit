@@ -6,11 +6,18 @@ import {
   DuckDBConfig,
   type GraphStore,
   LOCAL_PRINCIPAL,
+  Manual,
   principalId,
+  SourceSpec,
+  SourceTransportService,
 } from "@viokit/schema";
 import { Effect, Layer } from "effect";
+import { Engine, makeEngineLayer } from "../src/engine.js";
+import { EvidenceBackendMemory } from "../src/evidence-fs.js";
 import { GraphLayer, GraphService } from "../src/graph.js";
 import { DuckDBGraphLayer, DuckDBGraphService } from "../src/graph-duckdb.js";
+import { OntologyRegistryLayer } from "../src/ontology.js";
+import { makeViewStateLayer } from "../src/view-state.js";
 
 /**
  * Authorization is membership of an investigation (TDR-023).
@@ -22,6 +29,28 @@ import { DuckDBGraphLayer, DuckDBGraphService } from "../src/graph-duckdb.js";
 
 const me = LOCAL_PRINCIPAL.id;
 const other = principalId("other");
+
+const probe = SourceSpec.make({
+  id: "probe",
+  transport: "http",
+  url: "https://probe.test/endpoint",
+});
+
+const deployment = Layer.provide(
+  makeEngineLayer([]),
+  Layer.mergeAll(
+    Layer.succeed(SourceTransportService, {
+      fetch: () =>
+        Effect.succeed({
+          bytes: new TextEncoder().encode("acquired"),
+          contentType: "text/plain",
+        }),
+    }),
+    EvidenceBackendMemory,
+    OntologyRegistryLayer,
+    makeViewStateLayer(mkdtempSync(join(tmpdir(), "viokit-auth-vs-")))
+  )
+);
 
 const runBoth = (
   name: string,
@@ -199,5 +228,52 @@ describe("an investigation read back from disk", () => {
     );
     assert.include([...(reopened[0]?.members ?? [])], other);
     assert.strictEqual(reopened[0]?.owner, me);
+  });
+});
+
+/**
+ * Custody (TDR-023's open question, half-answered).
+ *
+ * An export could already say the bytes are intact since it was written. What
+ * it could not say is who obtained them, which is most of what custody means.
+ */
+describe("evidence records who acquired it", () => {
+  layer(deployment)((it) => {
+    it.effect("an acquisition carries the principal that made it", () =>
+      Effect.gen(function* () {
+        const engine = yield* Engine;
+        const evidence = yield* engine.acquire(probe, other);
+        assert.strictEqual(evidence.acquiredBy, other);
+      })
+    );
+
+    /**
+     * A manual submission carries two different facts, and conflating them
+     * would lose the distinction that makes either worth having: `Manual.by` is
+     * a self-asserted claim about who retrieved something by hand, and
+     * `acquiredBy` is who the deployment authenticated.
+     */
+    it.effect("a manual submission keeps both who and who-says", () =>
+      Effect.gen(function* () {
+        const engine = yield* Engine;
+        const evidence = yield* engine.ingest(
+          {
+            acquiredAt: new Date("2024-06-01T00:00:00.000Z"),
+            acquisitionPath: Manual.make({ by: "a colleague, by hand" }),
+            bytes: new TextEncoder().encode("retrieved by hand"),
+            contentType: "text/plain",
+            observedAt: new Date("2024-06-01T00:00:00.000Z"),
+          },
+          me
+        );
+        assert.strictEqual(evidence.acquiredBy, me);
+        assert.strictEqual(
+          evidence.acquisitionPath._tag === "manual"
+            ? evidence.acquisitionPath.by
+            : null,
+          "a colleague, by hand"
+        );
+      })
+    );
   });
 });
