@@ -1,4 +1,5 @@
 import { Schema } from "effect";
+import { AccessObservation } from "./access.js";
 import { SourceAccess } from "./schemas.js";
 
 /**
@@ -44,7 +45,13 @@ export const SourceCandidateInput = Schema.Struct({
   discoveredAt: Schema.optionalKey(Schema.Date),
   discoveredBy: Schema.optionalKey(Schema.String),
   domain: Schema.String,
-  origin: Schema.optionalKey(Schema.String),
+  /**
+   * Where this candidate came from — the page, list, or document that says the
+   * source exists. Required, because the first 47 candidates arrived with it
+   * empty and there was afterwards no way to tell a checked source from an
+   * asserted one. A lead nobody can trace back is not a lead.
+   */
+  origin: Schema.String,
   transport: Schema.optionalKey(SourceTransportKind),
   url: Schema.String,
 });
@@ -71,6 +78,12 @@ export class SourceCandidate extends Schema.Class<SourceCandidate>(
   status: SourceCandidateStatus,
   transport: Schema.optionalKey(SourceTransportKind),
   url: Schema.String,
+  /**
+   * What a probe observed about this source, where one has run. Absent means
+   * the candidate's `access` is an assertion nobody has checked — which is what
+   * every candidate imported before this existed is.
+   */
+  verification: Schema.optionalKey(AccessObservation),
 }) {}
 
 export class ClaimConflict extends Schema.TaggedErrorClass<ClaimConflict>()(

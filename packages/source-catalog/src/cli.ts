@@ -10,11 +10,14 @@ Usage:
   cli seed                                Seed the work queue (category × archetype grid)
   cli claim --agent <id>                  Claim the next work unit for an agent
   cli list [--category <c>] [--archetype <a>] [--status <s>]
-  cli submit --category <c> --domain <d> --url <u> --archetype <a1>[,<a2>...]
-        [--access <a>] [--transport <t>] [--description <d>] [--origin <o>] [--discoveredBy <who>]
+  cli submit --category <c> --domain <d> --url <u> --origin <o> --archetype <a1>[,<a2>...]
+        [--access <a>] [--transport <t>] [--description <d>] [--discoveredBy <who>]
   cli enrich --id <id> [--access <a>] [--transport <t>] [--description <d>]
         [--origin <o>] [--archetype <a>] [--note <n>]
-  cli promote --id <id> --spec <json>     Promote a candidate into a pack SourceSpec
+  cli promote --id <id> --spec <json> --verification <json>
+        Promote a candidate into a pack SourceSpec. The verification is an
+        AccessObservation from the engine's verify_access: a classification
+        nobody checked cannot be promoted.
 `;
 
 const csv = (value: string | undefined): string[] | undefined =>
@@ -45,6 +48,7 @@ const main = Effect.gen(function* () {
       status: { type: "string" },
       transport: { type: "string" },
       url: { type: "string" },
+      verification: { type: "string" },
     },
   });
 
@@ -108,7 +112,12 @@ const main = Effect.gen(function* () {
     case "promote": {
       const id = requireString(values.id, "--id");
       const spec = JSON.parse(requireString(values.spec, "--spec"));
-      return yield* svc.promoteSource(id, spec);
+      // A classification nobody checked cannot be promoted; `verify_access` on
+      // the engine's front-end is what produces this.
+      const verification = JSON.parse(
+        requireString(values.verification, "--verification")
+      );
+      return yield* svc.promoteSource(id, spec, verification);
     }
     default:
       return yield* Effect.fail(

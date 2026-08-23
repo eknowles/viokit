@@ -12,17 +12,35 @@ import {
 } from "../src/index.js";
 
 describe("SourceCandidate identity (R3, I6)", () => {
-  it("decodes a thin submission with only identity required", () => {
+  it("decodes a thin submission: identity, where it came from, nothing else", () => {
     const input = Schema.decodeUnknownSync(SourceCandidateInput)({
       archetypes: ["lookup", "extract"],
       category: "web-dns",
       domain: "shodan",
+      origin: "https://awesome-osint.test/list#shodan",
       url: "https://www.shodan.io/",
     });
     assert.strictEqual(input.domain, "shodan");
     assert.strictEqual(input.category, "web-dns");
+    // Classification stays optional — an agent submits fast and enriches later.
     assert.strictEqual(input.access, undefined);
     assert.strictEqual(input.transport, undefined);
+  });
+
+  /**
+   * The first 47 candidates arrived with `origin` empty, and afterwards there
+   * was no way to tell a checked source from an asserted one. A lead nobody can
+   * trace back is not a lead.
+   */
+  it("rejects a submission that cannot be traced back", () => {
+    assert.throws(() =>
+      Schema.decodeUnknownSync(SourceCandidateInput)({
+        archetypes: ["lookup"],
+        category: "web-dns",
+        domain: "shodan",
+        url: "https://www.shodan.io/",
+      })
+    );
   });
 
   it("rejects a submission missing identity (I6)", () => {

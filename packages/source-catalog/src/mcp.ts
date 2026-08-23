@@ -124,14 +124,19 @@ export const makeSourceCatalogServer = (
     "promote_source",
     {
       description:
-        "Promote a candidate into a pack SourceSpec (writes packs/<category>/sources.ts, marks promoted).",
+        "Promote a candidate into a pack SourceSpec (writes packs/<category>/sources.ts, marks promoted). Requires a verification: an AccessObservation from the engine's verify_access, since a classification nobody checked cannot be promoted.",
       inputSchema: {
         id: z.string(),
         spec: z.record(z.string(), z.unknown()),
+        verification: z.record(z.string(), z.unknown()),
       },
     },
     (args) =>
-      runTool(serviceEffect((svc) => svc.promoteSource(args.id, args.spec)))
+      runTool(
+        serviceEffect((svc) =>
+          svc.promoteSource(args.id, args.spec, args.verification)
+        )
+      )
   );
 
   return server;

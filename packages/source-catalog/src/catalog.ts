@@ -1,5 +1,6 @@
 import type { CandidateNotFound, SourceCandidate } from "@viokit/schema";
 import {
+  AccessObservation,
   AlreadyPromoted,
   SourceCandidateId,
   SourceCandidateInput,
@@ -12,6 +13,7 @@ import {
   CandidatePatchSchema,
   CandidateStoreService,
   PromoterService,
+  Unverified,
   ValidationError,
   WorkQueueService,
 } from "./seams.js";
@@ -38,12 +40,14 @@ export interface SourceCatalog {
   ) => Effect.Effect<readonly SourceCandidate[], ValidationError | SqlError>;
   readonly promoteSource: (
     id: unknown,
-    spec: unknown
+    spec: unknown,
+    observation: unknown
   ) => Effect.Effect<
     SourceCandidate,
     | CandidateNotFound
     | AlreadyPromoted
     | ValidationError
+    | Unverified
     | PromotionError
     | SqlError
   >;
@@ -76,6 +80,37 @@ const decodeInput = (input: unknown) => decode(SourceCandidateInput, input);
 const decodePatch = (patch: unknown) => decode(CandidatePatchSchema, patch);
 const decodeFilter = (filter: unknown) => decode(CandidateFilterSchema, filter);
 const decodeId = (id: unknown) => decode(SourceCandidateId, id);
+const decodeObservation = (value: unknown) => decode(AccessObservation, value);
+
+/**
+ * A promotion has to carry a classification somebody checked. The catalog can
+ * see that the observation concluded something and names the artifacts it was
+ * derived from; it cannot read those artifacts, which live in the evidence
+ * store on the other side of a deliberate package boundary. So this verifies
+ * the claim's shape and content, and the evidence ids are what let anyone with
+ * the store check the rest.
+ */
+const requireVerified = (
+  candidateId: string,
+  observation: AccessObservation
+): Effect.Effect<void, Unverified> => {
+  if (observation.sourceId !== candidateId) {
+    return new Unverified({
+      message: `verification is for '${observation.sourceId}', not '${candidateId}'`,
+    });
+  }
+  if (observation.observed === "unknown") {
+    return new Unverified({
+      message: `'${candidateId}' was probed but nothing could be concluded: ${observation.reason}`,
+    });
+  }
+  if (observation.evidence.length === 0) {
+    return new Unverified({
+      message: `verification of '${candidateId}' names no evidence, so it cannot be checked`,
+    });
+  }
+  return Effect.void;
+};
 
 export class SourceCatalogService extends Context.Service<
   SourceCatalogService,
@@ -102,7 +137,7 @@ export const SourceCatalogLayer = Layer.effect(
         decodeFilter(filter).pipe(
           Effect.flatMap((parsed) => store.list(parsed))
         ),
-      promoteSource: (id, spec) =>
+      promoteSource: (id, spec, observation) =>
         decodeId(id).pipe(
           Effect.flatMap((parsedId) =>
             Effect.gen(function* () {
@@ -116,6 +151,8 @@ export const SourceCatalogLayer = Layer.effect(
                   })
                 );
               }
+              const verified = yield* decodeObservation(observation);
+              yield* requireVerified(candidate.domain, verified);
               // Carry the candidate's classification into the promoted spec
               // unless the author set one. Losing it here is what left the
               // catalog unable to say which sources a deployment can run.
@@ -128,12 +165,19 @@ export const SourceCatalogLayer = Layer.effect(
                       ...(spec as Record<string, unknown>),
                     }
                   : spec;
+              // The spec carries the artifacts its classification came from, so
+              // a shipped pack file says which of its sources were checked.
+              const evidenced = {
+                ...(withAccess as Record<string, unknown>),
+                access: verified.observed,
+                accessEvidence: verified.evidence,
+              };
               yield* promoter.writeSource(
                 candidate.category,
                 candidate.domain,
-                withAccess
+                evidenced
               );
-              return yield* store.markPromoted(parsedId, withAccess);
+              return yield* store.markPromoted(parsedId, evidenced);
             })
           )
         ),

@@ -70,8 +70,28 @@ const validSubmit = (overrides: Record<string, unknown> = {}) => ({
   archetypes: ["router"],
   category: "network",
   domain: "mcp.test",
+  // Required: a lead nobody can trace back is not a lead.
+  origin: "https://awesome-osint.test/list#mcp",
   transport: "dataset",
   url: "https://mcp.test",
+  ...overrides,
+});
+
+/** A classification somebody checked, as promotion now requires. */
+const verification = (overrides: Record<string, unknown> = {}) => ({
+  agrees: true,
+  declared: "open_api",
+  evidence: ["b".repeat(64)],
+  observed: "open_api",
+  reason: "the endpoint served application/json that parsed",
+  signals: {
+    browserAvailable: false,
+    contentType: "application/json",
+    machineReadable: true,
+    status: 200,
+    url: "https://mcp.test/api",
+  },
+  sourceId: "mcp.test",
   ...overrides,
 });
 
@@ -104,11 +124,13 @@ describe("MCP tool round-trips (R5)", () => {
   it("enrich_candidate fills unset classification fields", async () => {
     const fixture = await makeFixture();
     try {
+      // Deliberately without `transport`: enrich is what fills it.
       const submitText = await callText(fixture, "submit_candidate", {
         access: "open_api",
         archetypes: ["router"],
         category: "network",
         domain: "mcp.test",
+        origin: "https://awesome-osint.test/list#mcp",
         url: "https://mcp.test",
       });
       const submitted = JSON.parse(submitText) as { id: string };
@@ -173,6 +195,7 @@ describe("MCP tool round-trips (R5)", () => {
           name: "mcp",
           url: "https://mcp.test",
         },
+        verification: verification(),
       });
       const promoted = JSON.parse(promoteText) as {
         id: string;

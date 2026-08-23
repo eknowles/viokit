@@ -118,15 +118,43 @@ store, and the shared-schema contract. Nothing domain-specific.
 
 ### Track A — Coverage (recommended first)
 
-The mechanisms for hard-to-reach sources exist and the catalog never caught up: 47 curated
-candidates, skewed toward things that look like APIs, classified by agents from homepages. A
-defensible tool over a thin catalog is not yet an OSINT tool.
+The mechanisms for hard-to-reach sources exist and the catalog never caught up. **What the catalog
+actually is, established 2026-08-23 from the database rather than from memory:** all 47 candidates are
+one bulk import of an awesome-list (`discovered_by = mine:awesome-osint`), `origin` is `NULL` for
+every one of them, `notes` is empty for every one, and the 140-unit work queue has been claimed once.
+The discovery harness never ran. The descriptions and the `access`/`transport` values were written by
+the importing pass; nothing was fetched and nothing was checked.
+
+So the catalog was the one place in this system where an unattributed assertion could enter, and 37 of
+them reached shipped pack files where they read as facts. `catalog-evidence-gate` (2026-08-23) closed
+it: submission requires an origin, promotion requires a verified classification carrying its evidence,
+and every one of the 38 registered sources now reports `accessVerified: false` — which is accurate. A
+defensible tool over a catalog of guesses is not yet an OSINT tool.
 
 | Change | Gate | Why now |
 |---|---|---|
-| `discovery-coverage` | — | Re-run discovery with the browser, credential, and manual paths in mind, rather than the API-shaped bias of the first sweep. The work queue *is* the coverage plan; it has barely been worked. |
-| `access-reclassification` | — | Existing `access` values are agent guesses from landing pages. Runnability, egress, and now the catalog's whole promise depend on them being right. |
-| `browser-process-per-route` | **TDR-022** (new) | Proxied browser acquisition is currently refused, because proxy binding is a launch switch and processes are reused. Deciding how to guarantee a process per route re-opens the largest blocked category. |
+| `discovery-coverage` | — | Run discovery *at all* — it never has. The 140-unit work queue has been claimed once, and the 47 candidates came from one awesome-list import rather than from the browser-, credential-, and manual-aware sweep the queue was designed for. Submissions now require an origin, so what comes out of this will be traceable in a way the first import was not. |
+| `spec-endpoints` | — | **The real remaining work, and now the only route to a verified catalog: promotion requires a classification that concluded something, and a front door always yields `unknown`.** 31 of 38 specs point at a bare host and the other 7 at landing pages: not one addresses an endpoint. Promotion recorded each candidate's homepage and the PACK_RECIPE step of giving a source a real url was never done, so a transform over any of them would acquire a homepage. `catalog_list` now reports `frontDoor` per source, so the work is enumerable. Research per source; nothing else in Track A can conclude without it. |
+| `access-reclassification` | blocked on `spec-endpoints` | The mechanism exists — `verify_access` acquires a source through the runtime and reports what it serves, with evidence. The sweep ran on 2026-08-23 and could conclude for almost nothing, because a front door serves a page whatever the source offers. No `access` value was changed: the probe reports and does not apply, which is what stopped a bulk edit that would have marked most of the catalog browser-only. |
+| ~~`browser-process-per-route`~~ | TDR-022 | **Done (2026-08-23).** Proxied browser acquisition was refused because proxy binding is a launch switch and processes are reused. Viokit now owns one Chrome per (identity, route) and attaches by DevTools URL; the refusal is lifted and the largest blocked category is open again. |
+
+Track A's remaining work is catalog work rather than engine work — but not the work it looked like.
+The mechanisms are all in place; what is missing is not checked classifications but **specs that
+address an endpoint at all**.
+
+Two things found while building the mechanisms, both worth knowing before that sweep:
+
+- The HTTP transport had been recording every artifact as `application/octet-stream` and discarding
+  response status entirely, so no evidence in the store before 2026-08-23 says what it actually holds,
+  and a credential wall was indistinguishable from a successful fetch.
+- **Not one of the 38 specs addresses an endpoint.** 31 are bare hosts, 7 are landing or app pages, so
+  every source in the catalog serves HTML and nothing about its access can be concluded. Read naively
+  the first sweep said 32 of 36 classifications were wrong; it was measuring homepages. The classifier
+  now refuses to classify a front door, and the catalog reports which specs are ones.
+- **A default deployment could see 9 of the 38 promoted sources.** Eight packs had no manifest and
+  `people-identity` had one nothing registered, so 29 sources existed only as files — invisible to the
+  catalog, unrunnable, and unverifiable. Fixed by `promoted-sources-are-registered` (2026-08-23), with
+  a conformance test so it cannot silently reopen. The verifiable surface is now the whole catalog.
 
 ### Track B — Trust (what turns it into a product)
 
@@ -148,8 +176,9 @@ defensible tool over a thin catalog is not yet an OSINT tool.
 
 ### Standing debts
 
-- The real `PromoterLayer` write path has no test — promotion writes to `process.cwd()/packs`, so
-  covering it needs a directory seam.
+- ~~The real `PromoterLayer` write path has no test~~ — **paid (2026-08-23)** by
+  `promoted-sources-are-registered`: a `PackRoot` seam replaced the `process.cwd()/packs` guess, which
+  was also pointing at the wrong directory, and the write path is covered.
 - Merkle-chunking large artifacts, so a big artifact can be partially verified (TDR-021's open
   question).
 - I7's second half — replay pinning versions — stays meaningless until replay re-runs sources.
