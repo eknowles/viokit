@@ -196,7 +196,17 @@ export const operations: readonly AgentOperation[] = [
           contentType: String(args.contentType),
           observedAt: acquiredAt,
         });
-        return yield* engine((e) => e.ingest(input));
+        const stored = yield* engine((e) => e.ingest(input));
+        // Echoing the bytes back is waste — the caller just sent them, and a
+        // JSON-encoded Uint8Array is an index-keyed object besides. The id is
+        // the content hash, which is what a caller needs to attribute a step.
+        return {
+          acquiredAt: stored.acquiredAt,
+          acquisitionPath: stored.acquisitionPath,
+          contentType: stored.contentType,
+          id: stored.id,
+          observedAt: stored.observedAt,
+        };
       }),
   },
   {

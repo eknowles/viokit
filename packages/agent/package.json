@@ -5,11 +5,13 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./mcp": "./src/mcp.ts",
-    "./cli": "./src/cli.ts"
+    "./cli": "./src/cli.ts",
+    "./http": "./src/http.ts",
+    "./mcp": "./src/mcp.ts"
   },
   "bin": {
     "viokit": "./src/cli.ts",
+    "viokit-http": "./src/http.ts",
     "viokit-mcp": "./src/mcp.ts"
   },
   "scripts": {

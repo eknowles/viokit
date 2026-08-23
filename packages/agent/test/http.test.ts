@@ -1,0 +1,173 @@
+import { describe, expect, it } from "@effect/vitest";
+import {
+  type Engine,
+  EvidenceBackendMemory,
+  makeEngineLayer,
+  OntologyRegistryLayer,
+} from "@viokit/engine";
+import { manifest as webDns } from "@viokit/packs/web-dns/manifest";
+import { SourceTransportService } from "@viokit/schema";
+import { Effect, Layer } from "effect";
+import { makeHandler } from "../src/http.js";
+import { findOperation, operationNames } from "../src/operations.js";
+
+const text = (value: string): Uint8Array => new TextEncoder().encode(value);
+
+const transport = Layer.succeed(SourceTransportService, {
+  fetch: () =>
+    Effect.succeed({
+      bytes: text('[{"name_value":"acme.test"}]'),
+      contentType: "application/json",
+    }),
+});
+
+const deployment = () =>
+  Layer.provide(
+    makeEngineLayer([webDns]),
+    Layer.mergeAll(transport, EvidenceBackendMemory, OntologyRegistryLayer)
+  ) as Layer.Layer<Engine, unknown, never>;
+
+const handler = () => makeHandler(deployment());
+
+const post = (
+  h: (r: Request) => Promise<Response>,
+  name: string,
+  body: unknown = {}
+) =>
+  h(
+    new Request(`http://localhost/operations/${name}`, {
+      body: JSON.stringify(body),
+      headers: { "content-type": "application/json" },
+      method: "POST",
+    })
+  );
+
+const get = (h: (r: Request) => Promise<Response>, path: string) =>
+  h(new Request(`http://localhost${path}`));
+
+describe("HTTP surface", () => {
+  it("describes itself, listing every operation with its arguments", async () => {
+    const res = await get(handler(), "/operations");
+    expect(res.status).toBe(200);
+
+    const listed = (await res.json()) as {
+      args: { name: string; required: boolean }[];
+      name: string;
+    }[];
+    expect(
+      listed.map((o) => o.name).sort((a, b) => a.localeCompare(b))
+    ).toEqual([...operationNames].sort((a, b) => a.localeCompare(b)));
+
+    const run = listed.find((o) => o.name === "run_transform");
+    expect(
+      run?.args.map((a) => a.name).sort((a, b) => a.localeCompare(b))
+    ).toEqual(["input", "transformId"]);
+    expect(run?.args.every((a) => a.required)).toBe(true);
+  });
+
+  it("runs a full loop over HTTP: list, run, commit, query", async () => {
+    const h = handler();
+
+    const listed = await post(h, "catalog_list", { pack: "web-dns" });
+    expect(listed.status).toBe(200);
+    const entries = (await listed.json()) as { id: string }[];
+    expect(entries.some((e) => e.id === "crt-sh-certificate-search")).toBe(
+      true
+    );
+
+    const staged = await post(h, "run_transform", {
+      input: { domain: "acme.test" },
+      transformId: "crt-sh-certificate-search",
+    });
+    const steps = (await staged.json()) as { evidenceIds: string[] }[];
+    expect(steps).toHaveLength(3);
+
+    for (const step of steps) {
+      // Sequential on purpose: each commit is a separate append to the log.
+      // biome-ignore lint/performance/noAwaitInLoops: ordered appends
+      const committed = await post(h, "insert", { step });
+      expect(committed.status).toBe(200);
+    }
+
+    await post(h, "replay");
+    const queried = await post(h, "query_entity", { id: "acme.test" });
+    expect(await queried.text()).toContain("acme.test");
+  });
+
+  it("builds a valid call from a discovered declaration alone", async () => {
+    const h = handler();
+    const listed = (await (await get(h, "/operations")).json()) as {
+      args: { kind: string; name: string; required: boolean }[];
+      name: string;
+    }[];
+    const describeOp = listed.find((o) => o.name === "catalog_describe");
+
+    const payload: Record<string, unknown> = {};
+    for (const arg of describeOp?.args ?? []) {
+      if (arg.required && arg.kind === "string") {
+        payload[arg.name] = "crt-sh-certificate-search";
+      }
+    }
+    const res = await post(h, "catalog_describe", payload);
+    expect(res.status).toBe(200);
+  });
+
+  it("refuses an unknown operation", async () => {
+    const res = await post(handler(), "no_such_operation");
+    expect(res.status).toBe(404);
+  });
+
+  it("refuses an unknown route", async () => {
+    const res = await get(handler(), "/nope");
+    expect(res.status).toBe(404);
+  });
+
+  it("rejects a malformed payload without changing engine state (I6)", async () => {
+    const h = handler();
+
+    const before = await (await post(h, "log")).json();
+    const bad = await post(h, "insert", {
+      step: { operation: { _tag: "AddEntity" } },
+    });
+    expect(bad.status).toBe(400);
+
+    const after = await (await post(h, "log")).json();
+    expect(after).toEqual(before);
+  });
+
+  it("reports an operation failure as a failure, not a success", async () => {
+    const res = await post(handler(), "catalog_describe", { id: "nope" });
+    expect(res.status).toBe(422);
+    const body = (await res.json()) as { tag: string };
+    expect(body.tag).toBe("UnknownCatalogEntry");
+  });
+
+  it("rejects a graph write with no evidence attribution (I2)", async () => {
+    const h = handler();
+    const staged = await post(h, "run_transform", {
+      input: { domain: "acme.test" },
+      transformId: "crt-sh-certificate-search",
+    });
+    const [step] = (await staged.json()) as Record<string, unknown>[];
+
+    const res = await post(h, "insert", { step: { ...step, evidenceIds: [] } });
+    expect(res.status).toBeGreaterThanOrEqual(400);
+  });
+});
+
+describe("three-way parity (I8)", () => {
+  it("MCP, CLI, and HTTP expose the same operations", async () => {
+    const listed = (await (await get(handler(), "/operations")).json()) as {
+      name: string;
+    }[];
+    const http = listed.map((o) => o.name).sort((a, b) => a.localeCompare(b));
+
+    // All three surfaces read one table, so this holds by construction — the
+    // test exists to catch a surface that starts keeping its own list.
+    const table = [...operationNames].sort((a, b) => a.localeCompare(b));
+    expect(http).toEqual(table);
+    for (const name of http) {
+      expect(findOperation(name)).toBeDefined();
+    }
+  });
+});

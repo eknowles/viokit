@@ -24,6 +24,7 @@
 | TDR-014 | Source-catalog front-end — MCP server + CLI | decided 2026-08-05 | stdio MCP (`@modelcontextprotocol/sdk` v1) for agents + thin CLI; both over one `SourceCatalogService` |
 | TDR-015 | Entity resolution / dedup (correlate) | decided | app-level `correlate` transform emitting evidence-attributed `ResolveEntity` steps (I2/I3); identifier **normalization to canonical forms is part of the mechanism** (strict deterministic match); schema rules in packs; fuzzy deferred to P4 veracity; store-rewrite rejected (I3/I11) |
 | TDR-016 | Engine front-end — MCP + CLI over `Engine` | decided 2026-08-23 | stdio MCP (`@modelcontextprotocol/sdk` v1) + thin CLI in `packages/agent`, one program layer; thin zod wire, authoritative Effect Schema decode; JSON Schema via `effect/JsonSchema` at `describe`; network API deferred to TDR-003 |
+| TDR-017 | Local HTTP API — generic adapter vs schema-first `HttpApi` | decided 2026-08-23 | `HttpRouter` over the shared operation table (`POST /operations/:name` + self-describing `GET /operations`); parity stays structural; `HttpApi`/OpenAPI deferred until the operation set settles or a remote consumer appears |
 
 ## Workflow
 1. Create a TDR from the template; fill **Context** and **Options**; mark `proposed`.
