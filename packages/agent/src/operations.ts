@@ -492,6 +492,31 @@ export const operations: readonly AgentOperation[] = [
       ),
   },
   {
+    args: [
+      arg("evidenceId", "string", "the artifact to withhold"),
+      arg("ground", "string", "sensitive | third-party | legal | retention"),
+      arg("reason", "string", "stated plainly — a recipient reads this"),
+    ],
+    description:
+      "Withhold an artifact from the open investigation's exports. Appends a record; the artifact and the step log are untouched (I1, I3). An export names what it withheld rather than dropping it silently.",
+    name: "redact",
+    run: (args) =>
+      asPrincipal((e, me) =>
+        e.redact(
+          evidenceId(String(args.evidenceId)),
+          String(args.ground) as never,
+          String(args.reason),
+          me.id
+        )
+      ),
+  },
+  {
+    args: [],
+    description: "What is being withheld from the open investigation, and why.",
+    name: "redactions",
+    run: () => engine((e) => e.redactions),
+  },
+  {
     args: [],
     description: "Who this deployment believes is acting.",
     name: "whoami",

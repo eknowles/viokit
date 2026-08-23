@@ -7,6 +7,7 @@ import type {
   UnknownInvestigation,
 } from "./investigation.js";
 import type { PrincipalId, Unauthorized } from "./principal.js";
+import type { Redaction, RedactionWriteError } from "./redaction.js";
 import type {
   CatalogEntry,
   CatalogEntryDetail,
@@ -352,6 +353,29 @@ export class CatalogService extends Context.Service<CatalogService, Catalog>()(
  * with `PackRegistrationError` if any manifest carries content that does not
  * decode, so a deployment either has a valid catalog or does not start.
  */
+/**
+ * Redactions: append-only, never a mutation (TDR-024).
+ *
+ * Kept apart from both the evidence store and the step log, because it is
+ * neither: the artifact is untouched (I1) and history is untouched (I3). What a
+ * redaction changes is what leaves the machine.
+ */
+export interface RedactionStore {
+  /** Every redaction in force for an investigation. */
+  readonly forInvestigation: (
+    investigation: InvestigationId
+  ) => Effect.Effect<readonly Redaction[], RedactionWriteError>;
+  /** Withhold an artifact from a case. Appending, so redacting twice is not an error. */
+  readonly redact: (
+    redaction: Redaction
+  ) => Effect.Effect<Redaction, RedactionWriteError>;
+}
+
+export class RedactionStoreService extends Context.Service<
+  RedactionStoreService,
+  RedactionStore
+>()("RedactionStoreService") {}
+
 export class PackRegistry extends Context.Service<
   PackRegistry,
   readonly PackManifest[]

@@ -54,6 +54,90 @@ const investigate = Effect.gen(function* () {
   return { bundle: yield* engine.exportBundle(path), engine, path };
 });
 
+describe("a bundle declares what it withholds (TDR-024)", () => {
+  layer(deployment)((it) => {
+    /**
+     * The property the whole decision turns on: an export that silently
+     * contains less than the case does is a misleading document, and this
+     * format exists to be trusted.
+     */
+    it.effect("names the withheld artifact and why, and omits its bytes", () =>
+      Effect.gen(function* () {
+        const { bundle, engine, path } = yield* investigate;
+        const [artifact] = bundle.manifest.evidence;
+        assert.isDefined(artifact);
+
+        yield* engine.redact(
+          artifact?.evidenceId as never,
+          "third-party",
+          "names an uninvolved bystander",
+          ME
+        );
+
+        const after = yield* engine.exportBundle(out());
+        assert.deepStrictEqual(
+          after.manifest.evidence.map((one) => one.evidenceId),
+          []
+        );
+        const [withheld] = after.manifest.withheld;
+        assert.strictEqual(withheld?.evidenceId, artifact?.evidenceId);
+        assert.strictEqual(withheld?.ground, "third-party");
+        assert.include(withheld?.reason ?? "", "bystander");
+        assert.strictEqual(withheld?.redactedBy, ME);
+        // The earlier bundle is untouched: redacting appends, it does not
+        // rewrite what was already handed over.
+        assert.isAbove(bundle.manifest.evidence.length, 0);
+        assert.isDefined(path);
+      })
+    );
+
+    it.effect("keeps the steps that cite it — history is untouched (I3)", () =>
+      Effect.gen(function* () {
+        const { engine } = yield* investigate;
+        // From the log, not the bundle: a redaction from an earlier test in
+        // this layer already withheld what the bundle would have listed, which
+        // is the mechanism working.
+        const log = yield* engine.log;
+        const [cited] = log.flatMap((step) => [...step.evidenceIds]);
+        yield* engine.redact(
+          cited as never,
+          "legal",
+          "excluded by the court",
+          ME
+        );
+        const after = yield* engine.exportBundle(out());
+        // The claim still says what it rests on; what changed is that the bytes
+        // do not travel.
+        assert.isAbove(after.manifest.steps.length, 0);
+      })
+    );
+
+    it.effect("withholding is recorded, so it can be reviewed", () =>
+      Effect.gen(function* () {
+        const { engine } = yield* investigate;
+        const log = yield* engine.log;
+        const [cited] = log.flatMap((step) => [...step.evidenceIds]);
+        yield* engine.redact(
+          cited as never,
+          "sensitive",
+          "identifies a source",
+          ME
+        );
+
+        const recorded = yield* engine.redactions;
+        // Append-only: earlier redactions in this deployment are still here,
+        // which is the point — a withholding is a fact, not a setting.
+        assert.isAbove(recorded.length, 0);
+        assert.isTrue(recorded.every((one) => one.redactedBy === ME));
+        assert.include(
+          recorded.map((one) => one.ground),
+          "sensitive"
+        );
+      })
+    );
+  });
+});
+
 describe("an export is one investigation (TDR-025)", () => {
   layer(deployment)((it) => {
     /**

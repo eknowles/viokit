@@ -12,6 +12,7 @@ export * from "./graph-duckdb.js";
 export * from "./hash.js";
 export * from "./ontology.js";
 export * from "./principals.js";
+export * from "./redactions.js";
 export * from "./secrets.js";
 export * from "./source-runtime.js";
 export * from "./transform.js";

@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import type {
   AccessObservation,
   BBox,
@@ -22,6 +23,9 @@ import type {
   PrincipalId,
   ProvenanceError,
   RateLimited,
+  Redaction,
+  RedactionGround,
+  RedactionWriteError,
   RelatedEntity,
   RetryExhausted,
   SharedArtifact,
@@ -45,6 +49,9 @@ import {
   defaultTransportCapabilities,
   emptyPackRegistry,
   PackRegistry,
+  Redaction as RedactionClass,
+  RedactionStoreService,
+  redactionId,
   SourceRuntimeService,
   TransformRunnerService,
   TransportCapabilities,
@@ -63,6 +70,7 @@ import type { Bundle } from "./export.js";
 import { writeBundle } from "./export.js";
 import { DuckDBGraphLayer, DuckDBGraphService } from "./graph-duckdb.js";
 import { RateLimiterLayer } from "./rate-limit.js";
+import { RedactionStoreLayer, withheldIn } from "./redactions.js";
 import { SecretProviderEnvLayer } from "./secrets.js";
 import { SourceRuntimeLayer } from "./source-runtime.js";
 import { TransformRunnerLayer } from "./transform.js";
@@ -142,6 +150,22 @@ export class Engine extends Context.Service<
     /** Which artifacts more than one investigation cites — the only operation
      * that looks across cases, named so it cannot be reached by accident. */
     readonly sharedEvidence: Effect.Effect<readonly SharedArtifact[]>;
+    /**
+     * Withhold an artifact from the open investigation (TDR-024). Appends a
+     * record; the artifact and the step log are untouched (I1, I3). What
+     * changes is what leaves the machine.
+     */
+    readonly redact: (
+      evidence: EvidenceId,
+      ground: RedactionGround,
+      reason: string,
+      by: PrincipalId
+    ) => Effect.Effect<Redaction, RedactionWriteError>;
+    /** What is being withheld from the open investigation, and why. */
+    readonly redactions: Effect.Effect<
+      readonly Redaction[],
+      RedactionWriteError
+    >;
     readonly insert: (step: Step) => Effect.Effect<Step, ProvenanceError>;
     readonly log: Effect.Effect<readonly Step[]>;
     readonly queryEntity: (id: string) => Effect.Effect<Option.Option<Entity>>;
@@ -241,6 +265,7 @@ const engineLayerWith = (registry: Layer.Layer<PackRegistry>) =>
       const correlate = yield* CorrelateResolverService;
       const catalog = yield* CatalogService;
       const viewState = yield* ViewStateStoreService;
+      const redactions = yield* RedactionStoreService;
       const capabilities = Option.getOrElse(
         yield* Effect.serviceOption(TransportCapabilities),
         () => defaultTransportCapabilities
@@ -268,12 +293,17 @@ const engineLayerWith = (registry: Layer.Layer<PackRegistry>) =>
           Effect.gen(function* () {
             const steps = yield* graph.log;
             const state = yield* graph.replay;
+            const open = yield* graph.current;
+            const withheld = yield* withheldIn(redactions, open.id).pipe(
+              Effect.orDie
+            );
             return yield* writeBundle({
               at: new Date(),
               evidence: (id) => evidenceStore.get(id),
               graph: state,
               path,
               steps,
+              withheld,
             });
           }),
         forkInvestigation: (from, name, by) =>
@@ -289,6 +319,25 @@ const engineLayerWith = (registry: Layer.Layer<PackRegistry>) =>
         openInvestigation: (id, by) => graph.openInvestigation(id, by),
         paths: (from, to, maxDepth) => graph.paths(from, to, maxDepth),
         queryEntity: (id) => graph.queryEntity(id),
+        redact: (evidence, ground, reason, by) =>
+          Effect.gen(function* () {
+            const open = yield* graph.current;
+            return yield* redactions.redact(
+              RedactionClass.make({
+                evidenceId: evidence,
+                ground,
+                id: redactionId(randomUUID()),
+                investigation: open.id,
+                reason,
+                redactedAt: new Date(),
+                redactedBy: by,
+              })
+            );
+          }),
+        redactions: Effect.gen(function* () {
+          const open = yield* graph.current;
+          return yield* redactions.forInvestigation(open.id);
+        }),
         relatedness: (seed, maxDepth) => graph.relatedness(seed, maxDepth),
         replay: graph.replay,
         runCatalogTransform: (transformId, input) =>
@@ -321,6 +370,7 @@ const engineLayerWith = (registry: Layer.Layer<PackRegistry>) =>
     Layer.provide(EgressLayer),
     Layer.provide(RateLimiterLayer),
     Layer.provide(SecretProviderEnvLayer),
+    Layer.provide(RedactionStoreLayer),
     Layer.provide(EvidenceLayer)
   );
 

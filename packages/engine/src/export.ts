@@ -1,7 +1,13 @@
 import { createHash } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import type { Evidence, EvidenceId, GraphState, Step } from "@viokit/schema";
+import type {
+  Evidence,
+  EvidenceId,
+  GraphState,
+  Redaction,
+  Step,
+} from "@viokit/schema";
 import { EvidenceReadError } from "@viokit/schema";
 import { Effect, Option, Schema } from "effect";
 
@@ -43,6 +49,15 @@ export interface ExportedEvidence {
   readonly sha256: string;
 }
 
+/** An artifact deliberately kept out of the bundle (TDR-024). */
+export interface WithheldEvidence {
+  readonly evidenceId: string;
+  readonly ground: string;
+  readonly reason: string;
+  readonly redactedAt: string;
+  readonly redactedBy: string;
+}
+
 export interface BundleManifest {
   readonly evidence: readonly ExportedEvidence[];
   readonly exportedAt: string;
@@ -51,6 +66,14 @@ export interface BundleManifest {
   /** Artifacts a step references that the store could not produce. */
   readonly missingEvidence: readonly string[];
   readonly steps: readonly unknown[];
+  /**
+   * What this bundle is deliberately not carrying, and why.
+   *
+   * Named rather than silently omitted: a bundle that contains less than the
+   * case does, without saying so, is a misleading document — and this format
+   * exists to be trusted (TDR-024).
+   */
+  readonly withheld: readonly WithheldEvidence[];
 }
 
 export interface Bundle {
@@ -76,6 +99,8 @@ export interface ExportInput {
   readonly graph: GraphState;
   readonly path: string;
   readonly steps: readonly Step[];
+  /** Artifacts withheld from this case, by evidence id (TDR-024). */
+  readonly withheld?: ReadonlyMap<string, Redaction>;
 }
 
 /**
@@ -94,9 +119,24 @@ export const writeBundle = (
 
     const exported: ExportedEvidence[] = [];
     const missing: string[] = [];
+    const withheld: WithheldEvidence[] = [];
     const artifacts = new Map<string, Uint8Array>();
 
     for (const id of referenced) {
+      const redaction = input.withheld?.get(id);
+      if (redaction !== undefined) {
+        // Declared, never dropped. A recipient can see that something was kept
+        // back and ask about it; that is the difference between a redacted
+        // document and an incomplete one.
+        withheld.push({
+          evidenceId: id,
+          ground: redaction.ground,
+          reason: redaction.reason,
+          redactedAt: redaction.redactedAt.toISOString(),
+          redactedBy: redaction.redactedBy,
+        });
+        continue;
+      }
       const found = yield* input.evidence(id as EvidenceId);
       if (Option.isNone(found)) {
         // Recorded, not skipped: a bundle that silently drops an artifact looks
@@ -133,6 +173,7 @@ export const writeBundle = (
       steps: input.steps.map((step) =>
         JSON.parse(JSON.stringify(Schema.encodeUnknownSync(Schema.Any)(step)))
       ),
+      withheld,
     };
 
     yield* Effect.tryPromise({
