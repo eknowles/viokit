@@ -316,3 +316,93 @@ describe("following a step to its evidence (I2)", () => {
     expect(await (await post(h, "log")).json()).toEqual(before);
   });
 });
+
+/**
+ * The console runs on a different port from the API, so every browser call is
+ * cross-origin. These are regression tests for a real defect: the surface
+ * shipped with no CORS handling at all, and every "live" verification had used
+ * server-side fetches, which are not subject to it.
+ */
+describe("browser access", () => {
+  const preflight = (origin: string) =>
+    handler()(
+      new Request("http://localhost/operations/catalog_list", {
+        headers: {
+          "access-control-request-headers": "content-type",
+          "access-control-request-method": "POST",
+          origin,
+        },
+        method: "OPTIONS",
+      })
+    );
+
+  const withOrigin = (origin: string) =>
+    handler()(
+      new Request("http://localhost/operations", { headers: { origin } })
+    );
+
+  it("answers the preflight a JSON POST triggers", async () => {
+    const res = await preflight("http://localhost:5173");
+    expect(res.status).toBe(204);
+    expect(res.headers.get("access-control-allow-origin")).toBe(
+      "http://localhost:5173"
+    );
+    expect(res.headers.get("access-control-allow-methods")).toContain("POST");
+    expect(res.headers.get("access-control-allow-headers")).toContain(
+      "content-type"
+    );
+  });
+
+  it("allows loopback origins on any port", async () => {
+    const origins = [
+      "http://localhost:5173",
+      "http://127.0.0.1:8080",
+      "http://[::1]:3000",
+    ];
+    const responses = await Promise.all(origins.map(withOrigin));
+    for (const [index, res] of responses.entries()) {
+      expect(res.headers.get("access-control-allow-origin")).toBe(
+        origins[index]
+      );
+    }
+  });
+
+  it("refuses a non-loopback origin", async () => {
+    // `*` would mean any page in the browser could drive an investigation the
+    // moment this server were bound beyond localhost.
+    const responses = await Promise.all(
+      [
+        "https://evil.example",
+        "http://192.168.1.10:5173",
+        "http://localhost.evil.example",
+      ].map(withOrigin)
+    );
+    for (const res of responses) {
+      expect(res.headers.get("access-control-allow-origin")).toBeNull();
+    }
+  });
+
+  it("still serves requests carrying no origin at all", async () => {
+    const res = await get(handler(), "/operations");
+    expect(res.status).toBe(200);
+  });
+
+  it("carries the origin on failures too, so the browser can read them", async () => {
+    const res = await handler()(
+      new Request("http://localhost/operations/catalog_describe", {
+        body: JSON.stringify({ id: "nope" }),
+        headers: {
+          "content-type": "application/json",
+          origin: "http://localhost:5173",
+        },
+        method: "POST",
+      })
+    );
+    expect(res.status).toBe(422);
+    // Without this the browser blocks the response and the console shows
+    // "Failed to fetch" instead of the engine's actual error.
+    expect(res.headers.get("access-control-allow-origin")).toBe(
+      "http://localhost:5173"
+    );
+  });
+});

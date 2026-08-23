@@ -28,3 +28,21 @@ Collapse this back to one source the moment nixpkgs ships 1.4: drop the devDepen
 `devbox.json` pin.
 
 Nothing here touches your system Bun install.
+
+## Verifying browser-facing changes
+
+**Check them from a browser.** `curl`, `Bun.fetch`, and tests that call a handler
+directly are not subject to CORS, cookies, or the same-origin policy — so a surface
+built for a browser can pass all of them and still be unreachable from one.
+
+This is not hypothetical: the HTTP API shipped with no CORS handling at all, and the
+console could not reach it. Every live check had used a server-side client.
+
+`Bun.WebView` (already a dependency, see TDR-019) drives a real headless browser, so
+a check is cheap:
+
+```ts
+const view = new Bun.WebView({ backend: { type: "chrome" }, headless: true });
+await view.navigate("http://localhost:5173/");
+const result = await view.evaluate(`fetch("http://127.0.0.1:4000/operations").then(r => r.status)`);
+```

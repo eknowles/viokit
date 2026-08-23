@@ -23,13 +23,43 @@ import { AgentProgramLayer } from "./program.js";
 
 /** Status codes, so a client can tell outcomes apart without reading the body. */
 const OK = 200;
+const NO_CONTENT = 204;
 const BAD_REQUEST = 400; // payload failed to decode (I6)
 const NOT_FOUND = 404; // no such route or operation
 const UNPROCESSABLE = 422; // valid request, operation failed
 
-const json = (body: unknown, status: number): Response =>
+/**
+ * The console runs on a different port from the API (Vite in development,
+ * possibly a static host later), so every browser call is cross-origin and a
+ * POST carrying JSON is preflighted. Without this the console cannot reach the
+ * engine at all.
+ *
+ * Loopback origins only. This surface is unauthenticated by design until
+ * governance lands, and `*` would mean any page in the browser could drive an
+ * investigation the moment someone bound the server beyond localhost.
+ */
+const LOOPBACK_ORIGIN = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/;
+
+const corsHeaders = (origin: string | null): Record<string, string> => {
+  if (origin === null || !LOOPBACK_ORIGIN.test(origin)) {
+    return {};
+  }
+  return {
+    "access-control-allow-headers": "content-type",
+    "access-control-allow-methods": "GET, POST, OPTIONS",
+    "access-control-allow-origin": origin,
+    "access-control-max-age": "600",
+    vary: "origin",
+  };
+};
+
+const json = (
+  body: unknown,
+  status: number,
+  origin: string | null = null
+): Response =>
   new Response(JSON.stringify(body, null, 2), {
-    headers: { "content-type": "application/json" },
+    headers: { "content-type": "application/json", ...corsHeaders(origin) },
     status,
   });
 
@@ -57,14 +87,18 @@ const tagOf = (failure: unknown): string | undefined =>
     ? String((failure as { _tag: unknown })._tag)
     : undefined;
 
-const failureResponse = (cause: Cause.Cause<unknown>): Response => {
+const failureResponse = (
+  cause: Cause.Cause<unknown>,
+  origin: string | null
+): Response => {
   const tag = tagOf(Cause.squash(cause));
   return json(
     {
       error: Cause.pretty(cause),
       ...(tag === undefined ? {} : { tag }),
     },
-    tag === undefined || tag === DECODE_FAILURE ? BAD_REQUEST : UNPROCESSABLE
+    tag === undefined || tag === DECODE_FAILURE ? BAD_REQUEST : UNPROCESSABLE,
+    origin
   );
 };
 
@@ -91,12 +125,21 @@ export const makeHandler = (
 
   return async (request: Request): Promise<Response> => {
     const { pathname } = new URL(request.url);
+    const origin = request.headers.get("origin");
+
+    // Preflight: the browser asks before sending a JSON POST.
+    if (request.method === "OPTIONS") {
+      return new Response(null, {
+        headers: corsHeaders(origin),
+        status: NO_CONTENT,
+      });
+    }
 
     // Discovery: the surface describes itself, the same principle the catalog
     // applies to sources and transforms — a client needs no out-of-band
     // knowledge to build a valid call.
     if (request.method === "GET" && pathname === "/operations") {
-      return json(operations.map(describeOperation), OK);
+      return json(operations.map(describeOperation), OK, origin);
     }
 
     const match = OPERATION_PATH.exec(pathname);
@@ -104,14 +147,18 @@ export const makeHandler = (
       const name = match[1] ?? "";
       const operation = findOperation(name);
       if (operation === undefined) {
-        return json({ error: `no operation named '${name}'` }, NOT_FOUND);
+        return json(
+          { error: `no operation named '${name}'` },
+          NOT_FOUND,
+          origin
+        );
       }
       const args = await readArgs(request);
       return await runtime.runPromise(
         operation.run(args).pipe(
           Effect.matchCause({
-            onFailure: failureResponse,
-            onSuccess: (value) => json(value ?? null, OK),
+            onFailure: (cause) => failureResponse(cause, origin),
+            onSuccess: (value) => json(value ?? null, OK, origin),
           })
         )
       );
