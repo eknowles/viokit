@@ -38,12 +38,17 @@ standard tools rather than software from this system.
 - **THEN** its recorded digest no longer matches its bytes
 
 ### Requirement: A bundle states what it does not prove
-A bundle SHALL record that the internal evidence identifier is a content-addressing key rather than a
-tamper-evidence guarantee, so a recipient does not mistake it for one.
+A bundle SHALL be explicit about the scope of what it attests: that its digests establish the
+artifacts are as they were at export, and that they say nothing about custody before that point.
+
+#### Scenario: The manifest describes the scope of its attestation
+- **WHEN** a bundle's manifest is read
+- **THEN** it states that integrity is attested as of export and that earlier custody is not covered
 
 #### Scenario: The manifest is explicit about the identifier
 - **WHEN** a bundle's manifest is read
-- **THEN** it states which digest attests integrity and that the evidence identifier does not
+- **THEN** it states that an artifact's identifier is the cryptographic digest of its bytes, so
+  verifying the digest also confirms the artifact is the one the steps reference
 
 ### Requirement: A bundle reproduces the investigation
 The graph rebuilt from a bundle's step log SHALL equal the graph the bundle records, so a bundle that
@@ -60,3 +65,11 @@ than exporting silently, because a trail with an unreported gap misrepresents it
 #### Scenario: A missing artifact is reported
 - **WHEN** a step references evidence the store cannot produce
 - **THEN** the bundle records that artifact as missing
+
+### Requirement: A bundle attests with the artifact's own identifier
+The digest a bundle records for an artifact SHALL be that artifact's identifier, so a recipient
+verifies the artifact and confirms it is the one the steps reference in a single check.
+
+#### Scenario: The recorded digest is the identifier
+- **WHEN** a bundle records an artifact
+- **THEN** the digest in its manifest equals the identifier the steps reference

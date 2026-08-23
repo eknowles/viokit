@@ -98,10 +98,15 @@ cd bundle && shasum -a 256 -c manifest-sha256.txt
 
 ### What a bundle does and does not prove
 
-It proves the artifacts are **as they were at export** — `manifest-sha256.txt` is a cryptographic
-digest over each artifact's bytes, and a recipient can check it without this software.
+An artifact's **`evidenceId` is the SHA-256 digest of its bytes** (TDR-021), and
+`manifest-sha256.txt` records the same digest in BagIt form. So verifying an artifact also confirms
+it is the one the steps reference — one check, not two:
 
-It does **not** prove custody before export. The `evidenceId` in the manifest is a 64-bit **FNV-1a**
-content-addressing key used to link a step to a file; FNV-1a has no collision resistance and is not
-tamper-evidence. The manifest states this itself, because a bundle travels away from its
-documentation. Moving evidence identity to a cryptographic digest is TDR-010's open question.
+```sh
+shasum -a 256 data/<evidence-id>   # equals the id itself
+```
+
+It proves the artifacts are **as they were at export**. It does **not** prove custody before that
+point: an artifact tampered with before export exports faithfully. End-to-end custody needs signing
+at acquisition, which needs an identity model (P4 governance). The manifest states this itself,
+because a bundle travels away from its documentation.

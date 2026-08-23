@@ -16,7 +16,7 @@ import {
 } from "@viokit/schema";
 import { Context, DateTime, Effect, Layer, Option, Schema } from "effect";
 import { EvidenceService } from "./evidence.js";
-import { fnv1aHex } from "./hash.js";
+import { sha256Hex } from "./hash.js";
 
 const encodeText = new TextEncoder();
 const decodeText = new TextDecoder();
@@ -192,7 +192,9 @@ export const makeEvidenceFsStore = (
   }),
   put: (input) =>
     Effect.gen(function* () {
-      const id = evidenceId(fnv1aHex(input.bytes));
+      // The id *is* the digest (TDR-021): an artifact can be checked against its
+      // own identifier with standard tools.
+      const id = evidenceId(sha256Hex(input.bytes));
       const path = evidencePath(root, id);
       yield* fs.makeDirectory(evidenceDir(root, id));
       const created = yield* fs.writeFileExclusive(

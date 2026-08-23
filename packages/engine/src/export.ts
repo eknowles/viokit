@@ -22,9 +22,14 @@ const BAGIT_DECLARATION =
 /**
  * Stated in the bundle rather than only in documentation, because a bundle
  * travels away from its documentation and has to carry its own claims.
+ *
+ * Since TDR-021 an artifact's identifier *is* its SHA-256 digest, so verifying
+ * the digest also confirms the artifact is the one the steps reference — one
+ * check, not two. What remains outside the bundle's reach is custody before
+ * export, and it says so.
  */
 const INTEGRITY_NOTE =
-  "Integrity is attested by manifest-sha256.txt, computed over each artifact's bytes at export time. The evidenceId field is a 64-bit FNV-1a content-addressing key used to link steps to files; FNV-1a has no collision resistance and is NOT a tamper-evidence guarantee. Verify with the SHA-256 manifest, not with the identifier.";
+  "Each artifact's evidenceId IS the SHA-256 digest of its bytes, and manifest-sha256.txt records the same digest in BagIt form. Verifying an artifact therefore also confirms it is the one the steps reference: `shasum -a 256 -c manifest-sha256.txt`. This attests that the artifacts are as they were at export; it does not attest to custody before export, which would require signing at acquisition.";
 
 export interface ExportedEvidence {
   readonly acquiredAt: string;
@@ -55,6 +60,9 @@ export interface Bundle {
  * `node:crypto` rather than `Bun.CryptoHasher`: the engine is a library, and
  * TDR-001 keeps Node a drop-in target, so it must not depend on a Bun global.
  */
+/** Recomputed from the bytes read back rather than trusted from metadata: a
+ * digest taken from what we believe would attest to nothing. Since TDR-021 it
+ * must equal the artifact's id, which the tests assert. */
 const sha256 = (bytes: Uint8Array): string =>
   createHash("sha256").update(bytes).digest("hex");
 

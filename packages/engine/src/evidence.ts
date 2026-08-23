@@ -1,6 +1,6 @@
 import { Evidence, type EvidenceStore, evidenceId } from "@viokit/schema";
 import { Context, Effect, Layer, Option } from "effect";
-import { fnv1aHex } from "./hash.js";
+import { sha256Hex } from "./hash.js";
 
 /**
  * In-memory, write-once evidence store. Content hash is identity (I1): the id
@@ -23,7 +23,9 @@ export class EvidenceService extends Context.Service<
       list: Effect.sync(() => Array.from(byId.values())),
       put: (input) =>
         Effect.sync(() => {
-          const id = evidenceId(fnv1aHex(input.bytes));
+          // The id *is* the digest (TDR-021): an artifact can be checked against its
+          // own identifier with standard tools.
+          const id = evidenceId(sha256Hex(input.bytes));
           const existing = byId.get(id);
           if (existing !== undefined) {
             return existing;

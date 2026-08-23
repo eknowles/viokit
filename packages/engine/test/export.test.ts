@@ -130,8 +130,38 @@ describe("evidentiary export", () => {
         const { bundle } = yield* investigate;
         // The claim has to travel with the bundle, not only in our docs.
         assert.include(bundle.manifest.integrity, "manifest-sha256.txt");
-        assert.include(bundle.manifest.integrity, "FNV-1a");
-        assert.include(bundle.manifest.integrity, "NOT a tamper-evidence");
+        assert.include(
+          bundle.manifest.integrity,
+          "SHA-256 digest of its bytes"
+        );
+        // What is still outside its reach is said plainly.
+        assert.include(bundle.manifest.integrity, "custody before export");
+      })
+    );
+
+    /**
+     * TDR-021: the id *is* the digest, so verifying an artifact also confirms
+     * it is the one the steps reference — one check rather than two.
+     */
+    it.effect("attests with the artifact's own identifier", () =>
+      Effect.gen(function* () {
+        const { bundle, path } = yield* investigate;
+
+        for (const record of bundle.manifest.evidence) {
+          assert.strictEqual(record.sha256, record.evidenceId);
+          const bytes = readFileSync(join(path, record.file));
+          assert.strictEqual(sha256(new Uint8Array(bytes)), record.evidenceId);
+        }
+
+        // And the steps reference exactly those identifiers.
+        const referenced = new Set(
+          (bundle.manifest.steps as { evidenceIds: string[] }[]).flatMap(
+            (step) => step.evidenceIds
+          )
+        );
+        for (const record of bundle.manifest.evidence) {
+          assert.isTrue(referenced.has(record.evidenceId));
+        }
       })
     );
 

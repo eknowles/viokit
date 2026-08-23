@@ -12,7 +12,7 @@ Each invariant has a **verification hint** — how to check a change does not br
 
 | # | Invariant | Verification hint |
 |---|---|---|
-| I1 | **Evidence immutability** — raw artifacts are write-once; content hash *is* identity | no code path mutates a stored artifact; hash computed at write; change = new artifact + supersede ref |
+| I1 | **Evidence immutability** — raw artifacts are write-once; content hash *is* identity | no code path mutates a stored artifact; the id is a **SHA-256** digest computed at write (TDR-021), so an artifact verifies against its own id with `shasum -a 256`; change = new artifact + supersede ref. Non-attesting ids (steps, view-state paths, candidate keys) deliberately stay FNV-1a — a cryptographic hash there would imply a guarantee that is not offered |
 | I2 | **Provenance closure** — no vertex/edge enters a graph without a recorded Step referencing ≥1 evidence artifact | graph insert API requires a Step ref with ≥1 evidence id; bare inserts rejected at the boundary |
 | I3 | **Append-only history** — investigations are event logs; replay reproduces state deterministically | the log is append-only; graph state is a fold over the log; no in-place mutation of history |
 | I4 | **Policy isolation** — rate-limit/backoff/retry/timeout/key-rotation/cache/egress live in SourceRuntime | transforms/UI never hold raw fetch/clients; they get the runtime API only; no network I/O in transform code |

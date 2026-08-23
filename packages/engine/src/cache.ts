@@ -1,6 +1,6 @@
 import type { CachePolicy, SourceSpec } from "@viokit/schema";
 import { Context, Effect, Layer, Option } from "effect";
-import { fnv1aHex } from "./hash.js";
+import { sha256Hex } from "./hash.js";
 
 /**
  * The freshness verdict for a cached entry at read time, given the source's
@@ -75,7 +75,10 @@ export const requestFingerprint = (source: SourceSpec): string => {
     transport: source.transport,
     url: source.url,
   });
-  return fnv1aHex(new TextEncoder().encode(canonical));
+  // Cryptographic (TDR-021): a fingerprint collision would serve bytes
+  // acquired from a *different* source while the evidence recorded
+  // `acquisitionPath: cache` — an integrity failure wearing a performance hat.
+  return sha256Hex(new TextEncoder().encode(canonical));
 };
 
 /**
