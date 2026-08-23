@@ -89,14 +89,78 @@ store, and the shared-schema contract. Nothing domain-specific.
 
 ## P4 — Governance + first packs
 
+> **Status: partially met (2026-08-23).** The evidentiary export shipped ahead of the rest
+> (TDR-010/TDR-021): a BagIt bundle whose artifact ids *are* their SHA-256 digests, verifiable with
+> `shasum` by a recipient who runs none of our software. Governance itself — access control,
+> redaction, retention, audit — has not started, and the HTTP surface is still unauthenticated and
+> loopback-only because of it.
+
 **Goal:** production hardening and the first real domains.
 
 - `governance`: access control, redaction, retention, audit, cache governance.
 - Veracity/confidence model for leaked/unverified data; `correlate` upgrades claims to corroborated.
-- Evidentiary export bundle format (TDR-010).
+- ~~Evidentiary export bundle format (TDR-010)~~ — **done**, with TDR-021 making evidence identity
+  a cryptographic digest so a bundle attests with the id itself.
 - First packs: `corporate-finance`, `people-identity`, `web-dns`, `travel-border` (per PACK_RECIPE).
 - **Exit criteria:** governance enforced on a sensitive pack; a defensible evidentiary export
   (claims → steps → evidence → raw bytes); every pack passes the invariant checklist.
+
+---
+
+---
+
+## P5 — Coverage, trust, and the workbench
+
+> Written 2026-08-23, after P3's interface half and P4's export landed. The engine can now acquire
+> five ways, build a provenance-complete graph, show it, and export it defensibly. What it cannot do
+> is **cover the landscape**, **be used safely by more than one person**, or **update live** — in that
+> order of importance.
+
+### Track A — Coverage (recommended first)
+
+The mechanisms for hard-to-reach sources exist and the catalog never caught up: 47 curated
+candidates, skewed toward things that look like APIs, classified by agents from homepages. A
+defensible tool over a thin catalog is not yet an OSINT tool.
+
+| Change | Gate | Why now |
+|---|---|---|
+| `discovery-coverage` | — | Re-run discovery with the browser, credential, and manual paths in mind, rather than the API-shaped bias of the first sweep. The work queue *is* the coverage plan; it has barely been worked. |
+| `access-reclassification` | — | Existing `access` values are agent guesses from landing pages. Runnability, egress, and now the catalog's whole promise depend on them being right. |
+| `browser-process-per-route` | **TDR-022** (new) | Proxied browser acquisition is currently refused, because proxy binding is a launch switch and processes are reused. Deciding how to guarantee a process per route re-opens the largest blocked category. |
+
+### Track B — Trust (what turns it into a product)
+
+| Change | Gate | Why |
+|---|---|---|
+| `identity-and-authz` | **TDR-023** (new) | Everything downstream needs to know *who*. The API is loopback-only precisely because it cannot answer that, and view state's `user` key is a placeholder waiting on it. |
+| `redaction-and-retention` | **TDR-024** (new) | Secrets already stay out of cache and evidence; sensitive *content* does not. Needed before a bundle leaves a machine. |
+| `audit-log` | — | Governance's own trail: who ran what, who exported what. |
+| `bundle-signing` | depends on TDR-023 | An export attests integrity as of export and says nothing about custody before it. Signing at acquisition is what closes that, and it needs an identity first. |
+| `veracity-model` | — | Confidence for leaked/unverified data; `correlate` upgrading claims to corroborated (an original P4 item, still unstarted). |
+
+### Track C — The workbench (the rest of P3's visual half)
+
+| Change | Gate | Why |
+|---|---|---|
+| `map-and-timeline-panes` | — | Selection and time filtering are shared machinery now, so these are cheaper than the canvas was. |
+| `live-updates` | **TDR-003**, then **TDR-009** | Streaming graph deltas and step completions. The canvas re-reads on demand today, which is fine until an investigation is long-running. |
+| `results-workbench` | **TDR-004** | Triage before results touch the graph; docking layout. |
+
+### Standing debts
+
+- The real `PromoterLayer` write path has no test — promotion writes to `process.cwd()/packs`, so
+  covering it needs a directory seam.
+- Merkle-chunking large artifacts, so a big artifact can be partially verified (TDR-021's open
+  question).
+- I7's second half — replay pinning versions — stays meaningless until replay re-runs sources.
+
+### Exit criteria
+
+- A catalog whose classifications have been verified rather than guessed, with browser- and
+  credential-gated sources actually reachable.
+- An investigation that two people can work on without seeing each other's credentials or each
+  other's redacted material.
+- A bundle that says who acquired each artifact, not only that it is intact since export.
 
 ---
 
@@ -104,3 +168,5 @@ store, and the shared-schema contract. Nothing domain-specific.
 - P0–P2 are the engine core; do not start P3 (UI) until P2 exits — the UI consumes the engine.
 - Packs may begin during P1/P2 for a chosen subject (they prove the recipes), but must be pack-shaped.
 - Anything that adds a store, transport, serialization, or UI dependency requires a `decided` TDR.
+- P5's tracks are independent: A is about reach, B about trust, C about comfort. Do A before C —
+  a better workbench over a thin catalog improves the wrong thing.

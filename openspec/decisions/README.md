@@ -30,6 +30,10 @@
 | TDR-020 | Graph rendering — layout library + own renderer vs a toolkit | decided 2026-08-23 | `d3-force` for layout, own SVG renderer, read-only with a time filter; explicit node cap that says when it truncates; camera/selection persist as view state (TDR-012); Cytoscape/sigma deferred until displayed graphs outgrow SVG |
 | TDR-021 | Evidence identity — cryptographic digest vs FNV-1a | decided 2026-08-23 | SHA-256 over the bytes becomes the evidence id, and the cache fingerprint moves with it; non-attesting ids (steps, view-state paths, candidate keys) stay FNV-1a deliberately; no migration — identity is derived from content, and this is the cheapest moment it will ever be |
 
+| TDR-022 | Browser process-per-egress-route | **open — P5 Track A** | proxy binding is a launch switch and processes are reused, so a route cannot be guaranteed per acquisition; options include a process per (identity, route), setting the proxy per context over `cdp`, or an external proxy-per-profile arrangement |
+| TDR-023 | Identity & authorization model | **open — P5 Track B** | nothing downstream can answer *who*; the HTTP surface is loopback-only because of it, and view state's `user` key is a placeholder waiting on this |
+| TDR-024 | Redaction & retention | **open — P5 Track B** | secrets already stay out of cache and evidence; sensitive *content* does not, and a bundle should not leave a machine before this exists |
+
 ## Workflow
 1. Create a TDR from the template; fill **Context** and **Options**; mark `proposed`.
 2. Research + evaluate against criteria; mark `in-review`.
