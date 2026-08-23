@@ -15,6 +15,7 @@ import {
 import { Effect, Layer, Option } from "effect";
 import { Engine, EngineLayer } from "../src/engine.js";
 import { EvidenceBackendMemory } from "../src/evidence-fs.js";
+import { OntologyRegistryLayer } from "../src/ontology.js";
 
 const sourceSpec = SourceSpec.make({
   id: "s1",
@@ -49,7 +50,7 @@ const step = Step.make({
 
 const engineLayer = Layer.provide(
   EngineLayer,
-  Layer.merge(fakeTransport, EvidenceBackendMemory)
+  Layer.mergeAll(fakeTransport, EvidenceBackendMemory, OntologyRegistryLayer)
 );
 
 describe("acquire stores evidence with a live acquisition path (I9)", () => {

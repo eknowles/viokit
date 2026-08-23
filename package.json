@@ -2,8 +2,9 @@
   "name": "labs",
   "private": true,
   "workspaces": [
-    "viokit-site",
-    "packages/*"
+    "packages/*",
+    "packs",
+    "viokit-site"
   ],
   "scripts": {
     "astro:check": "bun run --filter viokit-site astro check",

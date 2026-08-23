@@ -1,6 +1,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { Effect, Layer } from "effect";
+import { SourceSpec } from "@viokit/schema";
+import { Effect, Layer, Schema } from "effect";
 import { PromoterService, PromotionError } from "./seams.js";
 
 const header = `import type { SourceSpec } from "@viokit/schema";
@@ -41,8 +42,22 @@ const renderSourceExport = (sourceId: string, source: unknown): string =>
     2
   )};\n`;
 
+/**
+ * Promotion writes a *valid* `SourceSpec` (R4), so the spec is decoded before
+ * anything reaches the pack file. Without this the promoter will happily write
+ * a candidate-shaped object annotated as `SourceSpec` — the pack files are not
+ * type-checked by any tsconfig, so nothing downstream would catch it until a
+ * consumer tried to run the source.
+ */
+const decodeSpec = (sourceId: string, source: unknown) =>
+  Effect.try({
+    catch: (cause) => new PromotionError({ cause, id: sourceId }),
+    try: () => Schema.decodeUnknownSync(SourceSpec)(source),
+  });
+
 const appendSource = (category: string, sourceId: string, source: unknown) =>
   Effect.gen(function* () {
+    yield* decodeSpec(sourceId, source);
     const dir = join(process.cwd(), "packs", category);
     const path = join(dir, "sources.ts");
     yield* Effect.tryPromise({

@@ -1,0 +1,20 @@
+{
+  "name": "@viokit/packs",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./web-dns/manifest": "./web-dns/manifest.ts",
+    "./*": "./*"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@viokit/schema": "workspace:*",
+    "effect": "4.0.0-beta.103"
+  },
+  "devDependencies": {
+    "typescript": "7.0.2"
+  }
+}

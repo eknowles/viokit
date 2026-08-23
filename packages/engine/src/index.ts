@@ -1,4 +1,5 @@
 export * from "./cache.js";
+export * from "./catalog.js";
 export * from "./correlate.js";
 export * from "./egress.js";
 export * from "./engine.js";

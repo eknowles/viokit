@@ -8,6 +8,7 @@ import {
   type GraphStore,
   ProvenanceError,
   Relation,
+  reviveDates,
   Step,
 } from "@viokit/schema";
 import { Context, Effect, Layer, Option, Schema } from "effect";
@@ -36,21 +37,9 @@ const decodeEvent = Schema.decodeUnknownSync(Event);
 
 const asMs = (date: Date): number => date.getTime();
 
-const isoDatePattern = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/;
-
-/** Revive the ISO date strings that `Schema.encodeUnknownSync` emits into Date. */
-const revive = (_key: string, value: unknown): unknown => {
-  if (typeof value === "string" && isoDatePattern.test(value)) {
-    const date = new Date(value);
-    if (Number.isFinite(date.getTime())) {
-      return date;
-    }
-  }
-  return value;
-};
-
+/** DuckDB returns the JSON column as a string; dates arrive as ISO strings. */
 const parseJson = (value: unknown): unknown =>
-  typeof value === "string" ? JSON.parse(value, revive) : value;
+  typeof value === "string" ? JSON.parse(value, reviveDates) : value;
 
 const readStepsSql = `SELECT data FROM ${logTable} ORDER BY seq`;
 

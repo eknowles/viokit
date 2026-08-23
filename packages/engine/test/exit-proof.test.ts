@@ -7,6 +7,7 @@ import {
 } from "@viokit/schema";
 import { Effect, Layer } from "effect";
 import { EvidenceBackendMemory } from "../src/evidence-fs.js";
+import { OntologyRegistryLayer } from "../src/ontology.js";
 
 /**
  * P1 exit proof (task 5.2): both an HTTP source and a dataset source execute
@@ -41,7 +42,11 @@ const dispatchTransport = Layer.succeed(SourceTransportService, {
 
 const exitProofLayer = Layer.provide(
   EngineLayer,
-  Layer.merge(EvidenceBackendMemory, dispatchTransport)
+  Layer.mergeAll(
+    EvidenceBackendMemory,
+    dispatchTransport,
+    OntologyRegistryLayer
+  )
 );
 
 const httpSource = SourceSpec.make({

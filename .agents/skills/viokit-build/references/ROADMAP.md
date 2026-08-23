@@ -62,10 +62,19 @@ store, and the shared-schema contract. Nothing domain-specific.
 
 ## P3 — Interfaces + web UI
 
+> **Status: interface half complete (2026-08-23).** The self-describing runtime catalog and the
+> agent/human front-ends over `Engine` exited under `p3-agent-interfaces` (TDR-016): packs register
+> explicitly, transforms run by catalog id, and MCP + CLI are logic-free adapters over one program
+> layer. The **web-UI half has not started** and stays gated — TDR-002/003/004/008/009/012 are all
+> still `proposed`, and the network API (REST/GraphQL + event stream) waits on TDR-003.
+
 **Goal:** humans and agents drive the same engine.
 
-- REST/GraphQL API + CLI + MCP server + event stream (WebSocket, Arrow IPC for large batches).
-- Catalog (self-describing) for agents.
+- ~~Catalog (self-describing) for agents~~ — **done**: sources, transforms, and ontology types, with
+  invocation contracts published as JSON Schema (`Schema.toJsonSchemaDocument`).
+- ~~CLI + MCP server~~ — **done**: both over the shared operation table in `packages/agent`; parity
+  and no-privileged-path are tested (I8).
+- REST/GraphQL API + event stream (WebSocket, Arrow IPC for large batches) — **gated on TDR-003**.
 - Web UI: React + Effect client, schema-driven forms/views, results workbench (table/graph/map/
   timeline, linked selection), docking layout, view-state persistence (I12).
 - **TDRs to decide:** TDR-002 client state/routing, TDR-003 transport (WS+Arrow), TDR-004 docking,

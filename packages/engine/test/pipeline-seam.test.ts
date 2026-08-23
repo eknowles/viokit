@@ -14,6 +14,7 @@ import {
 import { Effect, Layer, Schema } from "effect";
 import { Engine, EngineLayer } from "../src/engine.js";
 import { EvidenceBackendMemory } from "../src/evidence-fs.js";
+import { OntologyRegistryLayer } from "../src/ontology.js";
 
 const text = (value: string): Uint8Array => new TextEncoder().encode(value);
 
@@ -67,7 +68,11 @@ const dispatchTransport = Layer.succeed(SourceTransportService, {
 // transport and the evidence backend config (matches the engine.test.ts shape).
 const engineLayer = Layer.provide(
   EngineLayer,
-  Layer.merge(dispatchTransport, EvidenceBackendMemory)
+  Layer.mergeAll(
+    dispatchTransport,
+    EvidenceBackendMemory,
+    OntologyRegistryLayer
+  )
 );
 
 const seedSpec = TransformSpec.make({

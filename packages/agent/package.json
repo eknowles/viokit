@@ -1,24 +1,33 @@
 {
-  "name": "@viokit/engine",
+  "name": "@viokit/agent",
   "version": "0.0.0",
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./mcp": "./src/mcp.ts",
+    "./cli": "./src/cli.ts"
+  },
+  "bin": {
+    "viokit": "./src/cli.ts",
+    "viokit-mcp": "./src/mcp.ts"
   },
   "scripts": {
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@duckdb/node-api": "^1.5.5-r.4",
+    "@modelcontextprotocol/sdk": "1.30.0",
+    "@viokit/engine": "0.0.0",
     "@viokit/schema": "0.0.0",
-    "effect": "4.0.0-beta.103"
+    "effect": "4.0.0-beta.103",
+    "zod": "4.4.3"
   },
   "devDependencies": {
     "@effect/vitest": "4.0.0-beta.103",
     "@viokit/packs": "0.0.0",
     "@viokit/sources": "0.0.0",
+    "bun-types": "^1.3.14",
     "typescript": "7.0.2",
     "vitest": "^4.1.0"
   }

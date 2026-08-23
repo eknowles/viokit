@@ -23,6 +23,12 @@ export interface OntologyRegistry {
   readonly get: (
     name: string
   ) => Effect.Effect<Option.Option<OntologyDefinitionType>>;
+  /** Every registered type, by the name it was registered under. The catalog
+   * reads this so a deployment can report the types it knows (I8 discovery);
+   * types are registered at runtime, so this is read live, never cached. */
+  readonly list: Effect.Effect<
+    readonly (readonly [string, OntologyDefinitionType])[]
+  >;
   readonly register: (
     name: string,
     definition: unknown
@@ -46,6 +52,7 @@ export class OntologyRegistryService extends Context.Service<
             ? Option.some(byName.get(name) as OntologyDefinitionType)
             : Option.none()
         ),
+      list: Effect.sync(() => [...byName.entries()]),
       register: (name, definition) =>
         Effect.gen(function* () {
           const validated = yield* decodeDefinition(definition);

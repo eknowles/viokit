@@ -1,6 +1,13 @@
 import type { Effect, Option } from "effect";
 import { Context } from "effect";
 import type {
+  CatalogEntry,
+  CatalogEntryDetail,
+  CatalogFilter,
+  PackManifest,
+  UnknownCatalogEntry,
+} from "./runtime-catalog.js";
+import type {
   EgressDisabledError,
   Entity,
   Evidence,
@@ -176,6 +183,46 @@ export class CorrelateResolverService extends Context.Service<
   CorrelateResolverService,
   CorrelateResolver
 >()("CorrelateResolverService") {}
+
+/**
+ * The runtime catalog: what this deployment can do. Folded from the pack
+ * manifests registered with it plus the ontology registry, so every front-end
+ * discovers capability from one place instead of keeping its own registry.
+ *
+ * `runTransform` takes a catalog id, not a projection callback: the projection
+ * is registered in the manifest (see `RegisteredTransform`), which is what lets
+ * a transform be invoked across a front-end boundary at all. It returns staged
+ * steps — committing them stays a separate, explicit act (I2/I3).
+ */
+export interface Catalog {
+  readonly describe: (
+    id: string
+  ) => Effect.Effect<CatalogEntryDetail, UnknownCatalogEntry>;
+  readonly list: (
+    filter?: CatalogFilter
+  ) => Effect.Effect<readonly CatalogEntry[]>;
+  readonly runTransform: (
+    transformId: string,
+    input: unknown
+  ) => Effect.Effect<readonly Step[], UnknownCatalogEntry | TransformError>;
+}
+
+export class CatalogService extends Context.Service<CatalogService, Catalog>()(
+  "CatalogService"
+) {}
+
+/**
+ * The pack manifests a deployment registers. Construction of the catalog fails
+ * with `PackRegistrationError` if any manifest carries content that does not
+ * decode, so a deployment either has a valid catalog or does not start.
+ */
+export class PackRegistry extends Context.Service<
+  PackRegistry,
+  readonly PackManifest[]
+>()("PackRegistry") {}
+
+/** The default registry: no packs. An empty catalog is valid, not an error. */
+export const emptyPackRegistry: readonly PackManifest[] = [];
 
 /**
  * Config for the DuckDB-backed graph store: the database file path. An empty

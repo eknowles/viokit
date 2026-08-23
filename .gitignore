@@ -19,9 +19,9 @@ coverage/
 *.log
 npm-debug.log*
 
-# Source-catalog runtime data
+# Source-catalog runtime data (the sqlite candidate store; packs themselves are
+# curated source and are tracked)
 .viokit/
-packs/
 
 # OS
 .DS_Store

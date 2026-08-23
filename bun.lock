@@ -14,6 +14,29 @@
         "ultracite": "^7.10.0",
       },
     },
+    "packages/agent": {
+      "name": "@viokit/agent",
+      "version": "0.0.0",
+      "bin": {
+        "viokit": "./src/cli.ts",
+        "viokit-mcp": "./src/mcp.ts",
+      },
+      "dependencies": {
+        "@modelcontextprotocol/sdk": "1.30.0",
+        "@viokit/engine": "0.0.0",
+        "@viokit/schema": "0.0.0",
+        "effect": "4.0.0-beta.103",
+        "zod": "4.4.3",
+      },
+      "devDependencies": {
+        "@effect/vitest": "4.0.0-beta.103",
+        "@viokit/packs": "0.0.0",
+        "@viokit/sources": "0.0.0",
+        "bun-types": "^1.3.14",
+        "typescript": "7.0.2",
+        "vitest": "^4.1.0",
+      },
+    },
     "packages/engine": {
       "name": "@viokit/engine",
       "version": "0.0.0",
@@ -24,6 +47,7 @@
       },
       "devDependencies": {
         "@effect/vitest": "4.0.0-beta.103",
+        "@viokit/packs": "0.0.0",
         "@viokit/sources": "0.0.0",
         "typescript": "7.0.2",
         "vitest": "^4.1.0",
@@ -71,6 +95,17 @@
         "@effect/vitest": "4.0.0-beta.103",
         "typescript": "7.0.2",
         "vitest": "^4.1.0",
+      },
+    },
+    "packs": {
+      "name": "@viokit/packs",
+      "version": "0.0.0",
+      "dependencies": {
+        "@viokit/schema": "workspace:*",
+        "effect": "4.0.0-beta.103",
+      },
+      "devDependencies": {
+        "typescript": "7.0.2",
       },
     },
     "viokit-site": {
@@ -570,7 +605,11 @@
 
     "@ungap/structured-clone": ["@ungap/structured-clone@1.3.3", "", {}, "sha512-60YRaenCQcVjYEKOcG824+DRGGIQ3VKErcBoAEDJZz5bKIs2ZG+X/H9Nk+Q6EVkwJk5QNApxbrc5QtBSwtrXAg=="],
 
+    "@viokit/agent": ["@viokit/agent@workspace:packages/agent"],
+
     "@viokit/engine": ["@viokit/engine@workspace:packages/engine"],
+
+    "@viokit/packs": ["@viokit/packs@workspace:packs"],
 
     "@viokit/schema": ["@viokit/schema@workspace:packages/schema"],
 

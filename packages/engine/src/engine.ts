@@ -1,5 +1,8 @@
 import type {
   BBox,
+  CatalogEntry,
+  CatalogEntryDetail,
+  CatalogFilter,
   EgressDisabledError,
   Entity,
   Evidence,
@@ -10,6 +13,7 @@ import type {
   GraphState,
   MatchRule,
   OfflineCacheMiss,
+  PackManifest,
   ProvenanceError,
   RateLimited,
   RelatedEntity,
@@ -20,15 +24,20 @@ import type {
   StepOperation,
   TransformError,
   TransformSpec,
+  UnknownCatalogEntry,
 } from "@viokit/schema";
 import {
+  CatalogService,
   CorrelateResolverService,
+  emptyPackRegistry,
+  PackRegistry,
   SourceRuntimeService,
   TransformRunnerService,
 } from "@viokit/schema";
 import type { Option } from "effect";
 import { Context, Effect, Layer } from "effect";
 import { CacheLayer } from "./cache.js";
+import { CatalogLayer } from "./catalog.js";
 import { CorrelateLayer } from "./correlate.js";
 import { EgressLayer } from "./egress.js";
 import { EvidenceService } from "./evidence.js";
@@ -94,50 +103,102 @@ export class Engine extends Context.Service<
       existing: GraphState,
       rules: readonly MatchRule[]
     ) => Effect.Effect<readonly Step[], never>;
+    /** What this deployment can do: registered sources, transforms, and
+     * ontology types. A read-only projection — it appends no step (I3). */
+    readonly catalog: (
+      filter?: CatalogFilter
+    ) => Effect.Effect<readonly CatalogEntry[]>;
+    /** One entry's invocation contract, as JSON Schema where one applies. */
+    readonly describe: (
+      id: string
+    ) => Effect.Effect<CatalogEntryDetail, UnknownCatalogEntry>;
+    /** Run a transform by catalog id, with its projection resolved from the
+     * pack that registered it — the invocation form that survives a front-end
+     * boundary, since a projection callback cannot cross one. */
+    readonly runCatalogTransform: (
+      transformId: string,
+      input: unknown
+    ) => Effect.Effect<readonly Step[], UnknownCatalogEntry | TransformError>;
   }
 >()("Engine") {}
 
-/** The default engine layer runs on the retained DuckDB graph store (TDR-005). */
-export const EngineLayer = Layer.effect(
-  Engine,
-  Effect.gen(function* () {
-    const evidence = yield* EvidenceService;
-    const graph = yield* DuckDBGraphService;
-    const runtime = yield* SourceRuntimeService;
-    const transform = yield* TransformRunnerService;
-    const correlate = yield* CorrelateResolverService;
+/**
+ * The default pack registry: no packs registered, so the catalog reports only
+ * the ontology types registered at runtime. An empty catalog is a valid answer,
+ * not an error. A deployment registers its packs by providing its own
+ * `PackRegistry` layer in place of this one.
+ */
+export const DefaultPackRegistryLayer: Layer.Layer<PackRegistry> =
+  Layer.succeed(PackRegistry, emptyPackRegistry);
 
-    return {
-      acquire: (source) =>
-        Effect.gen(function* () {
-          const input = yield* runtime.run(source);
-          return yield* evidence.put(input);
-        }),
-      correlate: (staged, existing, rules) =>
-        correlate.resolve(staged, existing, rules),
-      ingest: (input) => evidence.put(input),
-      insert: (step) => graph.insert(step),
-      log: graph.log,
-      paths: (from, to, maxDepth) => graph.paths(from, to, maxDepth),
-      queryEntity: (id) => graph.queryEntity(id),
-      relatedness: (seed, maxDepth) => graph.relatedness(seed, maxDepth),
-      replay: graph.replay,
-      runTransform: (spec, source, project, input) =>
-        transform.run(spec, source, project, input),
-      spatial: (bbox) => graph.spatial(bbox),
-      timeline: (from, to) => graph.timeline(from, to),
-    };
-  })
-).pipe(
-  Layer.provide(DuckDBGraphLayer),
-  Layer.provide(TransformRunnerLayer),
-  Layer.provide(CorrelateLayer),
-  Layer.provide(SourceRuntimeLayer),
-  Layer.provide(CacheLayer),
-  Layer.provide(EgressLayer),
-  Layer.provide(RateLimiterLayer),
-  Layer.provide(EvidenceLayer)
-);
+/**
+ * Build an engine layer over a given pack registry. The registry is the only
+ * way pack content reaches the catalog, so this is how a deployment declares
+ * what it can do. Everything else is fixed: the retained DuckDB graph store
+ * (TDR-005) and the standard runtime slices.
+ *
+ * The ontology registry is a deployment input, not an internal slice: packs
+ * register types into it at runtime, so the deployment must hold the same
+ * instance the catalog reads from.
+ */
+const engineLayerWith = (registry: Layer.Layer<PackRegistry>) =>
+  Layer.effect(
+    Engine,
+    Effect.gen(function* () {
+      const evidence = yield* EvidenceService;
+      const graph = yield* DuckDBGraphService;
+      const runtime = yield* SourceRuntimeService;
+      const transform = yield* TransformRunnerService;
+      const correlate = yield* CorrelateResolverService;
+      const catalog = yield* CatalogService;
+
+      return {
+        acquire: (source) =>
+          Effect.gen(function* () {
+            const input = yield* runtime.run(source);
+            return yield* evidence.put(input);
+          }),
+        catalog: (filter) => catalog.list(filter),
+        correlate: (staged, existing, rules) =>
+          correlate.resolve(staged, existing, rules),
+        describe: (id) => catalog.describe(id),
+        ingest: (input) => evidence.put(input),
+        insert: (step) => graph.insert(step),
+        log: graph.log,
+        paths: (from, to, maxDepth) => graph.paths(from, to, maxDepth),
+        queryEntity: (id) => graph.queryEntity(id),
+        relatedness: (seed, maxDepth) => graph.relatedness(seed, maxDepth),
+        replay: graph.replay,
+        runCatalogTransform: (transformId, input) =>
+          catalog.runTransform(transformId, input),
+        runTransform: (spec, source, project, input) =>
+          transform.run(spec, source, project, input),
+        spatial: (bbox) => graph.spatial(bbox),
+        timeline: (from, to) => graph.timeline(from, to),
+      };
+    })
+  ).pipe(
+    Layer.provide(DuckDBGraphLayer),
+    Layer.provide(CatalogLayer),
+    Layer.provide(registry),
+    Layer.provide(TransformRunnerLayer),
+    Layer.provide(CorrelateLayer),
+    Layer.provide(SourceRuntimeLayer),
+    Layer.provide(CacheLayer),
+    Layer.provide(EgressLayer),
+    Layer.provide(RateLimiterLayer),
+    Layer.provide(EvidenceLayer)
+  );
+
+/**
+ * An engine layer with the given packs registered. Pack files that no manifest
+ * here names stay invisible to the catalog — registration is explicit.
+ */
+export const makeEngineLayer = (packs: readonly PackManifest[]) =>
+  engineLayerWith(Layer.succeed(PackRegistry, packs));
+
+/** The default engine layer: the retained DuckDB store (TDR-005), no packs. */
+export const EngineLayer = engineLayerWith(DefaultPackRegistryLayer);
 
 // The in-memory `GraphLayer` (from ./graph.js) remains exported as a documented
 // fallback for fixtures and callers that override the graph store dependency.
