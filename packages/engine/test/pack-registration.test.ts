@@ -27,7 +27,7 @@ const text = (value: string): Uint8Array => new TextEncoder().encode(value);
 const transport = Layer.succeed(SourceTransportService, {
   fetch: () =>
     Effect.succeed({
-      bytes: text('[{"name_value":"acme.test"}]'),
+      bytes: text('[{"name_value":"acme.test\\nwww.acme.test"}]'),
       contentType: "application/json",
     }),
 });
@@ -58,10 +58,14 @@ describe("registering the web-dns pack", () => {
         const transforms = entries.filter(
           (entry) => entry.kind === "transform"
         );
-        assert.strictEqual(sources.length, 9);
-        assert.strictEqual(transforms.length, 1);
-        assert.strictEqual(transforms[0]?.id, "crt-sh-certificate-search");
-        assert.strictEqual(transforms[0]?.archetype, "search");
+        assert.strictEqual(sources.length, 10);
+        // Three now: certificate transparency, subdomain enumeration, and the
+        // domain record.
+        assert.strictEqual(transforms.length, 3);
+        const certificates = transforms.find(
+          (entry) => entry.id === "crt-sh-certificate-search"
+        );
+        assert.strictEqual(certificates?.archetype, "search");
         assert.isTrue(sources.some((entry) => entry.id === "crt.sh"));
       })
     );
@@ -86,7 +90,9 @@ describe("registering the web-dns pack", () => {
           { domain: "acme.test" }
         );
 
-        // domain entity, certificate entity, and the relation between them.
+        // The apex, the subdomain the certificate actually covers, and the
+        // relation between them — derived from the *response*, so a response
+        // naming nothing would yield only the apex.
         assert.strictEqual(steps.length, 3);
         // Every step attributed to the run's evidence (I2).
         assert.isTrue(steps.every((step) => step.evidenceIds.length === 1));
@@ -98,12 +104,14 @@ describe("registering the web-dns pack", () => {
         assert.strictEqual(state.entities.length, 2);
         assert.strictEqual(state.relations.length, 1);
 
+        // The related entity is a name the certificate actually covers, not a
+        // synthetic `cert:<domain>` vertex conjured from the input.
         const related = yield* engine.relatedness("acme.test");
         assert.deepStrictEqual(related, [
           {
             distance: 1,
-            entityId: "cert:acme.test",
-            relationType: "presents-certificate",
+            entityId: "www.acme.test",
+            relationType: "has-subdomain",
           },
         ]);
       })

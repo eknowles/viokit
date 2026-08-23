@@ -72,8 +72,12 @@ export const TransformRunnerLayer: Layer.Layer<
         Effect.gen(function* () {
           const decodedInput = yield* decodeInput(spec, input);
 
+          // The input reaches the *acquisition*, not only the projection. Until
+          // it did, a source could only fetch one fixed url, so a lookup was
+          // impossible and the only transform in the catalog derived its output
+          // from the input string rather than from any response.
           const evidenceInput = yield* runtime
-            .run(source)
+            .run(source, decodedInput as Record<string, unknown>)
             .pipe(Effect.mapError(toTransformError));
 
           const stored = yield* evidence

@@ -530,11 +530,25 @@ export const operations: readonly AgentOperation[] = [
     run: () => engine((e) => e.sharedEvidence),
   },
   {
-    args: [arg("sourceId", "string", "catalog id of the source")],
+    args: [
+      arg("sourceId", "string", "catalog id of the source"),
+      arg(
+        "params",
+        "json",
+        'binds the source\'s url placeholders, e.g. {"hostname":"example.com"}',
+        true
+      ),
+    ],
     description:
       "Check a source's access classification against what it actually serves. Acquires it and reports the observed classification, the declared one, and the evidence behind the observation. Reports only — applying the result is a separate act.",
     name: "verify_access",
-    run: (args) => engine((e) => e.verifyAccess(String(args.sourceId))),
+    run: (args) =>
+      engine((e) =>
+        e.verifyAccess(
+          String(args.sourceId),
+          (args.params ?? {}) as Record<string, unknown>
+        )
+      ),
   },
 ];
 

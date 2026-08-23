@@ -11,6 +11,7 @@ import type {
 } from "@viokit/schema";
 import {
   AcqProxy,
+  bindSource,
   Cache,
   defaultTransportCapabilities,
   type EgressDisabledError,
@@ -24,6 +25,7 @@ import {
   SourceRuntimeService,
   SourceTransportService,
   TransportCapabilities,
+  UnboundParameter,
 } from "@viokit/schema";
 import { Clock, Duration, Effect, Layer, Option, Schedule } from "effect";
 import type { CacheStore } from "./cache.js";
@@ -208,8 +210,16 @@ export const SourceRuntimeLayer: Layer.Layer<
     );
 
     return {
-      run: (source) =>
+      run: (unbound, params) =>
         Effect.gen(function* () {
+          // Bound first, so everything below — runnability, the cache
+          // fingerprint, egress, the transport — sees one concrete request and
+          // needs to know nothing about parameters.
+          const bound = bindSource(unbound, params);
+          if (bound instanceof UnboundParameter) {
+            return yield* Effect.fail(bound);
+          }
+          const source = bound;
           // Runnability is acquisition policy, so it is decided here and not by
           // a transform or a front-end (I4/I10) — and decided *before* any
           // transport call, so a browser-only source yields its reason rather

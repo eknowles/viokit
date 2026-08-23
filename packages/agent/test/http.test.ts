@@ -24,7 +24,7 @@ const text = (value: string): Uint8Array => new TextEncoder().encode(value);
 const transport = Layer.succeed(SourceTransportService, {
   fetch: () =>
     Effect.succeed({
-      bytes: text('[{"name_value":"acme.test"}]'),
+      bytes: text('[{"name_value":"acme.test\\nwww.acme.test"}]'),
       contentType: "application/json",
     }),
 });

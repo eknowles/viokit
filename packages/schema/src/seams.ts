@@ -1,5 +1,6 @@
 import type { Effect, Option } from "effect";
 import { Context } from "effect";
+import type { UnboundParameter } from "./binding.js";
 import type {
   Investigation,
   InvestigationId,
@@ -174,8 +175,15 @@ export interface GraphStore {
 }
 
 export interface SourceRuntime {
+  /**
+   * `params` bind the `{name}` placeholders in the source's url, so an
+   * acquisition can be about something (`binding.ts`). Everything downstream is
+   * unchanged: the spec is made concrete first, and the cache fingerprint
+   * already hashes the url.
+   */
   readonly run: (
-    source: SourceSpec
+    source: SourceSpec,
+    params?: Record<string, unknown>
   ) => Effect.Effect<
     EvidenceInput,
     | SourceError
@@ -184,6 +192,7 @@ export interface SourceRuntime {
     | RateLimited
     | RetryExhausted
     | SourceNotRunnable
+    | UnboundParameter
   >;
 }
 

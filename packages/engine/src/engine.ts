@@ -37,6 +37,7 @@ import type {
   TransformError,
   TransformSpec,
   Unauthorized,
+  UnboundParameter,
   UnknownCatalogEntry,
   UnknownInvestigation,
   ViewStateDocument,
@@ -98,6 +99,7 @@ export class Engine extends Context.Service<
       | RateLimited
       | RetryExhausted
       | SourceNotRunnable
+      | UnboundParameter
     >;
     readonly ingest: (
       input: EvidenceInput,
@@ -230,7 +232,8 @@ export class Engine extends Context.Service<
     /** Check a registered source's access classification against what it
      * actually serves. Reports; never rewrites the source's own value. */
     readonly verifyAccess: (
-      sourceId: string
+      sourceId: string,
+      params?: Record<string, unknown>
     ) => Effect.Effect<AccessObservation, ProbeError>;
   }
 >()("Engine") {}
@@ -353,8 +356,8 @@ const engineLayerWith = (registry: Layer.Layer<PackRegistry>) =>
         timeline: (from, to) => graph.timeline(from, to),
         // The probe reads the services this layer already holds, so it is
         // provided them here rather than being a second composition root.
-        verifyAccess: (sourceId) =>
-          verifyAccess(sourceId).pipe(
+        verifyAccess: (sourceId, params) =>
+          verifyAccess(sourceId, params).pipe(
             Effect.provideService(CatalogService, catalog),
             Effect.provideService(EvidenceService, evidenceStore),
             Effect.provideService(SourceRuntimeService, runtime),

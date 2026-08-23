@@ -24,10 +24,13 @@ export const bgpview_io: SourceSpec = {
 
 /** crt.sh Certificate Transparency — Certificate Transparency log search with free JSON API */
 export const crt_sh: SourceSpec = {
-  access: "unknown",
+  access: "open_api",
   id: "crt.sh",
   transport: "http",
-  url: "https://crt.sh/",
+  // The JSON API, not the front door. `output=json` is what makes it an API at
+  // all; without it crt.sh answers a web page, which is what this spec used to
+  // fetch and why its transform could only invent a result.
+  url: "https://crt.sh/?q={domain}&output=json",
 };
 
 /** DNSViz — ISC DNSViz: DNSSEC and DNS analysis. */
@@ -62,12 +65,24 @@ export const robtex_com: SourceSpec = {
   url: "https://www.robtex.com",
 };
 
-/** SecurityTrails — API for current and historical DNS records, WHOIS history, and subdomain discovery. */
+/**
+ * SecurityTrails subdomain enumeration. Verified working 2026-08-23 — see
+ * `openspec/exploration/05-source-access.md` for the endpoint, the auth scheme,
+ * and what came back.
+ *
+ * `{hostname}` is bound from the transform's input (`binding.ts`); the key is a
+ * reference, never a literal, because packs are tracked source (TDR-018).
+ */
 export const securitytrails_com: SourceSpec = {
-  access: "open_api",
+  access: "requires_key",
+  auth: {
+    name: "APIKEY",
+    scheme: "header",
+    secretRef: "SECURITYTRAILS_API_KEY",
+  },
   id: "securitytrails.com",
   transport: "http",
-  url: "https://securitytrails.com/dns-trails",
+  url: "https://api.securitytrails.com/v1/domain/{hostname}/subdomains",
 };
 
 /** urlscan.io — Free service to scan and analyze websites and their network behavior, with a documented API. */
@@ -76,4 +91,17 @@ export const urlscan_io: SourceSpec = {
   id: "urlscan.io",
   transport: "http",
   url: "https://urlscan.io",
+};
+
+/**
+ * host.io full domain record — web metadata, DNS, related domains, IP info in
+ * one response. Verified working 2026-08-23; free plan returns at most 5
+ * domains per page.
+ */
+export const host_io: SourceSpec = {
+  access: "requires_key",
+  auth: { scheme: "bearer", secretRef: "HOSTIO_TOKEN" },
+  id: "host.io",
+  transport: "http",
+  url: "https://host.io/api/full/{domain}",
 };

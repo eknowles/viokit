@@ -28,7 +28,7 @@ const text = (value: string): Uint8Array => new TextEncoder().encode(value);
 const transport = Layer.succeed(SourceTransportService, {
   fetch: () =>
     Effect.succeed({
-      bytes: text('[{"name_value":"acme.test"}]'),
+      bytes: text('[{"name_value":"acme.test\\nwww.acme.test"}]'),
       contentType: "application/json",
     }),
 });
@@ -115,6 +115,8 @@ describe("MCP tool round-trips", () => {
     });
     expect(staged.isError).toBe(false);
     const steps = JSON.parse(staged.text) as { evidenceIds: string[] }[];
+    // Apex, the name the certificate actually covers, and the relation — read
+    // from the response rather than conjured from the input.
     expect(steps).toHaveLength(3);
     // Every staged step is attributed to the run's evidence (I2).
     expect(steps.every((step) => step.evidenceIds.length === 1)).toBe(true);
@@ -131,7 +133,9 @@ describe("MCP tool round-trips", () => {
     expect(queried.text).toContain("acme.test");
 
     const related = await call(client, "relatedness", { seed: "acme.test" });
-    expect(related.text).toContain("cert:acme.test");
+    // The related entity is a name the certificate covers, not a synthetic
+    // `cert:<domain>` vertex invented from the input.
+    expect(related.text).toContain("www.acme.test");
   });
 
   it("rejects malformed input at the boundary and changes no state (I6)", async () => {
@@ -283,7 +287,8 @@ describe("front-end parity (I8)", () => {
 
     expect(viaCli).toBe(0);
     expect(viaMcp.isError).toBe(false);
-    expect(JSON.parse(viaMcp.text)).toHaveLength(1);
+    // web-dns registers three transforms now.
+    expect(JSON.parse(viaMcp.text)).toHaveLength(3);
   });
 });
 

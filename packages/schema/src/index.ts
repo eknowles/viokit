@@ -1,4 +1,5 @@
 export * from "./access.js";
+export * from "./binding.js";
 export * from "./boundary.js";
 export * from "./catalog.js";
 export * from "./investigation.js";

@@ -9,6 +9,7 @@ import type {
   SourceError,
   SourceNotRunnable,
   SourceSpec,
+  UnboundParameter,
   UnknownCatalogEntry,
 } from "@viokit/schema";
 import {
@@ -45,6 +46,7 @@ export type ProbeError =
   | RateLimited
   | RetryExhausted
   | SourceNotRunnable
+  | UnboundParameter
   | EvidenceWriteError;
 
 /**
@@ -96,7 +98,8 @@ interface RenderAttempt {
 }
 
 const renderedText = (
-  source: SourceSpec
+  source: SourceSpec,
+  params: Record<string, unknown>
 ): Effect.Effect<RenderAttempt, never, SourceRuntimeService> =>
   Effect.gen(function* () {
     const runtime = yield* SourceRuntimeService;
@@ -106,7 +109,7 @@ const renderedText = (
       id: `${source.id}#rendered`,
       transport: "browser",
     });
-    const rendered = yield* Effect.result(runtime.run(asBrowser));
+    const rendered = yield* Effect.result(runtime.run(asBrowser, params));
     if (rendered._tag === "Success") {
       return { text: visibleText(decoder.decode(rendered.success.bytes)) };
     }
@@ -121,7 +124,13 @@ const renderedText = (
   });
 
 export const verifyAccess = (
-  sourceId: string
+  sourceId: string,
+  /**
+   * Binds the source's url placeholders. A parameterised source cannot be
+   * probed without knowing what to ask it about, and inventing a value would
+   * make the observation about a request nobody chose.
+   */
+  params: Record<string, unknown> = {}
 ): Effect.Effect<
   AccessObservation,
   ProbeError,
@@ -148,8 +157,21 @@ export const verifyAccess = (
     // precisely the classifications least likely to be right. `transport` is
     // left alone, since that is a real capability requirement rather than a
     // claim, and a declared credential that does not resolve still refuses.
-    const probeSpec = SourceSpecSchema.make({ ...source, access: "unknown" });
-    const acquired: Evidence = yield* store.put(yield* runtime.run(probeSpec));
+    // Probed *without* the credential, and without the declared access.
+    //
+    // Access describes what reaching a source requires, so observing it while
+    // holding a key answers a different question: the first two credentialed
+    // sources both classified as `open_api` because the probe presented their
+    // key and got a 200. Clearing `auth` asks what an unauthenticated caller
+    // would meet, which is what the classification is about.
+    const { auth: _withheld, ...unauthenticated } = source;
+    const probeSpec = SourceSpecSchema.make({
+      ...unauthenticated,
+      access: "unknown",
+    });
+    const acquired: Evidence = yield* store.put(
+      yield* runtime.run(probeSpec, params)
+    );
     const evidence: EvidenceId[] = [acquired.id];
 
     const type = baseContentType(acquired.contentType);
@@ -165,7 +187,7 @@ export const verifyAccess = (
 
     if (isHtml(type) && browserAvailable) {
       const served = visibleText(decoder.decode(acquired.bytes));
-      const attempt = yield* renderedText(source);
+      const attempt = yield* renderedText(source, params);
       renderError = attempt.error;
       if (attempt.text !== undefined) {
         // A served page with no text at all is the strongest possible signal:

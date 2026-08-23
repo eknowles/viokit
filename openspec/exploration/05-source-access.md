@@ -95,6 +95,18 @@ this repo.
 > Any log, terminal scrollback, or error report that captured that response now contains the
 > credential. Treat a key that has hit this endpoint as disclosed and rotate it.
 
+## A third gap, and the largest: a source could not be asked about anything
+
+Found on trying to write the first real spec. `SourceRuntime.run(source)` took only the spec, and a
+transform's `input` never reached the acquisition — so **a source could only ever fetch one fixed
+url**. A lookup was not expressible. That is why the pack's only transform derived its output from the
+input string: it had no other option, since the fetch could not depend on what was asked.
+
+Fixed by `binding.ts`: a url may carry `{name}` placeholders, bound from the transform's input before
+anything else runs. The pipeline below is untouched — the cache fingerprint already hashes the url, so
+two domains get two cache entries without the cache knowing parameters exist. An unbound placeholder
+is a typed failure rather than a url with `{hostname}` still in it.
+
 ## Two gaps this exposed in the engine
 
 Both were found by probing, not by reading code, and both block wiring these sources.

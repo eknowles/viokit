@@ -103,6 +103,6 @@ describe("every promoted source is registered by its pack", () => {
       (sum, [manifest]) => sum + manifest.sources.length,
       0
     );
-    assert.strictEqual(total, 38);
+    assert.strictEqual(total, 39);
   });
 });
