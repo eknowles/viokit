@@ -16,7 +16,7 @@
 
 ## Key facts about the codebase
 
-- **Monorepo:** `packages/{schema,engine,sources,source-catalog}` + `viokit-site`.
+- **Monorepo:** two sections — `apps/{site}` for browser-facing apps, `packages/{schema,engine,sources,source-catalog,agent,packs}` for everything else.
 - **Packages:** `@viokit/schema`, `@viokit/engine`, `@viokit/sources`, `@viokit/source-catalog`.
 - **Runtime:** Bun. **Stack:** Effect 4.0.0-beta.103, Effect Schema (schema-first, decode at every boundary = I6), vitest + `@effect/vitest`, ultracite (biome).
 - **`effect` version is `4.0.0-beta.103`.** ⚠️ This beta's API differs from docs in several ways:

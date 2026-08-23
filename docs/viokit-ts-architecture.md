@@ -29,7 +29,7 @@ before deep capability work.
 
 ## 2. The three packages (the "three seams")
 
-The codebase is a Bun workspace (`package.json` → `workspaces: [viokit-site, packages/*]`)
+The codebase is a Bun workspace (`package.json` → `workspaces: [apps/*, packages/*]`)
 with three new packages. Each maps 1:1 to a capability boundary, so later stages
 deepen a package rather than restructure the layout.
 

@@ -1,6 +1,6 @@
 {
   "$schema": "./node_modules/@effect/tsgo/schema.json",
-  "extends": "./packages/tsconfig.base.json",
+  "extends": "./tsconfig.base.json",
   "include": ["packages/*/src/**/*.ts", "packages/*/test/**/*.ts"],
   "compilerOptions": {
     "types": ["node", "bun-types"],
