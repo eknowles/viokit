@@ -1,0 +1,24 @@
+{
+  "$schema": "https://raw.githubusercontent.com/jetify-com/devbox/0.17.0/.schema/devbox.schema.json",
+  "packages": ["bun@1.3.13"],
+  "shell": {
+    "init_hook": [
+      "export PATH=\"$PWD/node_modules/.bin:$PATH\"",
+      "bun --version | sed 's/^/bun /'"
+    ],
+    "scripts": {
+      "setup": ["bun install"],
+      "test": [
+        "bun run --filter './packages/*' test",
+        "bun run --filter @viokit/console test"
+      ],
+      "typecheck": [
+        "for p in schema engine sources source-catalog agent packs console; do bun run --filter \"@viokit/$p\" typecheck; done"
+      ],
+      "check": ["npm exec -- ultracite check"],
+      "api": ["bun --bun packages/agent/src/http.ts"],
+      "console": ["bun run --filter @viokit/console dev"],
+      "mcp": ["bun --bun packages/agent/src/mcp.ts"]
+    }
+  }
+}
