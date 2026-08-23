@@ -29,6 +29,29 @@ Collapse this back to one source the moment nixpkgs ships 1.4: drop the devDepen
 
 Nothing here touches your system Bun install.
 
+## Credentials
+
+Copy `.env.example` to `.env` and fill in what you have. `.env` is gitignored;
+Bun loads it from the repo root automatically, so the CLI, the API, and the tests
+all see it.
+
+Source credentials work by **reference** (TDR-018). A `SourceSpec` carries the
+*name* of the variable and how to apply it — never the value:
+
+```ts
+auth: { secretRef: "SECURITYTRAILS_API_KEY", scheme: "header", name: "APIKEY" }
+```
+
+Packs are tracked source, so a spec that *could* hold a secret eventually would.
+An unset or empty variable resolves to absent rather than to `""`, so the catalog
+reports the source as not runnable instead of failing at acquisition with a
+puzzling 401.
+
+`export`ing in your shell works too, but it leaks into shell history and `ps`.
+There is also a file-backed provider in `packages/engine/src/secrets.ts` reading a
+JSON object of reference → value — it is written and **not wired into any
+deployment**, so it does nothing until someone provides that layer.
+
 ## Verifying browser-facing changes
 
 **Check them from a browser.** `curl`, `Bun.fetch`, and tests that call a handler
