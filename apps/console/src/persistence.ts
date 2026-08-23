@@ -1,4 +1,5 @@
 import type { Client } from "./client.js";
+import type { Subject } from "./provenance.js";
 
 /**
  * View-state persistence (TDR-012, I12). The console's configuration is
@@ -13,10 +14,10 @@ import type { Client } from "./client.js";
 export const SURFACE = "console";
 
 /** Bump when the payload's shape changes; older documents then read as absent. */
-export const VERSION = 2;
+export const VERSION = 3;
 
 export interface ConsoleViewState {
-  readonly graphSelection: string | null;
+  readonly graphSelection: Subject | null;
   readonly graphTime: number | null;
   readonly runnableOnly: boolean;
   readonly selectedTransform: string | null;
@@ -31,6 +32,20 @@ export const defaultViewState: ConsoleViewState = {
   view: "catalog",
 };
 
+const SUBJECT_KINDS = new Set(["entity", "relation", "event"]);
+
+const isSubject = (value: unknown): value is Subject => {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+  const candidate = value as Record<string, unknown>;
+  return (
+    typeof candidate.id === "string" &&
+    typeof candidate.kind === "string" &&
+    SUBJECT_KINDS.has(candidate.kind)
+  );
+};
+
 const isViewState = (value: unknown): value is ConsoleViewState => {
   if (typeof value !== "object" || value === null) {
     return false;
@@ -42,7 +57,7 @@ const isViewState = (value: unknown): value is ConsoleViewState => {
     (candidate.selectedTransform === null ||
       typeof candidate.selectedTransform === "string") &&
     (candidate.graphSelection === null ||
-      typeof candidate.graphSelection === "string") &&
+      isSubject(candidate.graphSelection)) &&
     (candidate.graphTime === null || typeof candidate.graphTime === "number")
   );
 };

@@ -266,3 +266,22 @@ svg[aria-label="investigation graph"] {
   padding: 2px 8px;
   margin-left: 8px;
 }
+
+.node.event circle {
+  fill: var(--dim);
+}
+.node.event:hover circle {
+  fill: var(--text);
+}
+.edge.selected {
+  stroke: var(--ok);
+  stroke-width: 3;
+}
+line.edge[role="button"] {
+  cursor: pointer;
+  stroke-opacity: 0.35;
+  stroke-width: 6;
+}
+line.edge[role="button"]:hover {
+  stroke: var(--ok);
+}

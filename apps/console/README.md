@@ -17,7 +17,7 @@ Point the console elsewhere with `VITE_VIOKIT_API` (default `http://127.0.0.1:40
 | Transform | a form generated from the transform's published contract; runs by catalog id, **stages** steps, commits on a separate action |
 | Evidence | submit an artifact you retrieved by hand for a source the engine cannot fetch |
 | Graph | entity lookup and the four query surfaces, as tables |
-| Canvas | the replayed graph drawn as nodes and edges, with a time filter; selecting a node shows the steps that produced it and the evidence behind them, down to the artifact |
+| Canvas | the replayed graph drawn as nodes and edges, with a time filter; selecting an entity, relation, or event shows the steps that asserted it and the evidence behind them, down to the artifact |
 
 View state — current view, selected transform, catalog filter — is persisted **server-side**,
 schema-encoded and versioned (TDR-012, I12), never in the browser. Set `VIOKIT_VIEW_STATE_DIR` to

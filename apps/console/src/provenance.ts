@@ -21,15 +21,30 @@ export interface EvidenceRecord {
   readonly id: string;
 }
 
+/** What a selection is about. Every kind of assertion the graph holds can be
+ * inspected, not only entities. */
+export type SubjectKind = "entity" | "relation" | "event";
+
+export interface Subject {
+  readonly id: string;
+  readonly kind: SubjectKind;
+}
+
 export interface StepRecord {
+  readonly event?: { readonly id: string };
   readonly evidenceIds: readonly string[];
   readonly id: string;
   readonly operation: {
     readonly _tag: string;
     readonly canonicalId?: string;
     readonly entity?: { readonly id: string };
+    readonly event?: {
+      readonly entityIds?: readonly string[];
+      readonly id: string;
+    };
     readonly mergeId?: string;
     readonly relation?: {
+      readonly id: string;
       readonly sourceId: string;
       readonly targetId: string;
     };
@@ -39,24 +54,48 @@ export interface StepRecord {
   readonly transformId?: string;
 }
 
-/** Every step whose operation names this entity, in log order. */
+/**
+ * Every step whose operation asserts this subject, in log order.
+ *
+ * Matching is by subject identity, so selecting a relation finds the steps that
+ * asserted *that relation* — not every step that happens to mention one of its
+ * endpoints, which would present a neighbour's provenance as the relation's own.
+ */
+export const stepsForSubject = (
+  steps: readonly StepRecord[],
+  subject: Subject
+): readonly StepRecord[] =>
+  steps.filter((step) => {
+    const { operation } = step;
+    if (subject.kind === "relation") {
+      return operation.relation?.id === subject.id;
+    }
+    if (subject.kind === "event") {
+      return operation.event?.id === subject.id;
+    }
+    if (operation.entity?.id === subject.id) {
+      return true;
+    }
+    if (
+      operation.relation?.sourceId === subject.id ||
+      operation.relation?.targetId === subject.id
+    ) {
+      return true;
+    }
+    if (operation.event?.entityIds?.includes(subject.id) === true) {
+      return true;
+    }
+    return (
+      operation.canonicalId === subject.id || operation.mergeId === subject.id
+    );
+  });
+
+/** Every step naming this entity. Kept for entity-only callers. */
 export const stepsFor = (
   steps: readonly StepRecord[],
   entityId: string
 ): readonly StepRecord[] =>
-  steps.filter((step) => {
-    const { operation } = step;
-    if (operation.entity?.id === entityId) {
-      return true;
-    }
-    if (
-      operation.relation?.sourceId === entityId ||
-      operation.relation?.targetId === entityId
-    ) {
-      return true;
-    }
-    return operation.canonicalId === entityId || operation.mergeId === entityId;
-  });
+  stepsForSubject(steps, { id: entityId, kind: "entity" });
 
 /**
  * How an artifact was obtained, in words. This is the single most useful thing
@@ -89,7 +128,12 @@ export const describeOperation = (step: StepRecord): string => {
     return "added this entity";
   }
   if (operation._tag === "AddRelation") {
-    return "related it to another entity";
+    return operation.relation === undefined
+      ? "related it to another entity"
+      : `asserted ${operation.relation.sourceId} → ${operation.relation.targetId}`;
+  }
+  if (operation._tag === "AddEvent") {
+    return "recorded an event involving it";
   }
   if (operation._tag === "ResolveEntity") {
     return operation.canonicalId === undefined

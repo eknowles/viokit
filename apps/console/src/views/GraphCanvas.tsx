@@ -1,16 +1,21 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Client } from "../client.js";
 import { OperationFailure } from "../client.js";
-import type { GraphSnapshot, PlacedNode } from "../graph-layout.js";
+import type {
+  GraphRelation,
+  GraphSnapshot,
+  PlacedEdge,
+  PlacedNode,
+} from "../graph-layout.js";
 import { atTime, extentRange, layout } from "../graph-layout.js";
-import type { EvidenceRecord, StepRecord } from "../provenance.js";
+import type { EvidenceRecord, StepRecord, Subject } from "../provenance.js";
 import {
   decodeContent,
   describeAcquisition,
   describeOperation,
   describeOrigin,
   isPreviewable,
-  stepsFor,
+  stepsForSubject,
 } from "../provenance.js";
 
 /**
@@ -41,10 +46,10 @@ const readRecord = async (
 
 const Provenance = ({
   client,
-  entityId,
+  subject,
 }: {
   readonly client: Client;
-  readonly entityId: string;
+  readonly subject: Subject;
 }) => {
   const [steps, setSteps] = useState<readonly StepRecord[] | null>(null);
   const [evidence, setEvidence] = useState<Record<string, EvidenceRecord>>({});
@@ -58,7 +63,7 @@ const Provenance = ({
     client
       .call("log")
       .then(async (result) => {
-        const found = stepsFor(result as StepRecord[], entityId);
+        const found = stepsForSubject(result as StepRecord[], subject);
         if (cancelled) {
           return;
         }
@@ -82,7 +87,7 @@ const Provenance = ({
     return () => {
       cancelled = true;
     };
-  }, [client, entityId]);
+  }, [client, subject]);
 
   const show = (id: string) => {
     client
@@ -103,7 +108,8 @@ const Provenance = ({
   if (steps.length === 0) {
     return (
       <p className="hint">
-        No steps in the log name this entity — its provenance cannot be shown.
+        No steps in the log assert this {subject.kind} — its provenance cannot
+        be shown.
       </p>
     );
   }
@@ -152,9 +158,43 @@ const Provenance = ({
   );
 };
 
+const RelationDetail = ({
+  edge,
+  relation,
+}: {
+  readonly edge: PlacedEdge;
+  readonly relation: GraphRelation;
+}) => (
+  <div className="detail">
+    <h3>{relation.type}</h3>
+    <table>
+      <tbody>
+        <tr>
+          <td>from</td>
+          <td>{edge.source.entity.id}</td>
+        </tr>
+        <tr>
+          <td>to</td>
+          <td>{edge.target.entity.id}</td>
+        </tr>
+        <tr>
+          <td>valid</td>
+          <td>
+            {relation.temporalExtent.validFrom} →{" "}
+            {relation.temporalExtent.validTo}
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+);
+
 const NodeDetail = ({ node }: { readonly node: PlacedNode }) => (
   <div className="detail">
-    <h3>{node.entity.id}</h3>
+    <h3>
+      {node.entity.id}
+      {node.kind === "event" ? <span className="hint"> (event)</span> : null}
+    </h3>
     <table>
       <tbody>
         <tr>
@@ -168,6 +208,12 @@ const NodeDetail = ({ node }: { readonly node: PlacedNode }) => (
             {node.entity.temporalExtent.validTo}
           </td>
         </tr>
+        {node.event === undefined ? null : (
+          <tr>
+            <td>involves</td>
+            <td>{node.event.entityIds.join(", ")}</td>
+          </tr>
+        )}
         {(node.entity.identifiers ?? []).map((identifier) => (
           <tr key={`${identifier.kind}:${identifier.value}`}>
             <td>{identifier.kind}</td>
@@ -187,9 +233,9 @@ export const GraphCanvasView = ({
   time,
 }: {
   readonly client: Client;
-  readonly onSelect: (id: string | null) => void;
+  readonly onSelect: (subject: Subject | null) => void;
   readonly onTime: (at: number | null) => void;
-  readonly selected: string | null;
+  readonly selected: Subject | null;
   readonly time: number | null;
 }) => {
   const [graph, setGraph] = useState<GraphSnapshot | null>(null);
@@ -242,7 +288,13 @@ export const GraphCanvasView = ({
   }
 
   const selectedNode =
-    placed.nodes.find((node) => node.entity.id === selected) ?? null;
+    selected?.kind === "relation"
+      ? null
+      : (placed.nodes.find((node) => node.entity.id === selected?.id) ?? null);
+  const selectedEdge =
+    selected?.kind === "relation"
+      ? (placed.edges.find((edge) => edge.id === selected.id) ?? null)
+      : null;
 
   return (
     <div>
@@ -291,19 +343,48 @@ export const GraphCanvasView = ({
           width="100%"
         >
           <title>Investigation graph</title>
-          {placed.edges.map((edge) => (
-            <line
-              className="edge"
-              key={edge.relation.id}
-              x1={edge.source.x}
-              x2={edge.target.x}
-              y1={edge.source.y}
-              y2={edge.target.y}
-            />
-          ))}
+          {placed.edges.map((edge) => {
+            const selectable = edge.relation !== undefined;
+            const chosen = selected?.id === edge.id;
+            return (
+              // biome-ignore lint/a11y/noStaticElementInteractions: role and tabIndex are set below; SVG has no button element
+              <line
+                aria-label={edge.relation?.type ?? "connection"}
+                className={chosen ? "edge selected" : "edge"}
+                key={edge.id}
+                onClick={
+                  selectable
+                    ? () =>
+                        onSelect(
+                          chosen ? null : { id: edge.id, kind: "relation" }
+                        )
+                    : undefined
+                }
+                onKeyDown={
+                  selectable
+                    ? (event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          onSelect(
+                            chosen ? null : { id: edge.id, kind: "relation" }
+                          );
+                        }
+                      }
+                    : undefined
+                }
+                role={selectable ? "button" : undefined}
+                tabIndex={selectable ? 0 : undefined}
+                x1={edge.source.x}
+                x2={edge.target.x}
+                y1={edge.source.y}
+                y2={edge.target.y}
+              />
+            );
+          })}
           {placed.nodes.map((node) => {
+            const chosen = node.entity.id === selected?.id;
             const toggle = () =>
-              onSelect(node.entity.id === selected ? null : node.entity.id);
+              onSelect(chosen ? null : { id: node.entity.id, kind: node.kind });
             return (
               // Keyboard-reachable: a node is a control, so it behaves like
               // one. `<button>` is not valid SVG content, so the role is
@@ -311,10 +392,8 @@ export const GraphCanvasView = ({
               // biome-ignore lint/a11y/useSemanticElements: no button element in SVG
               <g
                 aria-label={`${node.entity.kind} ${node.entity.id}`}
-                aria-pressed={node.entity.id === selected}
-                className={
-                  node.entity.id === selected ? "node selected" : "node"
-                }
+                aria-pressed={chosen}
+                className={`node ${node.kind}${chosen ? "selected" : ""}`}
                 key={node.entity.id}
                 onClick={toggle}
                 onKeyDown={(event) => {
@@ -336,13 +415,19 @@ export const GraphCanvasView = ({
         </svg>
       )}
 
-      {selectedNode === null ? null : (
+      {selected === null ? null : (
         <div>
           <button onClick={() => onSelect(null)} type="button">
             clear selection
           </button>
-          <NodeDetail node={selectedNode} />
-          <Provenance client={client} entityId={selectedNode.entity.id} />
+          {selectedNode === null ? null : <NodeDetail node={selectedNode} />}
+          {selectedEdge?.relation === undefined ? null : (
+            <RelationDetail
+              edge={selectedEdge}
+              relation={selectedEdge.relation}
+            />
+          )}
+          <Provenance client={client} subject={selected} />
         </div>
       )}
     </div>

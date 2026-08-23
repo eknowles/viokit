@@ -200,3 +200,68 @@ describe("the graph's time span", () => {
     assert.isNull(extentRange(snapshot([])));
   });
 });
+
+describe("events in the graph", () => {
+  const event = (
+    id: string,
+    entityIds: string[],
+    from = "2024-01-01T00:00:00.000Z",
+    to = "2024-12-31T00:00:00.000Z"
+  ) => ({ entityIds, id, kind: "sighting", temporalExtent: extent(from, to) });
+
+  it("draws an event connected to the entities it involves", () => {
+    const result = layout({
+      entities: [entity("a"), entity("b")],
+      events: [event("ev1", ["a", "b"])],
+      relations: [],
+    });
+    const eventNode = result.nodes.find((n) => n.kind === "event");
+    assert.isDefined(eventNode);
+    assert.strictEqual(eventNode?.entity.id, "ev1");
+    // One edge to each participant.
+    assert.strictEqual(result.edges.length, 2);
+  });
+
+  it("distinguishes events from entities", () => {
+    const result = layout({
+      entities: [entity("a")],
+      events: [event("ev1", ["a"])],
+      relations: [],
+    });
+    assert.deepStrictEqual(result.nodes.map((n) => n.kind).sort(), [
+      "entity",
+      "event",
+    ]);
+  });
+
+  it("excludes an event outside the selected moment", () => {
+    const filtered = atTime(
+      {
+        entities: [entity("a")],
+        events: [
+          event(
+            "old",
+            ["a"],
+            "2020-01-01T00:00:00.000Z",
+            "2020-06-01T00:00:00.000Z"
+          ),
+          event("now", ["a"]),
+        ],
+        relations: [],
+      },
+      Date.parse("2024-06-01T00:00:00.000Z")
+    );
+    assert.deepStrictEqual(
+      filtered.events?.map((e) => e.id),
+      ["now"]
+    );
+  });
+
+  it("a graph without events behaves as before", () => {
+    const result = layout(
+      snapshot([entity("a"), entity("b")], [relation("r", "a", "b")])
+    );
+    assert.strictEqual(result.nodes.length, 2);
+    assert.isTrue(result.nodes.every((n) => n.kind === "entity"));
+  });
+});

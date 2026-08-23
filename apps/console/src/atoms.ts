@@ -1,5 +1,6 @@
 import { Atom, AtomRegistry } from "effect/unstable/reactivity";
 import { useCallback, useSyncExternalStore } from "react";
+import type { Subject } from "./provenance.js";
 
 /**
  * Client state (TDR-002). Atoms come from `effect/unstable/reactivity`, which
@@ -39,5 +40,6 @@ export type ViewName = "catalog" | "launcher" | "evidence" | "graph" | "canvas";
 export const viewAtom = Atom.make<ViewName>("catalog");
 export const selectedTransformAtom = Atom.make<string | null>(null);
 export const runnableOnlyAtom = Atom.make(false);
-export const graphSelectionAtom = Atom.make<string | null>(null);
+/** The graph's current selection — an entity, relation, or event. */
+export const graphSelectionAtom = Atom.make<Subject | null>(null);
 export const graphTimeAtom = Atom.make<number | null>(null);

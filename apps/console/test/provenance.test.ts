@@ -7,6 +7,7 @@ import {
   describeOrigin,
   isPreviewable,
   stepsFor,
+  stepsForSubject,
 } from "../src/provenance.js";
 
 const step = (
@@ -20,7 +21,11 @@ const log: StepRecord[] = [
   step("s2", { _tag: "AddEntity", entity: { id: "other.test" } }),
   step("s3", {
     _tag: "AddRelation",
-    relation: { sourceId: "acme.test", targetId: "cert:acme.test" },
+    relation: {
+      id: "r-acme",
+      sourceId: "acme.test",
+      targetId: "cert:acme.test",
+    },
   }),
   step("s4", {
     _tag: "ResolveEntity",
@@ -102,8 +107,13 @@ describe("describing how evidence was acquired", () => {
 describe("describing what a step did", () => {
   it("describes each operation kind", () => {
     assert.include(describeOperation(log[0] as StepRecord), "added");
-    assert.include(describeOperation(log[2] as StepRecord), "related");
     assert.include(describeOperation(log[3] as StepRecord), "acme.test");
+  });
+
+  it("names both ends of a relation it asserted", () => {
+    const described = describeOperation(log[2] as StepRecord);
+    assert.include(described, "acme.test");
+    assert.include(described, "cert:acme.test");
   });
 });
 
@@ -165,6 +175,56 @@ describe("describing what produced a step (I7)", () => {
         id: "s1",
         operation: { _tag: "ResolveEntity" },
       })
+    );
+  });
+});
+
+describe("provenance is scoped to the selected subject", () => {
+  it("a relation finds the step that asserted it, not its neighbours'", () => {
+    const found = stepsForSubject(log, { id: "r-acme", kind: "relation" });
+    assert.deepStrictEqual(
+      found.map((s) => s.id),
+      ["s3"]
+    );
+  });
+
+  it("an entity still finds every step naming it", () => {
+    const found = stepsForSubject(log, { id: "acme.test", kind: "entity" });
+    assert.deepStrictEqual(
+      found.map((s) => s.id),
+      ["s1", "s3", "s4"]
+    );
+  });
+
+  it("a subject with no steps reports none", () => {
+    assert.deepStrictEqual(
+      stepsForSubject(log, { id: "r-unknown", kind: "relation" }),
+      []
+    );
+  });
+
+  it("an event finds the step that recorded it", () => {
+    const withEvent = [
+      ...log,
+      {
+        evidenceIds: ["e1"],
+        id: "s5",
+        operation: {
+          _tag: "AddEvent",
+          event: { entityIds: ["acme.test"], id: "ev1" },
+        },
+      } as StepRecord,
+    ];
+    assert.deepStrictEqual(
+      stepsForSubject(withEvent, { id: "ev1", kind: "event" }).map((s) => s.id),
+      ["s5"]
+    );
+    // and the entity it involves sees it too
+    assert.include(
+      stepsForSubject(withEvent, { id: "acme.test", kind: "entity" }).map(
+        (s) => s.id
+      ),
+      "s5"
     );
   });
 });

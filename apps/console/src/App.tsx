@@ -16,6 +16,7 @@ import {
   loadViewState,
   saveViewState,
 } from "./persistence.js";
+import type { Subject } from "./provenance.js";
 import { CatalogView } from "./views/Catalog.js";
 import { EvidenceView } from "./views/Evidence.js";
 import { GraphView } from "./views/Graph.js";
@@ -54,9 +55,9 @@ const Body = ({
 }: {
   readonly client: Client;
   readonly onLaunch: (id: string) => void;
-  readonly graphSelection: string | null;
+  readonly graphSelection: Subject | null;
   readonly graphTime: number | null;
-  readonly onGraphSelect: (id: string | null) => void;
+  readonly onGraphSelect: (subject: Subject | null) => void;
   readonly onGraphTime: (at: number | null) => void;
   readonly onRunnableOnly: (value: boolean) => void;
   readonly runnableOnly: boolean;

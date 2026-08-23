@@ -31,19 +31,35 @@ export interface GraphRelation {
   readonly type: string;
 }
 
+export interface GraphEvent {
+  readonly entityIds: readonly string[];
+  readonly id: string;
+  readonly kind: string;
+  readonly temporalExtent: { validFrom: string; validTo: string };
+}
+
 export interface GraphSnapshot {
   readonly entities: readonly GraphEntity[];
+  readonly events?: readonly GraphEvent[];
   readonly relations: readonly GraphRelation[];
 }
 
+/** What a node stands for. Events are drawn distinctly: they are the graph's
+ * time dimension, not another entity. */
+export type NodeKind = "entity" | "event";
+
 export interface PlacedNode {
   readonly entity: GraphEntity;
+  readonly event?: GraphEvent;
+  readonly kind: NodeKind;
   readonly x: number;
   readonly y: number;
 }
 
 export interface PlacedEdge {
-  readonly relation: GraphRelation;
+  readonly id: string;
+  /** Absent for the edge joining an event to a participant. */
+  readonly relation?: GraphRelation;
   readonly source: PlacedNode;
   readonly target: PlacedNode;
 }
@@ -85,6 +101,9 @@ export const atTime = (
   const ids = new Set(entities.map((entity) => entity.id));
   return {
     entities,
+    events: (snapshot.events ?? []).filter((event) =>
+      within(event.temporalExtent, at)
+    ),
     relations: snapshot.relations.filter(
       (relation) =>
         within(relation.temporalExtent, at) &&
@@ -123,6 +142,9 @@ export const capped = (
     omitted: snapshot.entities.length - kept.length,
     snapshot: {
       entities: kept,
+      events: (snapshot.events ?? []).filter((event) =>
+        event.entityIds.some((id) => ids.has(id))
+      ),
       // Edges only where both ends survived: an edge into nothing is worse
       // than a missing edge.
       relations: snapshot.relations.filter(
@@ -134,7 +156,9 @@ export const capped = (
 
 interface SimNode extends SimulationNodeDatum {
   readonly entity: GraphEntity;
+  readonly event?: GraphEvent;
   readonly id: string;
+  readonly kind: NodeKind;
 }
 
 const ITERATIONS = 200;
@@ -150,14 +174,38 @@ export const layout = (
     return { edges: [], nodes: [], omitted };
   }
 
-  const nodes: SimNode[] = snapshot.entities.map((entity) => ({
-    entity,
-    id: entity.id,
-  }));
-  const links = snapshot.relations.map((relation) => ({
-    source: relation.sourceId,
-    target: relation.targetId,
-  }));
+  const events = snapshot.events ?? [];
+  const nodes: SimNode[] = [
+    ...snapshot.entities.map((entity) => ({
+      entity,
+      id: entity.id,
+      kind: "entity" as const,
+    })),
+    ...events.map((event) => ({
+      // An event borrows the entity shape for layout; `kind` is what the
+      // renderer and the selection model go by.
+      entity: {
+        id: event.id,
+        kind: event.kind,
+        temporalExtent: event.temporalExtent,
+      },
+      event,
+      id: event.id,
+      kind: "event" as const,
+    })),
+  ];
+  const links = [
+    ...snapshot.relations.map((relation) => ({
+      source: relation.sourceId,
+      target: relation.targetId,
+    })),
+    ...events.flatMap((event) =>
+      event.entityIds.map((entityId) => ({
+        source: event.id,
+        target: entityId,
+      }))
+    ),
+  ];
 
   const simulation = forceSimulation(nodes)
     .force(
@@ -178,6 +226,8 @@ export const layout = (
   for (const node of nodes) {
     placed.set(node.id, {
       entity: node.entity,
+      ...(node.event === undefined ? {} : { event: node.event }),
+      kind: node.kind,
       x: node.x ?? size / 2,
       y: node.y ?? size / 2,
     });
@@ -188,7 +238,16 @@ export const layout = (
     const source = placed.get(relation.sourceId);
     const target = placed.get(relation.targetId);
     if (source !== undefined && target !== undefined) {
-      edges.push({ relation, source, target });
+      edges.push({ id: relation.id, relation, source, target });
+    }
+  }
+  for (const event of events) {
+    const source = placed.get(event.id);
+    for (const entityId of event.entityIds) {
+      const target = placed.get(entityId);
+      if (source !== undefined && target !== undefined) {
+        edges.push({ id: `${event.id}->${entityId}`, source, target });
+      }
     }
   }
 
