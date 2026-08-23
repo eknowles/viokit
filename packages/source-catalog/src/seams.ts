@@ -68,6 +68,18 @@ export class ValidationError extends Data.TaggedError("ValidationError")<{
 }> {}
 
 /**
+ * A promotion refused because the candidate's classification has not been
+ * checked against the source.
+ *
+ * The catalog was the one place in this system where an unattributed assertion
+ * could enter, and 37 of them were promoted into shipped pack files where they
+ * then read as facts. Everything else here requires provenance; so does this.
+ */
+export class Unverified extends Data.TaggedError("Unverified")<{
+  readonly message: string;
+}> {}
+
+/**
  * The enrichable fields on a candidate, validated at the boundary.
  */
 export const CandidatePatchSchema = Schema.Struct({
@@ -140,3 +152,14 @@ export class PromoterService extends Context.Service<
   PromoterService,
   Promoter
 >()("PromoterService") {}
+
+/**
+ * Where the pack tree lives. A seam because promotion was resolving it from
+ * `process.cwd()`, which both pointed at the wrong place — packs live under
+ * `packages/packs`, not `<cwd>/packs` — and left the write path with nothing to
+ * aim at a temporary directory, so it went untested.
+ */
+export class PackRoot extends Context.Service<PackRoot, string>()("PackRoot") {}
+
+/** The pack tree as it sits in this workspace. */
+export const defaultPackRoot = "packages/packs";

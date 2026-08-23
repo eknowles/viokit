@@ -1,8 +1,13 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { SourceSpec } from "@viokit/schema";
-import { Effect, Layer, Schema } from "effect";
-import { PromoterService, PromotionError } from "./seams.js";
+import { Effect, Layer, Option, Schema } from "effect";
+import {
+  defaultPackRoot,
+  PackRoot,
+  PromoterService,
+  PromotionError,
+} from "./seams.js";
 
 const header = `import type { SourceSpec } from "@viokit/schema";
 
@@ -55,30 +60,37 @@ const decodeSpec = (sourceId: string, source: unknown) =>
     try: () => Schema.decodeUnknownSync(SourceSpec)(source),
   });
 
-const appendSource = (category: string, sourceId: string, source: unknown) =>
-  Effect.gen(function* () {
-    yield* decodeSpec(sourceId, source);
-    const dir = join(process.cwd(), "packs", category);
-    const path = join(dir, "sources.ts");
-    yield* Effect.tryPromise({
-      catch: (cause) => new PromotionError({ cause, id: sourceId }),
-      try: () => mkdir(dir, { recursive: true }),
+const appendSource =
+  (packRoot: string) => (category: string, sourceId: string, source: unknown) =>
+    Effect.gen(function* () {
+      yield* decodeSpec(sourceId, source);
+      const dir = join(packRoot, category);
+      const path = join(dir, "sources.ts");
+      yield* Effect.tryPromise({
+        catch: (cause) => new PromotionError({ cause, id: sourceId }),
+        try: () => mkdir(dir, { recursive: true }),
+      });
+      const existing = yield* Effect.tryPromise({
+        catch: (cause) => new PromotionError({ cause, id: sourceId }),
+        try: () => readExisting(path),
+      });
+      const next =
+        existing.trim().length === 0
+          ? header + renderSourceExport(sourceId, source)
+          : existing + renderSourceExport(sourceId, source);
+      yield* Effect.tryPromise({
+        catch: (cause) => new PromotionError({ cause, id: sourceId }),
+        try: () => writeFile(path, next, "utf8"),
+      });
     });
-    const existing = yield* Effect.tryPromise({
-      catch: (cause) => new PromotionError({ cause, id: sourceId }),
-      try: () => readExisting(path),
-    });
-    const next =
-      existing.trim().length === 0
-        ? header + renderSourceExport(sourceId, source)
-        : existing + renderSourceExport(sourceId, source);
-    yield* Effect.tryPromise({
-      catch: (cause) => new PromotionError({ cause, id: sourceId }),
-      try: () => writeFile(path, next, "utf8"),
-    });
-  });
 
 export const PromoterLayer = Layer.effect(
   PromoterService,
-  Effect.sync(() => ({ writeSource: appendSource }))
+  Effect.gen(function* () {
+    const packRoot = Option.getOrElse(
+      yield* Effect.serviceOption(PackRoot),
+      () => defaultPackRoot
+    );
+    return { writeSource: appendSource(packRoot) };
+  })
 );

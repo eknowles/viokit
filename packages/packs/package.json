@@ -5,9 +5,8 @@
   "type": "module",
   "exports": {
     "./*": "./*",
-    "./people-identity/manifest": "./people-identity/manifest.ts",
-    "./people-identity/sources": "./people-identity/sources.ts",
-    "./web-dns/manifest": "./web-dns/manifest.ts"
+    "./*/manifest": "./*/manifest.ts",
+    "./*/sources": "./*/sources.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"
