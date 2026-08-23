@@ -260,6 +260,13 @@ export const operations: readonly AgentOperation[] = [
       }),
   },
   {
+    args: [arg("path", "string", "directory to write the bundle into")],
+    description:
+      "Export the investigation as a portable, independently verifiable bundle: artifacts as files, a SHA-256 manifest any BagIt tool can check, and a manifest carrying the graph, the step log, and what produced each step.",
+    name: "export_bundle",
+    run: (args) => engine((e) => e.exportBundle(String(args.path))),
+  },
+  {
     args: [arg("step", "json", "an evidence-attributed step")],
     description:
       "Commit one step to the graph. Rejected unless it is attributed to evidence.",

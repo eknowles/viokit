@@ -71,3 +71,37 @@ bun test ./packages/sources/test/browser-live.ts
 > browser processes are reused across acquisitions, so a later acquisition would silently inherit
 > the first one's route — traffic leaving the wrong way while the evidence recorded `proxy`. Direct
 > egress works. See TDR-019's open questions for what re-enabling it requires.
+
+## Evidentiary export
+
+```sh
+curl -s -X POST localhost:4000/operations/export_bundle \
+  -H 'content-type: application/json' -d '{"path":"./bundle"}'
+```
+
+Produces a [BagIt](https://datatracker.ietf.org/doc/html/rfc8493) bag (TDR-010):
+
+```
+bundle/
+  bagit.txt                 BagIt declaration
+  manifest-sha256.txt       a digest per artifact — verify with any BagIt tool
+  data/<evidence-id>        the raw artifacts, one file each
+  viokit-manifest.json      the graph, the full step log with attribution,
+                            and each artifact's acquisition path
+```
+
+Verify it with standard tools, not ours:
+
+```sh
+cd bundle && shasum -a 256 -c manifest-sha256.txt
+```
+
+### What a bundle does and does not prove
+
+It proves the artifacts are **as they were at export** — `manifest-sha256.txt` is a cryptographic
+digest over each artifact's bytes, and a recipient can check it without this software.
+
+It does **not** prove custody before export. The `evidenceId` in the manifest is a 64-bit **FNV-1a**
+content-addressing key used to link a step to a file; FNV-1a has no collision resistance and is not
+tamper-evidence. The manifest states this itself, because a bundle travels away from its
+documentation. Moving evidence identity to a cryptographic digest is TDR-010's open question.

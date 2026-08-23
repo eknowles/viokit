@@ -5,6 +5,7 @@ export * from "./egress.js";
 export * from "./engine.js";
 export * from "./evidence.js";
 export * from "./evidence-fs.js";
+export * from "./export.js";
 export * from "./graph.js";
 export * from "./graph-duckdb.js";
 export * from "./hash.js";

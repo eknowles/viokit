@@ -17,7 +17,7 @@
 | TDR-007 | Evidence store — filesystem vs S3/MinIO | decided 2026-08-05 | filesystem content-addressed first; S3/MinIO behind same seam |
 | TDR-008 | Schema→form generation — build vs adopt | decided 2026-08-23 | build a small renderer over the Draft-2020-12 documents `catalog_describe` already publishes, raw-JSON fallback, custom components per transform; `@rjsf` deferred |
 | TDR-009 | Effect Schema ↔ Arrow mapping approach | proposed | open (real build item) |
-| TDR-010 | Evidentiary bundle export format | proposed | open |
+| TDR-010 | Evidentiary bundle export format | decided 2026-08-23 | BagIt-shaped directory (`bagit.txt`, `manifest-sha256.txt`, `data/<id>`) plus `viokit-manifest.json` for claims/steps/attribution; hand-written, no dependency. **Finding:** evidence ids are 64-bit FNV-1a — a dedup key, not tamper-evidence — so bundles attest with SHA-256 computed at export and say so |
 | TDR-011 | Egress / identity–proxy model | decided 2026-08-05 | runtime-owned `Egress` stage (direct/proxy/disabled); identity↔egress binding; gates browser transport |
 | TDR-012 | View-state persistence backend | decided 2026-08-23 | `ViewStateStore` seam keyed by (user, investigation, surface); versioned schema-encoded documents; filesystem first, SQLite behind the same seam; kept apart from the step log; user/investigation are placeholders until governance and the investigations capability |
 | TDR-013 | Source-catalog store — SQLite vs filesystem vs in-memory | decided 2026-08-05 | `CandidateStore`/`WorkQueue` seams; SQLite single-file first (atomic claims + dedup); filesystem fallback |

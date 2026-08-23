@@ -49,6 +49,8 @@ import { CorrelateLayer } from "./correlate.js";
 import { EgressLayer } from "./egress.js";
 import { EvidenceService } from "./evidence.js";
 import { EvidenceLayer } from "./evidence-fs.js";
+import type { Bundle } from "./export.js";
+import { writeBundle } from "./export.js";
 import { DuckDBGraphLayer, DuckDBGraphService } from "./graph-duckdb.js";
 import { RateLimiterLayer } from "./rate-limit.js";
 import { SecretProviderEnvLayer } from "./secrets.js";
@@ -85,6 +87,11 @@ export class Engine extends Context.Service<
     readonly evidence: (
       id: EvidenceId
     ) => Effect.Effect<Option.Option<Evidence>, EvidenceReadError>;
+    /** Assemble a portable, independently verifiable bundle (TDR-010).
+     * Reads only — exporting appends no step and writes no evidence. */
+    readonly exportBundle: (
+      path: string
+    ) => Effect.Effect<Bundle, EvidenceReadError>;
     readonly insert: (step: Step) => Effect.Effect<Step, ProvenanceError>;
     readonly log: Effect.Effect<readonly Step[]>;
     readonly queryEntity: (id: string) => Effect.Effect<Option.Option<Entity>>;
@@ -191,6 +198,18 @@ const engineLayerWith = (registry: Layer.Layer<PackRegistry>) =>
           correlate.resolve(staged, existing, rules),
         describe: (id) => catalog.describe(id),
         evidence: (id) => evidenceStore.get(id),
+        exportBundle: (path) =>
+          Effect.gen(function* () {
+            const steps = yield* graph.log;
+            const state = yield* graph.replay;
+            return yield* writeBundle({
+              at: new Date(),
+              evidence: (id) => evidenceStore.get(id),
+              graph: state,
+              path,
+              steps,
+            });
+          }),
         ingest: (input) => evidenceStore.put(input),
         insert: (step) => graph.insert(step),
         loadViewState: (key, version) => viewState.load(key, version),
