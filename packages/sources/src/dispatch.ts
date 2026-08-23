@@ -3,6 +3,7 @@ import { Effect, Layer, Option } from "effect";
 import {
   BrowserEngineService,
   defaultBrowserProfileRoot,
+  makeBrowserRuntime,
   makeBrowserTransport,
 } from "./browser.js";
 import { DatasetTransportLayer } from "./dataset.js";
@@ -40,12 +41,17 @@ export const DispatchTransportLayer: Layer.Layer<
     const engine = Option.getOrUndefined(
       yield* Effect.serviceOption(BrowserEngineService)
     );
+    // The pool and the gate are built in the same place that decides this
+    // deployment has a browser at all, so the capability and the processes
+    // backing it cannot disagree.
     const browser =
       engine === undefined
         ? undefined
-        : makeBrowserTransport(engine, {
-            profileRoot: defaultBrowserProfileRoot,
-          });
+        : yield* Effect.map(makeBrowserRuntime, ({ gate, pool }) =>
+            makeBrowserTransport(engine, pool, gate, {
+              profileRoot: defaultBrowserProfileRoot,
+            })
+          );
 
     return {
       fetch: (source, context) => {

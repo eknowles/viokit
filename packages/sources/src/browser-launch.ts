@@ -2,20 +2,34 @@ import { join } from "node:path";
 import type { AcquisitionContext, SourceSpec } from "@viokit/schema";
 
 /**
- * How a browser is launched for one acquisition (TDR-019).
+ * Which browser process an acquisition belongs to, and what to open in it
+ * (TDR-019, TDR-022).
  *
  * Kept as a pure function because every rule worth testing lives here — the
- * proxy switch for a proxied route, its absence for a direct one, a data
- * directory per identity, and the refusal of an engine that cannot be bound to
- * a proxy at all. A browser only has to start for the one opt-in live test.
+ * proxy switch for a proxied route, its absence for a direct one, the key and
+ * profile that bind a process to one `(identity, route)` pair, and the refusals
+ * that survive. A browser only has to start for the opt-in live test.
  */
 
 export type BrowserBackend = "chrome" | "webkit";
 
-export interface BrowserLaunchOptions {
+/**
+ * A browser process bound to one `(identity, egress route)` pair.
+ *
+ * `key` identifies the process in the pool; `argv` and `dataDirectory` are what
+ * it must be started with. The route is a property of the process rather than a
+ * request made of it, which is the whole point: proxy binding is a launch
+ * switch, so a process started for one route cannot serve another (TDR-022).
+ */
+export interface BrowserRoute {
   readonly argv: readonly string[];
   readonly backend: BrowserBackend;
   readonly dataDirectory: string;
+  readonly key: string;
+}
+
+export interface BrowserLaunchOptions {
+  readonly route: BrowserRoute;
   readonly url: string;
 }
 
@@ -35,9 +49,20 @@ export const ANONYMOUS_IDENTITY = "anonymous";
 export interface BrowserLaunchConfig {
   /** Which engine to drive. WebKit cannot be bound to a proxy (TDR-019). */
   readonly backend?: BrowserBackend;
-  /** Where profiles live; one subdirectory per identity. */
+  /** Where profiles live; one subdirectory per `(identity, route)`. */
   readonly profileRoot: string;
 }
+
+/** A route's name, safe to use as a path segment and stable across runs. */
+const routeSegment = (viaProxy: string | undefined): string =>
+  viaProxy === undefined
+    ? "direct"
+    : `proxy-${viaProxy.replaceAll(/[^\w.-]/g, "_")}`;
+
+const refuse = (reason: string): BrowserLaunch => ({
+  _tag: "refused",
+  refusal: { reason },
+});
 
 export const browserLaunchOptions = (
   source: SourceSpec,
@@ -48,38 +73,39 @@ export const browserLaunchOptions = (
   const egress =
     context === undefined ? { path: "live" as const } : context.egress;
   const identity = context?.identity ?? ANONYMOUS_IDENTITY;
+  const proxied = egress.path === "proxy";
 
-  // Proxy binding is a *launch* switch, and a browser process is reused across
-  // views: a second acquisition inherits whatever route the first process was
-  // started with. Measured — the same proxied acquisition routes correctly in a
-  // fresh process and is silently ignored after another acquisition has already
-  // started a browser. Until the transport can guarantee a process per route,
-  // a proxied browser acquisition cannot be promised, and promising it would
-  // mean traffic leaving by the wrong route while the evidence recorded
-  // `proxy`. Refuse (I10). See TDR-019's open questions.
-  if (egress.path === "proxy") {
-    return {
-      _tag: "refused",
-      refusal: {
-        reason:
-          "browser acquisition cannot yet honour a proxy egress policy: the proxy is bound when the browser process starts, and processes are reused across acquisitions, so the route cannot be guaranteed per acquisition",
-      },
-    };
+  if (proxied && egress.viaProxy === undefined) {
+    // A route we cannot name is a route we cannot bind, and guessing would put
+    // traffic somewhere policy did not choose (I10).
+    return refuse(
+      "egress policy requires a proxy but names none, so no browser process can be bound to it"
+    );
+  }
+  if (proxied && backend === "webkit") {
+    // WebKit exposes no proxy control at all, so owning its process buys
+    // nothing — it would still leave by whatever route the host has (TDR-019).
+    return refuse(
+      "the webkit backend exposes no proxy control, so a proxied acquisition cannot be bound to its route"
+    );
   }
 
-  // Everything below is a direct-egress acquisition: the refusal above is the
-  // only path a proxy policy can take. When process-per-route lands, the
-  // WebKit backend still cannot honour a proxy at all — it exposes no control
-  // for one — so it will need its own refusal here again.
+  const segment = routeSegment(proxied ? egress.viaProxy : undefined);
 
   return {
     _tag: "launch",
     options: {
-      argv: [],
-      backend,
-      // One directory per identity: cookies and storage from one identity must
-      // never be presented under another (TDR-011).
-      dataDirectory: join(config.profileRoot, identity),
+      route: {
+        argv: proxied ? [`--proxy-server=${egress.viaProxy}`] : [],
+        backend,
+        // One directory per (identity, route). Per identity because cookies
+        // from one identity must never be presented under another (TDR-011);
+        // per route because two Chrome processes cannot share a profile — the
+        // second fails on its lock — and because a session established through
+        // a proxy should not be replayed from a different exit.
+        dataDirectory: join(config.profileRoot, identity, segment),
+        key: `${identity}|${segment}`,
+      },
       url: source.url,
     },
   };

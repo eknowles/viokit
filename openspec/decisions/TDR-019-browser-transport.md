@@ -87,9 +87,14 @@ Measured both ways: the identical proxied acquisition routes through its proxy w
 thing to start a browser, and never reaches the proxy when another acquisition ran first.
 
 This is an I10 hazard, not a performance question — traffic leaving by the wrong route while the
-evidence records `proxy` is precisely the bypass the invariant forbids. **The transport therefore
-refuses proxied browser acquisition outright.** Direct-egress browser acquisition is unaffected and
-is proven by a live test.
+evidence records `proxy` is precisely the bypass the invariant forbids. The transport therefore
+refused proxied browser acquisition outright, and direct-egress browser acquisition was unaffected
+and proven by a live test.
+
+**Superseded by TDR-022 (2026-08-23):** the refusal has been lifted. Viokit now spawns and owns one
+Chrome per `(identity, route)` and attaches views to it by DevTools URL, so the route is a property
+of the process rather than a request made of it. A live test proves a proxied acquisition is routed
+through its proxy, and that a second acquisition on a different route gets its own.
 
 The decision above stands: `Bun.WebView` remains the right technology, and the two properties the
 spike established (argv plumbing, per-directory session isolation) hold. What changed is that
@@ -98,12 +103,14 @@ implementation does not provide. Re-enabling proxied browser work means exactly 
 first question below rather than a deferred nicety.
 
 ## Open questions
-- **How to guarantee a browser process per egress route** — the blocker for proxied browser
-  acquisition. Options include a process per (identity, route), driving `cdp` to set the proxy per
-  context rather than per launch, or an external proxy-per-profile arrangement. This is now the
-  gating question for the capability, not a refinement of it.
-- Whether browser sessions are pooled across acquisitions or created per acquisition — bound up with
-  the question above rather than independent of it.
+- ~~**How to guarantee a browser process per egress route**~~ — **taken up by TDR-022**, which
+  measured the constraint properly: all simultaneously-open views in a Bun process share one Chrome
+  connection, and `cdp` cannot set a proxy per context because the browser-level command is refused
+  from a page session. Its recommendation is a Viokit-owned Chrome per (identity, route), attached by
+  DevTools URL.
+- ~~Whether browser sessions are pooled across acquisitions or created per acquisition~~ — the same
+  question after all, as suspected: TDR-022 pools them per (identity, route), so the session and the
+  route are one process.
 - How `acquisitionPath` should describe a browser acquisition (I9) — a browser fetch through a proxy is still `proxy`, but the fact that a browser rendered it is worth recording.
 
 ## References

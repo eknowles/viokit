@@ -1,27 +1,46 @@
 import type { AcquisitionContext, SourceSpec } from "@viokit/schema";
 import { SourceError, SourceTransportService } from "@viokit/schema";
 import { Context, Effect, Layer, Option } from "effect";
-import type {
-  BrowserLaunchConfig,
-  BrowserLaunchOptions,
-} from "./browser-launch.js";
+import type { BrowserLaunchConfig } from "./browser-launch.js";
 import { browserLaunchOptions } from "./browser-launch.js";
+import type { BrowserProcessPool, RouteGate } from "./browser-pool.js";
+import {
+  BunBrowserSpawner,
+  makeBrowserProcessPool,
+  makeRouteGate,
+} from "./browser-pool.js";
 
 /**
- * The `transport: "browser"` producer (TDR-019): drives headless Chrome through
- * `Bun.WebView`, binding each acquisition to the egress route the runtime
- * resolved and isolating identities by profile directory.
+ * The `transport: "browser"` producer (TDR-019, TDR-022): drives headless
+ * Chrome through `Bun.WebView`, attaching each acquisition to the process
+ * Viokit started for the egress route the runtime resolved.
  *
  * The engine sits behind a seam for two reasons: tests should not have to
- * launch a browser to assert launch decisions, and `Bun.WebView` is young
- * enough that two of the four behaviours the TDR-019 spike checked contradicted
- * its documentation — a surface like that is one to keep at arm's length.
+ * launch a browser to assert routing decisions, and `Bun.WebView` is young
+ * enough that several of the behaviours the TDR-019 and TDR-022 spikes checked
+ * contradicted its documentation — a surface like that is one to keep at arm's
+ * length.
  */
 
+/**
+ * Where a view attaches. A Chrome we own is named by its DevTools endpoint, so
+ * the engine has no way to reach a differently-routed process; the WebKit host
+ * has no such handle and is direct-only, which is the only reason it can be
+ * left for Bun to start.
+ */
+export type BrowserTarget =
+  | { readonly _tag: "chrome"; readonly endpoint: string }
+  | { readonly _tag: "webkit" };
+
+export interface BrowserRenderOptions {
+  readonly target: BrowserTarget;
+  readonly url: string;
+}
+
 export interface BrowserEngine {
-  /** Open a page with the given options and return its rendered HTML. */
+  /** Open a page in the given browser and return its rendered HTML. */
   readonly render: (
-    options: BrowserLaunchOptions
+    options: BrowserRenderOptions
   ) => Effect.Effect<string, SourceError>;
 }
 
@@ -30,7 +49,7 @@ export class BrowserEngineService extends Context.Service<
   BrowserEngine
 >()("BrowserEngineService") {}
 
-/** Where browser profiles live; one subdirectory per identity. */
+/** Where browser profiles live; one subdirectory per (identity, route). */
 export class BrowserProfileRoot extends Context.Service<
   BrowserProfileRoot,
   string
@@ -49,10 +68,15 @@ type WebViewConstructor = new (options: Record<string, unknown>) => WebViewLike;
 const webViewConstructor = (): WebViewConstructor | undefined =>
   (globalThis as { Bun?: { WebView?: WebViewConstructor } }).Bun?.WebView;
 
+const backendFor = (target: BrowserTarget): Record<string, unknown> =>
+  target._tag === "webkit"
+    ? { type: "webkit" }
+    : { type: "chrome", url: target.endpoint };
+
 /**
- * The real engine. Requires Bun 1.4 (`Bun.WebView`) and a Chrome-family
- * browser on the host; a deployment lacking either simply does not wire this
- * layer, and browser sources stay reported as blocked.
+ * The real engine. Requires Bun 1.4 (`Bun.WebView`) and, for chrome targets, a
+ * process the pool already started; a deployment lacking either simply does not
+ * wire this layer, and browser sources stay reported as blocked.
  */
 export const BunWebViewEngine: BrowserEngine = {
   render: (options) =>
@@ -71,8 +95,7 @@ export const BunWebViewEngine: BrowserEngine = {
           );
         }
         const view = new WebView({
-          backend: { argv: [...options.argv], type: options.backend },
-          dataStore: { directory: options.dataDirectory },
+          backend: backendFor(options.target),
           headless: true,
         });
         try {
@@ -93,6 +116,8 @@ export const BunWebViewEngineLayer: Layer.Layer<BrowserEngineService> =
 
 export const makeBrowserTransport = (
   engine: BrowserEngine,
+  pool: BrowserProcessPool,
+  gate: RouteGate,
   config: BrowserLaunchConfig
 ) => ({
   fetch: (source: SourceSpec, context?: AcquisitionContext) =>
@@ -105,12 +130,40 @@ export const makeBrowserTransport = (
           message: `cannot acquire '${source.id}' by browser: ${launch.refusal.reason}`,
         });
       }
-      const html = yield* engine.render(launch.options);
-      return {
-        bytes: new TextEncoder().encode(html),
-        contentType: "text/html",
-      };
+      const { route, url } = launch.options;
+
+      // The hold spans the whole render, not just the attach: the hazard is a
+      // view *open* on another route, since every open view in this process
+      // shares one browser connection (TDR-022).
+      return yield* gate.withRoute(
+        route.key,
+        Effect.gen(function* () {
+          const target: BrowserTarget =
+            route.backend === "webkit"
+              ? { _tag: "webkit" }
+              : {
+                  _tag: "chrome",
+                  endpoint: yield* pool.endpointFor(route),
+                };
+          const html = yield* engine.render({ target, url });
+          return {
+            bytes: new TextEncoder().encode(html),
+            contentType: "text/html",
+          };
+        })
+      );
     }),
+});
+
+/**
+ * Builds the transport's stateful half — the process pool and the route gate.
+ * Both are per-deployment, so they are constructed once wherever a browser
+ * engine is present rather than per acquisition.
+ */
+export const makeBrowserRuntime = Effect.gen(function* () {
+  const pool = yield* makeBrowserProcessPool(BunBrowserSpawner);
+  const gate = yield* makeRouteGate;
+  return { gate, pool };
 });
 
 export const BrowserTransportLayer: Layer.Layer<
@@ -125,6 +178,7 @@ export const BrowserTransportLayer: Layer.Layer<
       yield* Effect.serviceOption(BrowserProfileRoot),
       () => defaultBrowserProfileRoot
     );
-    return makeBrowserTransport(engine, { profileRoot });
+    const { gate, pool } = yield* makeBrowserRuntime;
+    return makeBrowserTransport(engine, pool, gate, { profileRoot });
   })
 );
