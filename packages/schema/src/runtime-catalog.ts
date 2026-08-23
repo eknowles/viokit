@@ -30,8 +30,29 @@ export type CatalogEntryKind = typeof CatalogEntryKind.Type;
 export class CatalogEntry extends Schema.Class<CatalogEntry>("CatalogEntry")({
   /** How a source is reached; absent for transforms and types. */
   access: Schema.optionalKey(SourceAccess),
+  /**
+   * Whether this source's `access` was checked against the source, or is a
+   * declaration nobody verified. Absent for transforms and types.
+   *
+   * Reported because the catalog was the one place in this system where an
+   * unattributed assertion could enter, and 37 of them reached shipped pack
+   * files where they then read as facts. A source nobody has checked should not
+   * look like one that has been.
+   */
+  accessVerified: Schema.optionalKey(Schema.Boolean),
   archetype: Schema.optionalKey(TransformArchetype),
   description: Schema.optionalKey(Schema.String),
+  /**
+   * Whether this source's url addresses a site's front door rather than
+   * something within it. Absent for transforms and types.
+   *
+   * A front door serves a page whatever the source's data interface is, so such
+   * a spec cannot be verified, and a transform pointed at it acquires a
+   * homepage. Reported because it is the difference between a source that is
+   * registered and one that is actually wired up — 31 of 38 specs in this
+   * catalog were front doors when this was added.
+   */
+  frontDoor: Schema.optionalKey(Schema.Boolean),
   id: Schema.String,
   kind: CatalogEntryKind,
   name: Schema.String,
