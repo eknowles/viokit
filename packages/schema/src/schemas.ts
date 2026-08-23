@@ -1,7 +1,7 @@
 import { Effect, Schema } from "effect";
 
 /** A transport selector — how a source reaches the outside world. */
-export const Transport = Schema.Literals(["http", "dataset"]);
+export const Transport = Schema.Literals(["http", "dataset", "browser"]);
 export type Transport = typeof Transport.Type;
 
 /** Authentication for a source. Credentials never enter the cache or evidence. */

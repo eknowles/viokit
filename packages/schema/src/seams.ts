@@ -141,10 +141,30 @@ export interface ResolvedCredential {
   readonly value: string;
 }
 
+/** Where the runtime decided this acquisition's traffic goes (TDR-011). */
+export interface EgressDecision {
+  readonly path: "live" | "proxy";
+  readonly viaProxy?: string;
+}
+
+/**
+ * What the runtime tells a transport about one acquisition: the credential it
+ * resolved and the route it chose. A transport applies these; it never decides
+ * them (I4/I10). A transport that cannot honour the route must fail rather than
+ * take another one — silently fetching direct under a proxy policy is the
+ * bypass the invariant exists to prevent.
+ */
+export interface AcquisitionContext {
+  readonly credential?: ResolvedCredential | undefined;
+  readonly egress: EgressDecision;
+  /** Which browser profile/session this acquisition belongs to (TDR-011). */
+  readonly identity?: string | undefined;
+}
+
 export interface SourceTransport {
   readonly fetch: (
     source: SourceSpec,
-    credential?: ResolvedCredential
+    context?: AcquisitionContext
   ) => Effect.Effect<TransportResult, SourceError>;
 }
 

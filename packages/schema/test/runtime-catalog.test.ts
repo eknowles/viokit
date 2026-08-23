@@ -6,6 +6,7 @@ import {
   CatalogEntryDetail,
   CatalogFilter,
   PackManifest,
+  runnabilityOf,
   SourceSpec,
 } from "../src/index.js";
 
@@ -313,5 +314,37 @@ describe("SourceAuth references a secret, never carries one (TDR-018)", () => {
         url: "https://x.test",
       })
     );
+  });
+});
+
+describe("browser sources (TDR-019)", () => {
+  const browserSource = {
+    access: "browser_scrape",
+    id: "voterrecords.com",
+    transport: "browser",
+    url: "https://voterrecords.com/search",
+  };
+
+  it("decodes a source declaring the browser transport", () => {
+    const spec = Schema.decodeUnknownSync(SourceSpec)(browserSource);
+    assert.strictEqual(spec.transport, "browser");
+    assert.strictEqual(spec.access, "browser_scrape");
+  });
+
+  it("is blocked where the deployment declares no browser", () => {
+    const spec = Schema.decodeUnknownSync(SourceSpec)(browserSource);
+    const verdict = runnabilityOf(spec, ["http", "dataset"], () => true);
+    assert.strictEqual(verdict.runnable, false);
+    assert.include(verdict.reason ?? "", "browser");
+  });
+
+  it("is runnable where the deployment declares one", () => {
+    const spec = Schema.decodeUnknownSync(SourceSpec)(browserSource);
+    const verdict = runnabilityOf(
+      spec,
+      ["http", "dataset", "browser"],
+      () => true
+    );
+    assert.strictEqual(verdict.runnable, true);
   });
 });

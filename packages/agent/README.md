@@ -50,3 +50,19 @@ reference that does not resolve — including one exported as an empty string �
 report as **not runnable**, with the reference named, so the catalog stops promising a source whose
 key is absent. Resolution happens inside the runtime; credentials never reach a transform, a
 front-end, the cache fingerprint, stored evidence, or an error message.
+
+## Browser sources
+
+Sources declaring `transport: "browser"` are driven through headless Chrome (`Bun.WebView`,
+TDR-019), bound to the egress route the runtime resolved and isolated per identity by profile
+directory. Requires **Bun 1.4** and a Chrome-family browser; a deployment that wires no browser
+engine simply reports browser sources as blocked, which is the honest answer.
+
+An acquisition that cannot be bound to its required proxy **fails** rather than quietly fetching
+direct — a bypass would be invisible afterwards, because the evidence would still record `proxy`.
+
+The live browser test is outside the default suite so it stays hermetic:
+
+```sh
+bun test ./packages/sources/test/browser-live.ts
+```

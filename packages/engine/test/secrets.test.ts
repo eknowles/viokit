@@ -36,9 +36,9 @@ const gated = SourceSpec.make({
 /** Records what the transport was handed, so containment is assertable. */
 const recordingTransport = (seen: (ResolvedCredential | undefined)[]) =>
   Layer.succeed(SourceTransportService, {
-    fetch: (_source, credential) =>
+    fetch: (_source, context) =>
       Effect.sync(() => {
-        seen.push(credential);
+        seen.push(context?.credential);
         return {
           bytes: new TextEncoder().encode("payload"),
           contentType: "text/plain",

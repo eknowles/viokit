@@ -15,6 +15,13 @@
       }
     },
     {
+      // Runs under `bun test`, not vitest, so Bun globals are in scope.
+      "includes": ["packages/sources/test/browser-live.ts"],
+      "javascript": {
+        "globals": ["Bun"]
+      }
+    },
+    {
       // React components: ultracite's defaults are tuned for the Effect
       // backend. Inline JSX handlers are idiomatic React and this console has
       // no perf-sensitive lists; PascalCase component filenames are the

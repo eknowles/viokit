@@ -54,10 +54,10 @@ export const HttpTransportLayer: Layer.Layer<
   Effect.gen(function* () {
     const client = yield* HttpClient.HttpClient;
     return {
-      fetch: (source, credential) =>
+      fetch: (source, context) =>
         HttpClientResponse.stream(
-          HttpClient.get(withCredential(source.url, credential), {
-            headers: credentialHeaders(credential),
+          HttpClient.get(withCredential(source.url, context?.credential), {
+            headers: credentialHeaders(context?.credential),
           })
         ).pipe(
           Stream.provideService(HttpClient.HttpClient, client),

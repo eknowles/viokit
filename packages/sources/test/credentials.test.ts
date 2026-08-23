@@ -34,7 +34,10 @@ const fetchWith = (credential: ResolvedCredential | undefined) =>
   Effect.runPromise(
     Effect.gen(function* () {
       const transport = yield* SourceTransportService;
-      return yield* transport.fetch(spec, credential);
+      return yield* transport.fetch(spec, {
+        credential,
+        egress: { path: "live" },
+      });
     }).pipe(Effect.provide(layer))
   );
 

@@ -1,17 +1,14 @@
-import type { EgressPolicy, SourceAuth } from "@viokit/schema";
+import type { EgressDecision, EgressPolicy, SourceAuth } from "@viokit/schema";
 import { EgressDisabledError } from "@viokit/schema";
 import type { Option } from "effect";
 import { Context, Effect, Layer } from "effect";
 
 /**
- * The resolved egress path for an acquisition. `path` maps to the evidence
- * `acquisitionPath` mode (`live`/`proxy`); `viaProxy` records the specific proxy
- * hop per TDR-011 (mode on the evidence, hop detail carried alongside).
+ * `EgressDecision` now lives in the shared seams (`@viokit/schema`) so a
+ * transport can be told the route it must use (I10). `path` maps to the
+ * evidence `acquisitionPath` mode (`live`/`proxy`); `viaProxy` records the
+ * specific hop per TDR-011.
  */
-export interface EgressDecision {
-  readonly path: "live" | "proxy";
-  readonly viaProxy?: string;
-}
 
 /** The `Egress` seam (TDR-011): resolve a per-source policy to a decision. */
 export interface Egress {

@@ -1,5 +1,10 @@
-import { SourceTransportService } from "@viokit/schema";
-import { Effect, Layer } from "effect";
+import { SourceError, SourceTransportService } from "@viokit/schema";
+import { Effect, Layer, Option } from "effect";
+import {
+  BrowserEngineService,
+  defaultBrowserProfileRoot,
+  makeBrowserTransport,
+} from "./browser.js";
 import { DatasetTransportLayer } from "./dataset.js";
 import { HttpTransportLayer } from "./http.js";
 
@@ -29,12 +34,33 @@ export const DispatchTransportLayer: Layer.Layer<
       }),
       DatasetTransportLayer
     );
+    // Present only where a deployment wires a browser engine; otherwise browser
+    // sources stay blocked, which is the honest answer rather than a failure at
+    // acquisition time.
+    const engine = Option.getOrUndefined(
+      yield* Effect.serviceOption(BrowserEngineService)
+    );
+    const browser =
+      engine === undefined
+        ? undefined
+        : makeBrowserTransport(engine, {
+            profileRoot: defaultBrowserProfileRoot,
+          });
 
     return {
-      fetch: (source, credential) =>
-        source.transport === "dataset"
-          ? dataset.fetch(source, credential)
-          : http.fetch(source, credential),
+      fetch: (source, context) => {
+        if (source.transport === "browser") {
+          if (browser === undefined) {
+            return SourceError.make({
+              message: `source '${source.id}' needs a browser transport, which this deployment does not provide`,
+            });
+          }
+          return browser.fetch(source, context);
+        }
+        return source.transport === "dataset"
+          ? dataset.fetch(source, context)
+          : http.fetch(source, context);
+      },
     };
   })
 );

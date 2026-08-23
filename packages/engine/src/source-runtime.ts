@@ -1,5 +1,6 @@
 import type {
   AcquisitionPath,
+  EgressDecision,
   EvidenceInput,
   ResolvedCredential as ResolvedCredentialType,
   SecretProvider,
@@ -31,7 +32,7 @@ import {
   evaluateCacheRead,
   requestFingerprint,
 } from "./cache.js";
-import { type Egress, type EgressDecision, EgressService } from "./egress.js";
+import { type Egress, EgressService } from "./egress.js";
 import { type RateLimiter, RateLimiterService } from "./rate-limit.js";
 
 /**
@@ -148,9 +149,16 @@ const egressPath = (
 
     const decision = yield* egress.resolve(egressPolicyOf(source));
 
+    // The transport is told the route the runtime resolved as well as the
+    // credential: a transport that is not told its route cannot honour it, and
+    // one that picks its own has bypassed policy (I4/I10).
     const fetched = yield* retryFetch(
       source,
-      transport.fetch(source, credential)
+      transport.fetch(source, {
+        credential,
+        egress: decision,
+        identity: source.auth?.secretRef,
+      })
     );
 
     const input = toEvidenceInput(
