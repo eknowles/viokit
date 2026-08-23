@@ -285,3 +285,21 @@ line.edge[role="button"] {
 line.edge[role="button"]:hover {
   stroke: var(--ok);
 }
+
+/* The open investigation, in the header: it is the scope everything else
+   answers under, so it belongs where it is always visible. */
+.investigations {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.investigations label {
+  font-size: 0.8rem;
+  color: var(--muted, #888);
+  text-transform: uppercase;
+}
+
+.investigations select {
+  max-width: 16rem;
+}

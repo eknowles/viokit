@@ -206,6 +206,56 @@ describe("verifying a source's access through a front-end", () => {
   });
 });
 
+describe("investigations through the front-ends", () => {
+  it("creates, forks, and keeps work in the case it was recorded under", async () => {
+    const client = await connect();
+
+    const { text: openText } = await call(client, "current_investigation");
+    const started = JSON.parse(openText) as { id: string; name: string };
+    expect(started.name).toBe("default");
+
+    const { text: madeText } = await call(client, "create_investigation", {
+      name: "acme",
+    });
+    const made = JSON.parse(madeText) as { id: string };
+    await call(client, "open_investigation", { id: made.id });
+
+    const { text: nowText } = await call(client, "current_investigation");
+    expect((JSON.parse(nowText) as { id: string }).id).toBe(made.id);
+
+    const { text: listText } = await call(client, "investigations");
+    expect(JSON.parse(listText)).toHaveLength(2);
+
+    const { text: forkText, isError } = await call(
+      client,
+      "fork_investigation",
+      { from: made.id, name: "hypothesis" }
+    );
+    expect(isError).toBe(false);
+    const forked = JSON.parse(forkText) as { parent: string };
+    expect(forked.parent).toBe(made.id);
+  });
+
+  it("refuses to discard the investigation that is open", async () => {
+    const client = await connect();
+    const { text: currentText } = await call(client, "current_investigation");
+    const active = JSON.parse(currentText) as { id: string };
+    const { isError } = await call(client, "discard_investigation", {
+      id: active.id,
+    });
+    expect(isError).toBe(true);
+  });
+
+  it("reports evidence shared between cases, and only that", async () => {
+    const client = await connect();
+    const { text: sharedText, isError } = await call(client, "shared_evidence");
+    expect(isError).toBe(false);
+    // Nothing recorded yet, so nothing is shared — an empty answer, not a
+    // failure, and not a leak of every artifact.
+    expect(JSON.parse(sharedText)).toEqual([]);
+  });
+});
+
 describe("front-end parity (I8)", () => {
   it("every operation is reachable from both surfaces", async () => {
     const client = await connect();

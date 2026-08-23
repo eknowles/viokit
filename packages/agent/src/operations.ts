@@ -2,7 +2,6 @@ import type { Engine } from "@viokit/engine";
 import { Engine as EngineTag } from "@viokit/engine";
 import {
   CatalogFilter,
-  defaultInvestigation,
   EvidenceInput,
   evidenceId,
   GraphState,
@@ -353,8 +352,11 @@ export const operations: readonly AgentOperation[] = [
     name: "view_state_load",
     run: (args) =>
       Effect.gen(function* () {
+        const open = yield* engine((e) => e.currentInvestigation);
         const key = yield* decode(ViewStateKey, {
-          investigation: args.investigation ?? defaultInvestigation,
+          // The open investigation, not a placeholder: TDR-012 shipped
+          // `defaultInvestigation` waiting for this to exist (TDR-025).
+          investigation: args.investigation ?? open.id,
           surface: String(args.surface),
           user: args.user ?? localUser,
         });
@@ -374,9 +376,10 @@ export const operations: readonly AgentOperation[] = [
     name: "view_state_save",
     run: (args) =>
       Effect.gen(function* () {
+        const open = yield* engine((e) => e.currentInvestigation);
         const document = yield* decode(ViewStateDocument, {
           key: {
-            investigation: args.investigation ?? defaultInvestigation,
+            investigation: args.investigation ?? open.id,
             surface: String(args.surface),
             user: args.user ?? localUser,
           },
@@ -395,6 +398,61 @@ export const operations: readonly AgentOperation[] = [
     name: "relatedness",
     run: (args) =>
       engine((e) => e.relatedness(String(args.seed), asNumber(args.maxDepth))),
+  },
+  {
+    args: [],
+    description:
+      "The investigations on this deployment, including branches. A branch is an investigation with a parent.",
+    name: "investigations",
+    run: () => engine((e) => e.investigations),
+  },
+  {
+    args: [],
+    description: "Which investigation everything else currently answers for.",
+    name: "current_investigation",
+    run: () => engine((e) => e.currentInvestigation),
+  },
+  {
+    args: [arg("name", "string", "what to call it")],
+    description:
+      "Start a new investigation. Does not open it — creating a case and switching to it are separate acts.",
+    name: "create_investigation",
+    run: (args) => engine((e) => e.createInvestigation(String(args.name))),
+  },
+  {
+    args: [arg("id", "string", "investigation id")],
+    description:
+      "Answer for a different investigation from here on. Rebuilds the projection, which holds one investigation at a time.",
+    name: "open_investigation",
+    run: (args) => engine((e) => e.openInvestigation(String(args.id) as never)),
+  },
+  {
+    args: [
+      arg("from", "string", "the investigation to branch"),
+      arg("name", "string", "what to call the branch"),
+    ],
+    description:
+      "Branch an investigation at its current end, to work a hypothesis without disturbing the case it came from.",
+    name: "fork_investigation",
+    run: (args) =>
+      engine((e) =>
+        e.forkInvestigation(String(args.from) as never, String(args.name))
+      ),
+  },
+  {
+    args: [arg("id", "string", "investigation id")],
+    description:
+      "Stop an investigation contributing. Removes no step from the log — a rejected hypothesis stays on the record (I3).",
+    name: "discard_investigation",
+    run: (args) =>
+      engine((e) => e.discardInvestigation(String(args.id) as never)),
+  },
+  {
+    args: [],
+    description:
+      "Which artifacts more than one investigation cites. The only operation that looks across cases.",
+    name: "shared_evidence",
+    run: () => engine((e) => e.sharedEvidence),
   },
   {
     args: [arg("sourceId", "string", "catalog id of the source")],

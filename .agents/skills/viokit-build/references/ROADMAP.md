@@ -156,23 +156,33 @@ Two things found while building the mechanisms, both worth knowing before that s
   catalog, unrunnable, and unverifiable. Fixed by `promoted-sources-are-registered` (2026-08-23), with
   a conformance test so it cannot silently reopen. The verifiable surface is now the whole catalog.
 
-### The missing unit of work — `investigations`
+### The unit of work — `investigations`
 
-Proposed 2026-08-23, and it sits ahead of Track B rather than inside it. **There is no such thing as
-an investigation.** `Step` has no scope, the step log is one unpartitioned table, `replay` folds all
-of it, `exportBundle` writes every artifact on the machine, and view state keys itself by two string
-constants under a comment calling them placeholders.
+Proposed and built 2026-08-23, ahead of Track B rather than inside it. Before it, **there was no such
+thing as an investigation.** `Step` had no scope, the step log was one unpartitioned table, `replay` folded
+all of it, `exportBundle` wrote every artifact on the machine, and view state keyed itself by two
+string constants under a comment calling them placeholders.
 
-`CONTRACT.md` has listed `investigations` — cases, branching, export/report — as an owned capability
+`CONTRACT.md` had listed `investigations` — cases, branching, export/report — as an owned capability
 since the first exploration document, and `exploration/03` defines an investigation as "a
-serializable step log + evidence refs ⇒ portable". It was never built.
+serializable step log + evidence refs ⇒ portable". It had never been built.
 
 | Change | Gate | Why |
 |---|---|---|
-| `investigations` | **TDR-025** (new) | Two pieces of work cannot be kept apart; the evidentiary export exports the machine rather than a case; and everything in Track B is waiting on a scope to apply to. Authorizing "the graph" is not a product — authorizing a case is. Branching makes hypotheses cheap enough to test. |
+| ~~`investigations`~~ | TDR-025 | **Done (2026-08-23).** Cases are the unit of work: the step log is scoped, replay and every query answer for one investigation, branches fork at a sequence and inherit their ancestry bounded by each fork, discarding removes no step (I3), and an export is one case. `CONTRACT.md`'s `investigations` capability now exists. |
 
-Sequencing note: this comes **before** TDR-023 and TDR-024. Identity, redaction, and retention all
-need a unit to apply to, and a case is that unit.
+The build settled three things worth carrying forward:
+
+- **Scope is enforced in one function.** Every query reads the projection `replay` rebuilds, so
+  scoping replay scoped everything — export needed no parameter at all. That is the architecture
+  TDR-025 bet on, and it paid.
+- **A branch is an investigation with a parent.** One type, one lifecycle; fork, discard, open, list,
+  and export work on both without special cases.
+- **Found by running it, not by a test:** the open investigation only lived in memory, so the CLI
+  opened one case and recorded into another. Work landing in the wrong case is the silent failure the
+  feature exists to prevent; it is persisted now and pinned.
+
+Track B is unblocked: TDR-023 and TDR-024 now have a unit to apply to.
 
 ### Track B — Trust (what turns it into a product)
 

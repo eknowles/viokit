@@ -12,9 +12,15 @@ one. A step SHALL NOT exist outside an investigation.
 - **WHEN** investigations exist
 - **THEN** each can be listed by name, opened, and closed
 
-#### Scenario: Work cannot be recorded without one
-- **WHEN** a step would be recorded with no investigation to record it against
-- **THEN** the operation fails, rather than recording it somewhere arbitrary
+#### Scenario: There is always an investigation to record against
+- **WHEN** a deployment starts with no investigations
+- **THEN** one is created and opened, so no step can be recorded outside a case
+- **AND** where the deployment already held work from before cases existed, that
+  investigation is named for what it is rather than for a case somebody chose
+
+#### Scenario: The open investigation survives restarting
+- **WHEN** an investigation is opened and the deployment is restarted
+- **THEN** the same investigation is still the one being answered for
 
 ### Requirement: One investigation's work never appears in another's
 The system SHALL scope replay, the step log, and every graph query to one investigation. Reaching

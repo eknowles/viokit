@@ -1,6 +1,12 @@
 import type { Effect, Option } from "effect";
 import { Context } from "effect";
 import type {
+  Investigation,
+  InvestigationId,
+  SharedArtifact,
+  UnknownInvestigation,
+} from "./investigation.js";
+import type {
   CatalogEntry,
   CatalogEntryDetail,
   CatalogFilter,
@@ -74,13 +80,49 @@ export interface RelatedEntity {
 
 export interface GraphStore {
   /**
+   * Start a new investigation. Does not open it — creating a case and switching
+   * to it are separate acts.
+   */
+  readonly createInvestigation: (name: string) => Effect.Effect<Investigation>;
+  /**
+   * The investigation this store is currently answering for. Every method below
+   * except the investigation lifecycle is scoped to it (TDR-025).
+   */
+  readonly current: Effect.Effect<Investigation>;
+  /**
+   * Stop an investigation contributing, without removing a step from the log
+   * (I3). Discarding the open investigation is refused: there would be nothing
+   * to answer for.
+   */
+  readonly discardInvestigation: (
+    id: InvestigationId
+  ) => Effect.Effect<void, UnknownInvestigation>;
+  /**
    * Release the store's backing resources (close the database file). Persisted
    * stores release the path so it can be reopened elsewhere; in-memory stores
    * are no-ops. Safe to call once.
    */
   readonly dispose: Effect.Effect<void>;
+  /**
+   * Branch an investigation at its current end. The branch inherits everything
+   * its parent knew at that point and diverges after it; forking is a row, not
+   * a copy, because a hypothesis you hesitate to fork is one you do not test.
+   */
+  readonly forkInvestigation: (
+    from: InvestigationId,
+    name: string
+  ) => Effect.Effect<Investigation, UnknownInvestigation>;
   readonly insert: (step: Step) => Effect.Effect<Step, ProvenanceError>;
+  readonly investigations: Effect.Effect<readonly Investigation[]>;
   readonly log: Effect.Effect<readonly Step[]>;
+  /**
+   * Answer for a different investigation from here on. Rebuilds the projection,
+   * which holds one investigation at a time — the cost TDR-025 accepted in
+   * exchange for scope living in exactly one place.
+   */
+  readonly openInvestigation: (
+    id: InvestigationId
+  ) => Effect.Effect<Investigation, UnknownInvestigation>;
   /** Shortest paths (depth-bounded) between two entities, via relation edges. */
   readonly paths: (
     from: string,
@@ -94,6 +136,11 @@ export interface GraphStore {
     maxDepth?: number
   ) => Effect.Effect<readonly RelatedEntity[]>;
   readonly replay: Effect.Effect<GraphState>;
+  /**
+   * Which artifacts more than one investigation cites. The only operation that
+   * looks across cases, and named so it cannot be reached by accident.
+   */
+  readonly sharedEvidence: Effect.Effect<readonly SharedArtifact[]>;
   /** Entities/events whose spatial extent falls inside the bounding box. */
   readonly spatial: (bbox: BBox) => Effect.Effect<readonly ExtentHit[]>;
   /** Entities/events whose temporal extent overlaps the window. */

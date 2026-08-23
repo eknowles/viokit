@@ -52,6 +52,65 @@ const investigate = Effect.gen(function* () {
   return { bundle: yield* engine.exportBundle(path), engine, path };
 });
 
+describe("an export is one investigation (TDR-025)", () => {
+  layer(deployment)((it) => {
+    /**
+     * Before investigations existed a bundle was everything the machine had
+     * ever acquired — useless to a recipient and a disclosure problem, since it
+     * necessarily carried work they had nothing to do with.
+     */
+    it.effect("carries the open case and nothing from any other", () =>
+      Effect.gen(function* () {
+        const engine = yield* Engine;
+
+        // A case with work in it.
+        const steps = yield* engine.runCatalogTransform(
+          "crt-sh-certificate-search",
+          { domain: "first.test" }
+        );
+        for (const step of steps) {
+          yield* engine.insert(step);
+        }
+
+        // A second case, opened, exported.
+        const second = yield* engine.createInvestigation("second");
+        yield* engine.openInvestigation(second.id);
+        const bundle = yield* engine.exportBundle(out());
+
+        assert.deepStrictEqual(bundle.manifest.steps, []);
+        assert.deepStrictEqual(bundle.manifest.evidence, []);
+      })
+    );
+
+    /**
+     * A branch is its own investigation, so exporting the parent does not carry
+     * a hypothesis someone took and may still be working — TDR-025 left open
+     * whether a *discarded* branch should travel with a case for a reviewer;
+     * this pins today's answer, which is that it does not.
+     */
+    it.effect("does not carry a branch taken from the case", () =>
+      Effect.gen(function* () {
+        const engine = yield* Engine;
+        const parent = yield* engine.currentInvestigation;
+        const branch = yield* engine.forkInvestigation(parent.id, "hypothesis");
+
+        yield* engine.openInvestigation(branch.id);
+        const steps = yield* engine.runCatalogTransform(
+          "crt-sh-certificate-search",
+          { domain: "speculative.test" }
+        );
+        for (const step of steps) {
+          yield* engine.insert(step);
+        }
+
+        yield* engine.openInvestigation(parent.id);
+        const bundle = yield* engine.exportBundle(out());
+        assert.deepStrictEqual(bundle.manifest.steps, []);
+      })
+    );
+  });
+});
+
 describe("evidentiary export", () => {
   layer(deployment)((it) => {
     it.effect("carries every step, with its evidence and attribution", () =>

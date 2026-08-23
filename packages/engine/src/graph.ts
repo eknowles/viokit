@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import {
   type Entity,
   type Event,
@@ -5,10 +6,15 @@ import {
   type GraphPath,
   GraphState,
   type GraphStore,
+  type Investigation,
+  type InvestigationId,
+  investigationId,
   ProvenanceError,
   type RelatedEntity,
   type Relation,
+  SharedArtifact,
   type Step,
+  UnknownInvestigation,
 } from "@viokit/schema";
 import { Context, Effect, Layer, Option } from "effect";
 /**
@@ -21,7 +27,62 @@ export class GraphService extends Context.Service<GraphService, GraphStore>()(
   "GraphService",
   {
     make: Effect.sync(() => {
-      const steps: Step[] = [];
+      // Every step records the investigation it was appended under, so the
+      // in-memory store scopes exactly as the DuckDB one does (TDR-025).
+      const steps: Array<{
+        readonly at: number;
+        readonly investigation: string;
+        readonly step: Step;
+      }> = [];
+      const investigations = new Map<string, Investigation>();
+
+      const start = (
+        name: string,
+        from?: { readonly parent: InvestigationId; readonly forkedAt: number }
+      ): Investigation => {
+        const investigation = {
+          createdAt: new Date(),
+          ...(from === undefined ? {} : { forkedAt: from.forkedAt }),
+          id: investigationId(randomUUID()),
+          name,
+          ...(from === undefined ? {} : { parent: from.parent }),
+          status: "open",
+        } as Investigation;
+        investigations.set(investigation.id, investigation);
+        return investigation;
+      };
+
+      const root = start("default");
+      let currentId: string = root.id;
+
+      /** The steps an investigation can see: its own, plus each ancestor's up
+       * to where the fork happened, with the bound tightening as it walks up. */
+      const visible = (): readonly Step[] => {
+        const windows: Array<{ readonly id: string; readonly upTo: number }> =
+          [];
+        let cursor: string | undefined = currentId;
+        let bound = Number.POSITIVE_INFINITY;
+        while (cursor !== undefined) {
+          const investigation = investigations.get(cursor);
+          if (investigation === undefined) {
+            break;
+          }
+          windows.push({ id: cursor, upTo: bound });
+          if (investigation.parent === undefined) {
+            break;
+          }
+          bound = Math.min(bound, investigation.forkedAt ?? 0);
+          cursor = investigation.parent;
+        }
+        return steps
+          .filter((entry) =>
+            windows.some(
+              (window) =>
+                window.id === entry.investigation && entry.at <= window.upTo
+            )
+          )
+          .map((entry) => entry.step);
+      };
 
       const fold = (): {
         readonly entities: Entity[];
@@ -32,7 +93,7 @@ export class GraphService extends Context.Service<GraphService, GraphStore>()(
         const relations = new Map<string, Relation>();
         const events = new Map<string, Event>();
 
-        for (const step of steps) {
+        for (const step of visible()) {
           const { operation } = step;
           switch (operation._tag) {
             case "AddEntity": {
@@ -89,8 +150,39 @@ export class GraphService extends Context.Service<GraphService, GraphStore>()(
         })),
       ];
 
+      const known = (
+        id: InvestigationId
+      ): Effect.Effect<Investigation, UnknownInvestigation> => {
+        const found = investigations.get(id);
+        return found === undefined
+          ? UnknownInvestigation.make({
+              message: `no investigation with id '${id}'`,
+            })
+          : Effect.succeed(found);
+      };
+
       const store: GraphStore = {
+        createInvestigation: (name) => Effect.sync(() => start(name)),
+        current: Effect.sync(
+          () => investigations.get(currentId) as Investigation
+        ),
+        discardInvestigation: (id) =>
+          Effect.gen(function* () {
+            const investigation = yield* known(id);
+            if (id === currentId) {
+              return yield* UnknownInvestigation.make({
+                message: `investigation '${investigation.name}' is open; open another before discarding it`,
+              });
+            }
+            // Append-only: the steps stay, the case stops contributing (I3).
+            investigations.set(id, { ...investigation, status: "discarded" });
+          }),
         dispose: Effect.void,
+        forkInvestigation: (from, name) =>
+          Effect.gen(function* () {
+            yield* known(from);
+            return start(name, { forkedAt: steps.length, parent: from });
+          }),
         insert: (step) =>
           Effect.gen(function* () {
             if (step.evidenceIds.length === 0) {
@@ -98,10 +190,21 @@ export class GraphService extends Context.Service<GraphService, GraphStore>()(
                 message: "step must reference at least one evidence id",
               });
             }
-            steps.push(step);
+            steps.push({
+              at: steps.length + 1,
+              investigation: currentId,
+              step,
+            });
             return step;
           }),
-        log: Effect.sync(() => Array.from(steps)),
+        investigations: Effect.sync(() => [...investigations.values()]),
+        log: Effect.sync(() => Array.from(visible())),
+        openInvestigation: (id) =>
+          Effect.gen(function* () {
+            const investigation = yield* known(id);
+            currentId = id;
+            return investigation;
+          }),
         paths: (from, to, maxDepth = 4) =>
           Effect.sync(() => {
             const { relations } = fold();
@@ -184,6 +287,25 @@ export class GraphService extends Context.Service<GraphService, GraphStore>()(
             return out.sort((a, b) => a.distance - b.distance);
           }),
         replay: Effect.sync(() => toState(fold())),
+        sharedEvidence: Effect.sync(() => {
+          const byEvidence = new Map<string, Set<string>>();
+          for (const entry of steps) {
+            for (const evidenceId of entry.step.evidenceIds) {
+              const seen = byEvidence.get(evidenceId) ?? new Set<string>();
+              seen.add(entry.investigation);
+              byEvidence.set(evidenceId, seen);
+            }
+          }
+          return [...byEvidence.entries()]
+            .filter(([, ids]) => ids.size > 1)
+            .map(([evidenceId, ids]) =>
+              SharedArtifact.make({
+                evidenceId,
+                investigationIds: [...ids].map(investigationId),
+              })
+            )
+            .sort((a, b) => a.evidenceId.localeCompare(b.evidenceId));
+        }),
         spatial: (bbox) =>
           Effect.sync(() =>
             extents().filter(

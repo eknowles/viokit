@@ -21,6 +21,7 @@ import { CatalogView } from "./views/Catalog.js";
 import { EvidenceView } from "./views/Evidence.js";
 import { GraphView } from "./views/Graph.js";
 import { GraphCanvasView } from "./views/GraphCanvas.js";
+import { InvestigationBar } from "./views/Investigations.js";
 import { LauncherView } from "./views/Launcher.js";
 
 const VIEWS: readonly { readonly label: string; readonly name: ViewName }[] = [
@@ -39,6 +40,9 @@ const REQUIRED = [
   "insert",
   "ingest",
   "query_entity",
+  "investigations",
+  "current_investigation",
+  "open_investigation",
 ];
 
 const Body = ({
@@ -111,6 +115,10 @@ export const App = () => {
   // Restored before anything is saved, so restoring does not immediately
   // overwrite what it just read.
   const [restored, setRestored] = useState(false);
+  // Bumped when the open investigation changes: every view reads under a scope,
+  // so switching case must re-read rather than leave the previous one's results
+  // on screen looking like this one's.
+  const [scope, setScope] = useState(0);
 
   useEffect(() => {
     client
@@ -200,6 +208,10 @@ export const App = () => {
             </button>
           ))}
         </nav>
+        <InvestigationBar
+          client={client}
+          onChange={() => setScope((previous) => previous + 1)}
+        />
         <span className="hint">
           {origin} · {available.length} operations
         </span>
@@ -212,6 +224,7 @@ export const App = () => {
           client={client}
           graphSelection={graphSelection}
           graphTime={graphTime}
+          key={scope}
           onGraphSelect={setGraphSelection}
           onGraphTime={setGraphTime}
           onLaunch={(id) => {

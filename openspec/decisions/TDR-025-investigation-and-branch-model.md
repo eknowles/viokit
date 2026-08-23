@@ -1,6 +1,6 @@
 # TDR-025 — Investigations and branches over an append-only step log
 
-- **Status:** in-review
+- **Status:** decided
 - **Owner:** ed
 - **Date:** 2026-08-23
 - **Related:** TDR-005 (DuckDB graph store — this partitions what that decided), TDR-010/TDR-021 (evidentiary export, which currently has no case to scope to), TDR-012 (view state, whose `investigation` key is a placeholder waiting on this), TDR-023 (identity — authorization needs something to scope to); invariants I3 (append-only, replay reproduces state), I2 (provenance closure), I11 (offline determinism); `CONTRACT.md` capability `investigations`; `exploration/01` §capability map
@@ -163,11 +163,25 @@ The shape of it:
   never the whole case. The portable artifact is the export bundle, which TDR-010 already defines and
   which A scopes by filtering the same log it reads.
 
-## Recommendation
+## Decision
 
-- **Option A.** `investigation_id` and `branch_id` on the step log; a branch is a row recording its
-  parent and the sequence it forked at; replay folds the ancestor chain to each fork, then the
-  branch's own steps.
+- **Option A**, with two refinements settled while implementing and recorded here rather than
+  discovered later:
+
+  1. **The scope lives on the log, not on `Step`.** The option text said `Step` gains
+     `investigationId` and `branchId`. It should not: `Step` is the evidentiary record, and a case id
+     repeated on every step would travel in every bundle to say once what the manifest already says.
+     The log table carries `investigation_id`; the store is what knows about partitioning, which is
+     where partitioning belongs. Nothing in the trail is weakened — a step still belongs to exactly
+     one investigation, and the log says which.
+
+  2. **A branch *is* an investigation, one with a parent.** Two types would have been two lifecycles,
+     two lists, and two sets of operations to keep in step, for a distinction that is one nullable
+     field: an investigation with a `parent` and a `forkedAt` sequence is a branch, and one without is
+     a root. Fork, discard, open, list, and export then work on both without special cases.
+
+- `investigation_id` on the step log; an investigation row recording its parent and the sequence it
+  forked at; replay folds the ancestor chain to each fork, then the investigation's own steps.
 - **Scope is enforced at `replay`, and nowhere else needs it.** Queries read the projection replay
   rebuilds, so they inherit the scope by construction. The two places that touch the log directly —
   the replay read and the append — are the whole reviewable surface.

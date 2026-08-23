@@ -14,6 +14,8 @@ import type {
   ExtentHit,
   GraphPath,
   GraphState,
+  Investigation,
+  InvestigationId,
   MatchRule,
   OfflineCacheMiss,
   PackManifest,
@@ -21,6 +23,7 @@ import type {
   RateLimited,
   RelatedEntity,
   RetryExhausted,
+  SharedArtifact,
   SourceError,
   SourceNotRunnable,
   SourceSpec,
@@ -29,6 +32,7 @@ import type {
   TransformError,
   TransformSpec,
   UnknownCatalogEntry,
+  UnknownInvestigation,
   ViewStateDocument,
   ViewStateKey,
   ViewStateWriteError,
@@ -91,11 +95,35 @@ export class Engine extends Context.Service<
     readonly evidence: (
       id: EvidenceId
     ) => Effect.Effect<Option.Option<Evidence>, EvidenceReadError>;
-    /** Assemble a portable, independently verifiable bundle (TDR-010).
-     * Reads only — exporting appends no step and writes no evidence. */
+    /** Assemble a portable, independently verifiable bundle (TDR-010) for the
+     * open investigation. Reads only — exporting appends no step and writes no
+     * evidence. Scoped by construction: it reads the same log and replay the
+     * queries do, and those answer for one investigation (TDR-025). */
     readonly exportBundle: (
       path: string
     ) => Effect.Effect<Bundle, EvidenceReadError>;
+    /** The investigation everything else here answers for. */
+    readonly currentInvestigation: Effect.Effect<Investigation>;
+    readonly investigations: Effect.Effect<readonly Investigation[]>;
+    readonly createInvestigation: (
+      name: string
+    ) => Effect.Effect<Investigation>;
+    /** Answer for a different investigation from here on. */
+    readonly openInvestigation: (
+      id: InvestigationId
+    ) => Effect.Effect<Investigation, UnknownInvestigation>;
+    /** Branch an investigation at its current end, to work a hypothesis. */
+    readonly forkInvestigation: (
+      from: InvestigationId,
+      name: string
+    ) => Effect.Effect<Investigation, UnknownInvestigation>;
+    /** Stop an investigation contributing, without removing a step (I3). */
+    readonly discardInvestigation: (
+      id: InvestigationId
+    ) => Effect.Effect<void, UnknownInvestigation>;
+    /** Which artifacts more than one investigation cites — the only operation
+     * that looks across cases, named so it cannot be reached by accident. */
+    readonly sharedEvidence: Effect.Effect<readonly SharedArtifact[]>;
     readonly insert: (step: Step) => Effect.Effect<Step, ProvenanceError>;
     readonly log: Effect.Effect<readonly Step[]>;
     readonly queryEntity: (id: string) => Effect.Effect<Option.Option<Entity>>;
@@ -209,7 +237,10 @@ const engineLayerWith = (registry: Layer.Layer<PackRegistry>) =>
         catalog: (filter) => catalog.list(filter),
         correlate: (staged, existing, rules) =>
           correlate.resolve(staged, existing, rules),
+        createInvestigation: (name) => graph.createInvestigation(name),
+        currentInvestigation: graph.current,
         describe: (id) => catalog.describe(id),
+        discardInvestigation: (id) => graph.discardInvestigation(id),
         evidence: (id) => evidenceStore.get(id),
         exportBundle: (path) =>
           Effect.gen(function* () {
@@ -223,10 +254,13 @@ const engineLayerWith = (registry: Layer.Layer<PackRegistry>) =>
               steps,
             });
           }),
+        forkInvestigation: (from, name) => graph.forkInvestigation(from, name),
         ingest: (input) => evidenceStore.put(input),
         insert: (step) => graph.insert(step),
+        investigations: graph.investigations,
         loadViewState: (key, version) => viewState.load(key, version),
         log: graph.log,
+        openInvestigation: (id) => graph.openInvestigation(id),
         paths: (from, to, maxDepth) => graph.paths(from, to, maxDepth),
         queryEntity: (id) => graph.queryEntity(id),
         relatedness: (seed, maxDepth) => graph.relatedness(seed, maxDepth),
@@ -236,6 +270,7 @@ const engineLayerWith = (registry: Layer.Layer<PackRegistry>) =>
         runTransform: (spec, source, project, input) =>
           transform.run(spec, source, project, input),
         saveViewState: (document) => viewState.save(document),
+        sharedEvidence: graph.sharedEvidence,
         spatial: (bbox) => graph.spatial(bbox),
         timeline: (from, to) => graph.timeline(from, to),
         // The probe reads the services this layer already holds, so it is
