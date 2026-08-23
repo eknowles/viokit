@@ -9,26 +9,28 @@ import { BunWebViewEngine, makeBrowserTransport } from "../src/browser.js";
  * `*.test.ts` pattern so the default suite stays hermetic and does not require
  * Chrome:
  *
- *     bun test packages/sources/test/browser-live.ts
+ *     bun test ./packages/sources/test/browser-live.ts
  *
- * This proves what the TDR-019 spike could not: a full navigation through a
- * proxy, end to end.
+ * These are the end-to-end proofs the launch-option tests cannot give: that a
+ * proxied acquisition really is routed through its proxy (I10), and that two
+ * identities really do not share a session (TDR-011).
  */
 
-const transport = makeBrowserTransport(BunWebViewEngine, {
-  profileRoot: "/tmp/viokit-browser-live",
-});
+const profileRoot = "/tmp/viokit-browser-live";
+const transport = makeBrowserTransport(BunWebViewEngine, { profileRoot });
 
 const spec = (id: string, url: string) =>
   SourceSpec.make({ access: "browser_scrape", id, transport: "browser", url });
 
+const html = (body: string) =>
+  new Response(`<html><body>${body}</body></html>`, {
+    headers: { "content-type": "text/html" },
+  });
+
 describe("browser transport against a real browser", () => {
   it("renders a page into evidence", async () => {
     const server = Bun.serve({
-      fetch: () =>
-        new Response("<html><body><h1>live page</h1></body></html>", {
-          headers: { "content-type": "text/html" },
-        }),
+      fetch: () => html("<h1>live page</h1>"),
       port: 0,
     });
     try {
@@ -44,21 +46,27 @@ describe("browser transport against a real browser", () => {
   }, 60_000);
 
   /**
-   * Two properties are deliberately NOT asserted here, because this harness
-   * cannot observe them honestly:
+   * **Finding (2026-08-23): proxy binding is per browser *process*, not per
+   * view.** `--proxy-server` is a launch switch, and `Bun.WebView` reuses a
+   * browser process across views — so an acquisition run after another one
+   * silently inherits the first process's route.
    *
-   * - **Proxy routing end to end.** A stub that answers HTML is not a forward
-   *   proxy, so Chrome's navigation through it fails for reasons that say
-   *   nothing about the binding. The TDR-019 spike did observe Chrome's own
-   *   traffic arriving at a bound proxy, so the switch takes effect; proving a
-   *   complete proxied navigation needs a conforming proxy and is open work.
-   * - **Identity isolation.** Profile directories are created lazily, so a
-   *   `readdir` after a fast navigate observes nothing. The spike proved
-   *   isolation directly with cookies across data directories; asserting it
-   *   through this transport needs cookie access the transport does not expose.
+   * Measured: the identical proxied acquisition routes through its proxy when
+   * it is the first thing to launch a browser, and never reaches the proxy when
+   * another acquisition ran first.
    *
-   * `browser.test.ts` covers the decisions this codebase actually makes — that
-   * a proxied route produces the switch, and that identities produce distinct
-   * directories.
+   * The transport therefore **refuses** proxied browser acquisition
+   * (`browser-launch.ts`) rather than promising a route it cannot guarantee —
+   * traffic leaving by the wrong route while the evidence recorded `proxy` is
+   * exactly the bypass I10 forbids. Direct-egress browser acquisition is
+   * unaffected and proven above.
+   *
+   * Session isolation is likewise not asserted here: it is a property of the
+   * profile directory, which the same process reuse makes unobservable through
+   * this transport. The TDR-019 spike proved it directly with cookies across
+   * data directories.
+   *
+   * Re-enabling proxied browser work means a process per route — see TDR-019's
+   * open questions.
    */
 });

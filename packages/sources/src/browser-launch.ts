@@ -49,37 +49,33 @@ export const browserLaunchOptions = (
     context === undefined ? { path: "live" as const } : context.egress;
   const identity = context?.identity ?? ANONYMOUS_IDENTITY;
 
-  // WebKit exposes no proxy control, so a proxied acquisition through it would
-  // silently go direct — invisible afterwards, because the evidence would still
-  // record `proxy`. Refuse instead (I10).
-  if (backend === "webkit" && egress.path === "proxy") {
+  // Proxy binding is a *launch* switch, and a browser process is reused across
+  // views: a second acquisition inherits whatever route the first process was
+  // started with. Measured — the same proxied acquisition routes correctly in a
+  // fresh process and is silently ignored after another acquisition has already
+  // started a browser. Until the transport can guarantee a process per route,
+  // a proxied browser acquisition cannot be promised, and promising it would
+  // mean traffic leaving by the wrong route while the evidence recorded
+  // `proxy`. Refuse (I10). See TDR-019's open questions.
+  if (egress.path === "proxy") {
     return {
       _tag: "refused",
       refusal: {
         reason:
-          "the webkit backend cannot be bound to a proxy, and this source's egress policy requires one",
+          "browser acquisition cannot yet honour a proxy egress policy: the proxy is bound when the browser process starts, and processes are reused across acquisitions, so the route cannot be guaranteed per acquisition",
       },
     };
   }
 
-  if (egress.path === "proxy" && egress.viaProxy === undefined) {
-    return {
-      _tag: "refused",
-      refusal: {
-        reason: "egress resolved to a proxy but named no proxy to bind to",
-      },
-    };
-  }
-
-  const argv =
-    egress.path === "proxy" && egress.viaProxy !== undefined
-      ? [`--proxy-server=${egress.viaProxy}`]
-      : [];
+  // Everything below is a direct-egress acquisition: the refusal above is the
+  // only path a proxy policy can take. When process-per-route lands, the
+  // WebKit backend still cannot honour a proxy at all — it exposes no control
+  // for one — so it will need its own refusal here again.
 
   return {
     _tag: "launch",
     options: {
-      argv,
+      argv: [],
       backend,
       // One directory per identity: cookies and storage from one identity must
       // never be presented under another (TDR-011).

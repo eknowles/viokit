@@ -32,12 +32,6 @@ const launched = (context: AcquisitionContext | undefined, cfg = config) => {
 };
 
 describe("browser launch is derived from the runtime's decision", () => {
-  it("binds a proxied acquisition to that proxy (I10)", () => {
-    assert.deepStrictEqual(launched(proxied).argv, [
-      "--proxy-server=http://proxy.test:8080",
-    ]);
-  });
-
   it("adds no proxy switch for a direct route", () => {
     assert.deepStrictEqual(launched(direct).argv, []);
   });
@@ -73,15 +67,18 @@ describe("browser launch is derived from the runtime's decision", () => {
 });
 
 describe("an acquisition that cannot honour its route is refused", () => {
-  it("refuses webkit under a proxy policy rather than going direct (I10)", () => {
-    const result = browserLaunchOptions(source, proxied, {
-      ...config,
-      backend: "webkit",
-    });
+  /**
+   * Proxy binding is a launch switch and browser processes are reused across
+   * acquisitions, so a later acquisition inherits the first process's route.
+   * Measured, not assumed. Until the transport can guarantee a process per
+   * route, refusing is the only thing that keeps I10 true.
+   */
+  it("refuses any proxied browser acquisition (I10)", () => {
+    const result = browserLaunchOptions(source, proxied, config);
     assert.strictEqual(result._tag, "refused");
     if (result._tag === "refused") {
-      assert.include(result.refusal.reason, "webkit");
       assert.include(result.refusal.reason, "proxy");
+      assert.include(result.refusal.reason, "process");
     }
   });
 
@@ -123,24 +120,12 @@ describe("the browser transport", () => {
     assert.include(new TextDecoder().decode(result.bytes), "voter record");
   });
 
-  it("hands the engine the launch options the route implies", async () => {
-    const seen: { argv: readonly string[] }[] = [];
-    const transport = makeBrowserTransport(
-      engine("<html></html>", seen as unknown[]),
-      config
-    );
-    await Effect.runPromise(transport.fetch(source, proxied));
-    assert.deepStrictEqual(seen[0]?.argv, [
-      "--proxy-server=http://proxy.test:8080",
-    ]);
-  });
-
   it("fails without rendering when the route cannot be honoured", async () => {
     const seen: unknown[] = [];
-    const transport = makeBrowserTransport(engine("<html></html>", seen), {
-      ...config,
-      backend: "webkit",
-    });
+    const transport = makeBrowserTransport(
+      engine("<html></html>", seen),
+      config
+    );
     const result = await Effect.runPromise(
       Effect.result(transport.fetch(source, proxied))
     );

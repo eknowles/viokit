@@ -66,3 +66,8 @@ The live browser test is outside the default suite so it stays hermetic:
 ```sh
 bun test ./packages/sources/test/browser-live.ts
 ```
+
+> **Proxied browser acquisition is refused.** Proxy binding is a browser *launch* switch and
+> browser processes are reused across acquisitions, so a later acquisition would silently inherit
+> the first one's route — traffic leaving the wrong way while the evidence recorded `proxy`. Direct
+> egress works. See TDR-019's open questions for what re-enabling it requires.

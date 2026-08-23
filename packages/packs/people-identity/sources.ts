@@ -26,7 +26,7 @@ export const familysearch_org: SourceSpec = {
 export const judyrecords_com: SourceSpec = {
   access: "browser_scrape",
   id: "judyrecords.com",
-  transport: "http",
+  transport: "browser",
   url: "https://www.judyrecords.com",
 };
 
@@ -42,6 +42,6 @@ export const opensanctions_org: SourceSpec = {
 export const voterrecords_com: SourceSpec = {
   access: "browser_scrape",
   id: "voterrecords.com",
-  transport: "http",
+  transport: "browser",
   url: "https://voterrecords.com",
 };

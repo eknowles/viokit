@@ -8,8 +8,8 @@ import {
 } from "@viokit/engine";
 import { manifest as webDns } from "@viokit/packs/web-dns/manifest";
 import type { PackManifest } from "@viokit/schema";
-import { DuckDBConfig } from "@viokit/schema";
-import { DispatchTransportLayer } from "@viokit/sources";
+import { DuckDBConfig, TransportCapabilities } from "@viokit/schema";
+import { BunWebViewEngineLayer, DispatchTransportLayer } from "@viokit/sources";
 import { Layer } from "effect";
 
 /**
@@ -17,8 +17,9 @@ import { Layer } from "effect";
  * CLI are adapters over this layer and hold no behavior of their own (I8), so
  * anything either surface can do, the other can do identically.
  *
- * Deployment wiring only: the transports a pack's sources may declare, where
- * evidence and the graph are stored, and which packs are registered. No policy
+ * Deployment wiring only: the transports this deployment can perform, where
+ * evidence, view state, and the graph are stored, and which packs are
+ * registered. No policy
  * decisions live here — cache mode and egress route stay owned by the engine's
  * source runtime (I4/I10).
  */
@@ -57,8 +58,22 @@ const viewStateLayer = makeViewStateLayer(
   process.env.VIOKIT_VIEW_STATE_DIR ?? "./.viokit/view-state"
 );
 
+/**
+ * What this deployment can actually perform. Declared from what is wired, not
+ * asserted: the browser engine is present, so `browser` is claimed and browser
+ * sources become runnable. Remove the engine and the claim goes with it, so a
+ * deployment never promises a transport it does not have.
+ */
+const transportCapabilities = Layer.succeed(TransportCapabilities, [
+  "http",
+  "dataset",
+  "browser",
+]);
+
 const deployment = Layer.mergeAll(
   DispatchTransportLayer,
+  BunWebViewEngineLayer,
+  transportCapabilities,
   evidenceBackend,
   OntologyRegistryLayer,
   graphConfig,

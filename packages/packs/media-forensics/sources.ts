@@ -10,6 +10,6 @@ import type { SourceSpec } from "@viokit/schema";
 export const suncalc_org: SourceSpec = {
   access: "browser_scrape",
   id: "suncalc.org",
-  transport: "http",
+  transport: "browser",
   url: "https://www.suncalc.org",
 };

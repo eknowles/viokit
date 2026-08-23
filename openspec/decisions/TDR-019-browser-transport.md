@@ -77,8 +77,33 @@ Not established by the spike: a full page navigation *through* a proxy end to en
 - **Bun 1.4 arrives project-local.** `bun@1.4.0` as a devDependency gives the workspace a 1.4 binary without upgrading the developer's system install — the whole machine should not move for one transport. Migrating the workspace's own runtime to 1.4 is a separate decision with its own verification.
 - **What would change this decision:** `Bun.WebView` proving unstable across Bun releases in ways our tests catch repeatedly; a requirement for browser behaviour it does not expose and `cdp` cannot reach; or the WebKit backend gaining proxy control, which would reopen the macOS-native path.
 
+## Post-implementation finding (2026-08-23) — proxy binding is per *process*
+
+Implementing the transport surfaced a constraint the spike did not: `--proxy-server` is a **launch
+switch**, and `Bun.WebView` reuses a browser process across views. An acquisition that runs after
+another one therefore inherits the first process's route, silently.
+
+Measured both ways: the identical proxied acquisition routes through its proxy when it is the first
+thing to start a browser, and never reaches the proxy when another acquisition ran first.
+
+This is an I10 hazard, not a performance question — traffic leaving by the wrong route while the
+evidence records `proxy` is precisely the bypass the invariant forbids. **The transport therefore
+refuses proxied browser acquisition outright.** Direct-egress browser acquisition is unaffected and
+is proven by a live test.
+
+The decision above stands: `Bun.WebView` remains the right technology, and the two properties the
+spike established (argv plumbing, per-directory session isolation) hold. What changed is that
+"bound to the runtime's egress decision" needs **a browser process per route**, which the current
+implementation does not provide. Re-enabling proxied browser work means exactly that, and it is the
+first question below rather than a deferred nicety.
+
 ## Open questions
-- Whether browser sessions are pooled across acquisitions or created per acquisition. Deferred to the implementing change: it is a performance and resource question, not a capability one.
+- **How to guarantee a browser process per egress route** — the blocker for proxied browser
+  acquisition. Options include a process per (identity, route), driving `cdp` to set the proxy per
+  context rather than per launch, or an external proxy-per-profile arrangement. This is now the
+  gating question for the capability, not a refinement of it.
+- Whether browser sessions are pooled across acquisitions or created per acquisition — bound up with
+  the question above rather than independent of it.
 - How `acquisitionPath` should describe a browser acquisition (I9) — a browser fetch through a proxy is still `proxy`, but the fact that a browser rendered it is worth recording.
 
 ## References

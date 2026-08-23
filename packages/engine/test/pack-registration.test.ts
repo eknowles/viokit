@@ -5,7 +5,7 @@ import { assert, describe, layer } from "@effect/vitest";
 import { manifest as peopleManifest } from "@viokit/packs/people-identity/manifest";
 import { judyrecords_com } from "@viokit/packs/people-identity/sources";
 import { manifest } from "@viokit/packs/web-dns/manifest";
-import { SourceTransportService } from "@viokit/schema";
+import { SourceTransportService, TransportCapabilities } from "@viokit/schema";
 import { Effect, Layer } from "effect";
 import { Engine, makeEngineLayer } from "../src/engine.js";
 import { EvidenceBackendMemory } from "../src/evidence-fs.js";
@@ -119,6 +119,38 @@ const peopleIdentity = Layer.provide(
  * The case this whole change exists for: a real pack whose sources are mostly
  * not acquirable here.
  */
+/** The same pack in a deployment that actually provides a browser. */
+const browserEquipped = Layer.provide(
+  makeEngineLayer([peopleManifest]),
+  Layer.mergeAll(
+    transport,
+    EvidenceBackendMemory,
+    OntologyRegistryLayer,
+    tempViewState(),
+    Layer.succeed(TransportCapabilities, ["http", "dataset", "browser"])
+  )
+);
+
+describe("a deployment that declares a browser", () => {
+  layer(browserEquipped)((it) => {
+    it.effect("reports its browser-only sources as runnable", () =>
+      Effect.gen(function* () {
+        const engine = yield* Engine;
+        const usable = yield* engine.catalog({
+          kind: "source",
+          runnable: true,
+        });
+        const ids = usable.map((entry) => entry.id).sort();
+        // Blocked in the deployment below, runnable here — the only difference
+        // is what the deployment declares it can do.
+        assert.include(ids, "judyrecords.com");
+        assert.include(ids, "voterrecords.com");
+        assert.strictEqual(usable.length, 5);
+      })
+    );
+  });
+});
+
 describe("registering a pack whose sources are browser-gated", () => {
   layer(peopleIdentity)((it) => {
     it.effect("reports the browser-only sources as present but unusable", () =>
