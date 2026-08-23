@@ -188,10 +188,10 @@ Track B is unblocked: TDR-023 and TDR-024 now have a unit to apply to.
 
 | Change | Gate | Why |
 |---|---|---|
-| `identity-and-authz` | **TDR-023** (new) | Everything downstream needs to know *who*. The API is loopback-only precisely because it cannot answer that, and view state's `user` key is a placeholder waiting on it. |
+| ~~`identity-and-authz`~~ | TDR-023 | **Done (2026-08-23).** A `Principal` — person or agent — resolved from a bearer credential through a seam; authorization is membership of an investigation. Two principals on one deployment cannot see each other's cases, which is this track's exit criterion. **The loopback rule was a comment**: `VIOKIT_HTTP_HOST=0.0.0.0` published an unauthenticated engine, and nothing refused. It refuses now. |
 | `redaction-and-retention` | **TDR-024** (new) | Secrets already stay out of cache and evidence; sensitive *content* does not. Needed before a bundle leaves a machine. |
 | `audit-log` | — | Governance's own trail: who ran what, who exported what. |
-| `bundle-signing` | depends on TDR-023 | An export attests integrity as of export and says nothing about custody before it. Signing at acquisition is what closes that, and it needs an identity first. |
+| `bundle-signing` | unblocked — TDR-023 decided | An export attests integrity as of export and says nothing about custody before it. Signing at acquisition is what closes that, and it needs an identity first. |
 | `veracity-model` | — | Confidence for leaked/unverified data; `correlate` upgrading claims to corroborated (an original P4 item, still unstarted). |
 
 ### Track C — The workbench (the rest of P3's visual half)

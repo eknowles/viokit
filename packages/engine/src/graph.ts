@@ -6,14 +6,17 @@ import {
   type GraphPath,
   GraphState,
   type GraphStore,
-  type Investigation,
+  Investigation,
   type InvestigationId,
   investigationId,
+  LOCAL_PRINCIPAL,
+  type PrincipalId,
   ProvenanceError,
   type RelatedEntity,
   type Relation,
   SharedArtifact,
   type Step,
+  Unauthorized,
   UnknownInvestigation,
 } from "@viokit/schema";
 import { Context, Effect, Layer, Option } from "effect";
@@ -38,21 +41,24 @@ export class GraphService extends Context.Service<GraphService, GraphStore>()(
 
       const start = (
         name: string,
+        owner: PrincipalId,
         from?: { readonly parent: InvestigationId; readonly forkedAt: number }
       ): Investigation => {
-        const investigation = {
+        const investigation = Investigation.make({
           createdAt: new Date(),
           ...(from === undefined ? {} : { forkedAt: from.forkedAt }),
           id: investigationId(randomUUID()),
+          members: [owner],
           name,
+          owner,
           ...(from === undefined ? {} : { parent: from.parent }),
           status: "open",
-        } as Investigation;
+        });
         investigations.set(investigation.id, investigation);
         return investigation;
       };
 
-      const root = start("default");
+      const root = start("default", LOCAL_PRINCIPAL.id);
       let currentId: string = root.id;
 
       /** The steps an investigation can see: its own, plus each ancestor's up
@@ -161,14 +167,53 @@ export class GraphService extends Context.Service<GraphService, GraphStore>()(
           : Effect.succeed(found);
       };
 
+      /** A refusal, not an empty answer: "you may not reach this" and "this
+       * case is empty" are different facts. */
+      const reachable = (
+        id: InvestigationId,
+        by: PrincipalId
+      ): Effect.Effect<Investigation, UnknownInvestigation | Unauthorized> =>
+        Effect.flatMap(known(id), (investigation) =>
+          investigation.members.includes(by)
+            ? Effect.succeed(investigation)
+            : Unauthorized.make({
+                message: `principal '${by}' is not a member of investigation '${id}'`,
+              })
+        );
+
+      const ownedBy = (
+        id: InvestigationId,
+        by: PrincipalId
+      ): Effect.Effect<Investigation, UnknownInvestigation | Unauthorized> =>
+        Effect.flatMap(known(id), (investigation) =>
+          investigation.owner === by
+            ? Effect.succeed(investigation)
+            : Unauthorized.make({
+                message: `only the owner of investigation '${id}' may do this`,
+              })
+        );
+
       const store: GraphStore = {
-        createInvestigation: (name) => Effect.sync(() => start(name)),
+        addMember: (id, principal, by) =>
+          Effect.map(ownedBy(id, by), (investigation) => {
+            if (investigation.members.includes(principal)) {
+              return investigation;
+            }
+            const widened = Investigation.make({
+              ...investigation,
+              members: [...investigation.members, principal],
+            });
+            investigations.set(id, widened);
+            return widened;
+          }),
+        createInvestigation: (name, owner) =>
+          Effect.sync(() => start(name, owner)),
         current: Effect.sync(
           () => investigations.get(currentId) as Investigation
         ),
-        discardInvestigation: (id) =>
+        discardInvestigation: (id, by) =>
           Effect.gen(function* () {
-            const investigation = yield* known(id);
+            const investigation = yield* ownedBy(id, by);
             if (id === currentId) {
               return yield* UnknownInvestigation.make({
                 message: `investigation '${investigation.name}' is open; open another before discarding it`,
@@ -178,10 +223,10 @@ export class GraphService extends Context.Service<GraphService, GraphStore>()(
             investigations.set(id, { ...investigation, status: "discarded" });
           }),
         dispose: Effect.void,
-        forkInvestigation: (from, name) =>
+        forkInvestigation: (from, name, by) =>
           Effect.gen(function* () {
-            yield* known(from);
-            return start(name, { forkedAt: steps.length, parent: from });
+            yield* reachable(from, by);
+            return start(name, by, { forkedAt: steps.length, parent: from });
           }),
         insert: (step) =>
           Effect.gen(function* () {
@@ -197,11 +242,16 @@ export class GraphService extends Context.Service<GraphService, GraphStore>()(
             });
             return step;
           }),
-        investigations: Effect.sync(() => [...investigations.values()]),
+        investigations: (by) =>
+          Effect.sync(() =>
+            [...investigations.values()].filter((one) =>
+              one.members.includes(by)
+            )
+          ),
         log: Effect.sync(() => Array.from(visible())),
-        openInvestigation: (id) =>
+        openInvestigation: (id, by) =>
           Effect.gen(function* () {
-            const investigation = yield* known(id);
+            const investigation = yield* reachable(id, by);
             currentId = id;
             return investigation;
           }),

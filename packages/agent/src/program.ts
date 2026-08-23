@@ -3,8 +3,10 @@ import {
   EvidenceBackendMemory,
   EvidenceRootDir,
   makeEngineLayer,
+  makeEnvPrincipalStore,
   makeViewStateLayer,
   OntologyRegistryLayer,
+  PRINCIPALS_ENV,
 } from "@viokit/engine";
 import { manifest as conflictSecurity } from "@viokit/packs/conflict-security/manifest";
 import { manifest as corporateFinance } from "@viokit/packs/corporate-finance/manifest";
@@ -17,7 +19,12 @@ import { manifest as peopleIdentity } from "@viokit/packs/people-identity/manife
 import { manifest as transportPack } from "@viokit/packs/transport/manifest";
 import { manifest as webDns } from "@viokit/packs/web-dns/manifest";
 import type { PackManifest } from "@viokit/schema";
-import { DuckDBConfig, TransportCapabilities } from "@viokit/schema";
+import {
+  CurrentPrincipal,
+  DuckDBConfig,
+  TransportCapabilities,
+  type Unauthorized,
+} from "@viokit/schema";
 import { BunWebViewEngineLayer, DispatchTransportLayer } from "@viokit/sources";
 import { Layer } from "effect";
 
@@ -117,3 +124,23 @@ export const makeAgentProgramLayer = (packs: readonly PackManifest[]) =>
 
 /** The default program layer: the packs in `defaultPacks`. */
 export const AgentProgramLayer = makeAgentProgramLayer(defaultPacks);
+
+/** How this deployment resolves a credential to a principal (TDR-023). */
+export const principalStore = makeEnvPrincipalStore(
+  process.env[PRINCIPALS_ENV]
+);
+
+/**
+ * A token for the local front-ends, where there is no request to carry one.
+ *
+ * If this deployment authenticates, the CLI and MCP server must present a
+ * credential like anyone else: acting as an implicit local operator would be a
+ * hole exactly where the machine's owner is most likely to look.
+ */
+export const LOCAL_TOKEN_ENV = "VIOKIT_TOKEN";
+
+export const localPrincipalLayer: Layer.Layer<CurrentPrincipal, Unauthorized> =
+  Layer.effect(
+    CurrentPrincipal,
+    principalStore.resolve(process.env[LOCAL_TOKEN_ENV])
+  );

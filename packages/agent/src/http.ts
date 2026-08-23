@@ -1,9 +1,11 @@
 #!/usr/bin/env bun
 import type { Engine } from "@viokit/engine";
+import { PRINCIPALS_ENV } from "@viokit/engine";
+import { CurrentPrincipal } from "@viokit/schema";
 import { Cause, Effect, type Layer, ManagedRuntime } from "effect";
 import type { AgentOperation } from "./operations.js";
 import { findOperation, operations } from "./operations.js";
-import { AgentProgramLayer } from "./program.js";
+import { AgentProgramLayer, principalStore } from "./program.js";
 
 /**
  * The browser-facing front-end (TDR-017). Like the MCP and CLI adapters, this
@@ -17,8 +19,12 @@ import { AgentProgramLayer } from "./program.js";
  * routes, and Effect still owns everything behind the operation table, so the
  * router bought nothing but plumbing. See TDR-017.
  *
- * Unauthenticated by design at this stage: it binds to loopback and must not be
- * exposed beyond the local machine until governance (P4) lands.
+ * Authentication is TDR-023: a bearer credential resolved to a principal through
+ * the `PrincipalStore` seam. A deployment that configures no principals is local
+ * single-user, and `serve` then **refuses to bind anywhere but loopback** — the
+ * rule used to be a comment here, and a comment does not stop
+ * `VIOKIT_HTTP_HOST=0.0.0.0` from exposing an engine that can acquire from the
+ * network, read every artifact, and export any case.
  */
 
 /** Status codes, so a client can tell outcomes apart without reading the body. */
@@ -51,6 +57,17 @@ const corsHeaders = (origin: string | null): Record<string, string> => {
     "access-control-max-age": "600",
     vary: "origin",
   };
+};
+
+/** `Authorization: Bearer <credential>`, or nothing. */
+const bearer = (header: string | null): string | undefined => {
+  if (header === null) {
+    return;
+  }
+  const [scheme, ...rest] = header.split(" ");
+  return scheme?.toLowerCase() === "bearer" && rest.length > 0
+    ? rest.join(" ").trim()
+    : undefined;
 };
 
 const json = (
@@ -154,8 +171,13 @@ export const makeHandler = (
         );
       }
       const args = await readArgs(request);
+      const presented = bearer(request.headers.get("authorization"));
       return await runtime.runPromise(
         operation.run(args).pipe(
+          Effect.provideServiceEffect(
+            CurrentPrincipal,
+            principalStore.resolve(presented)
+          ),
           Effect.matchCause({
             onFailure: (cause) => failureResponse(cause, origin),
             onSuccess: (value) => json(value ?? null, OK, origin),
@@ -177,13 +199,43 @@ export interface ServeOptions {
   readonly port?: number;
 }
 
-/** Serve the surface. Loopback by default — this is a local interface. */
+const LOOPBACK_HOSTS = new Set(["127.0.0.1", "localhost", "::1", "[::1]"]);
+
+/**
+ * Refuse to publish an engine nobody authenticates.
+ *
+ * Pure and exported so it is testable without starting a server — the rule this
+ * enforces used to be a sentence in a comment, and a sentence does not stop
+ * `VIOKIT_HTTP_HOST=0.0.0.0`.
+ */
+export const assertBindable = (
+  hostname: string,
+  authenticates: boolean
+): void => {
+  if (LOOPBACK_HOSTS.has(hostname) || authenticates) {
+    return;
+  }
+  throw new Error(
+    `refusing to bind to ${hostname}: this deployment authenticates nobody, so anyone who can reach the port could drive it. Configure ${PRINCIPALS_ENV}, or bind to loopback.`
+  );
+};
+
+/**
+ * Serve the surface. Loopback by default, and loopback *only* unless this
+ * deployment authenticates.
+ *
+ * The refusal is the point. Binding wider without a principal store publishes an
+ * engine that anyone reaching the port can drive — and until now the only thing
+ * preventing it was a sentence in a comment.
+ */
 export const serve = (options: ServeOptions = {}) => {
+  const hostname = options.hostname ?? "127.0.0.1";
+  assertBindable(hostname, principalStore.authenticates);
   const handler = makeHandler(options.layer ?? AgentProgramLayer);
   // biome-ignore lint/correctness/noUndeclaredVariables: Bun global, typed via bun-types
   return Bun.serve({
     fetch: (request) => handler(request),
-    hostname: options.hostname ?? "127.0.0.1",
+    hostname,
     port: options.port ?? 4000,
   });
 };
@@ -194,6 +246,10 @@ if (import.meta.main) {
     port: Number(process.env.VIOKIT_HTTP_PORT ?? 4000),
   });
   process.stdout.write(
-    `viokit http api on http://${server.hostname}:${server.port} (loopback only; unauthenticated)\n`
+    `viokit http api on http://${server.hostname}:${server.port} (${
+      principalStore.authenticates
+        ? "authenticating"
+        : "local single-user; loopback only"
+    })\n`
   );
 }

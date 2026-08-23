@@ -4,7 +4,7 @@ import type { Engine } from "@viokit/engine";
 import { Cause, Effect, type Layer } from "effect";
 import type { AgentOperation, ArgSpec } from "./operations.js";
 import { findOperation, operations } from "./operations.js";
-import { AgentProgramLayer } from "./program.js";
+import { AgentProgramLayer, localPrincipalLayer } from "./program.js";
 
 /**
  * The human surface (TDR-016): the same operation table as commands. Like the
@@ -84,6 +84,10 @@ export const runCli = async (
     const output = await Effect.runPromise(
       operation.run(args).pipe(
         Effect.provide(layer),
+        // The local front-ends carry no request, so the credential comes from
+        // the environment. A deployment that authenticates makes the CLI
+        // present one too (TDR-023).
+        Effect.provide(localPrincipalLayer),
         Effect.matchCause({
           onFailure: (cause) => ({
             ok: false,

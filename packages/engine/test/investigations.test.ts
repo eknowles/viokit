@@ -5,6 +5,7 @@ import {
   Entity,
   entityId,
   type GraphStore,
+  LOCAL_PRINCIPAL,
   Relation,
   relationId,
   type Step,
@@ -15,6 +16,8 @@ import {
 import { Effect } from "effect";
 import { GraphLayer, GraphService } from "../src/graph.js";
 import { DuckDBGraphLayer, DuckDBGraphService } from "../src/graph-duckdb.js";
+
+const ME = LOCAL_PRINCIPAL.id;
 
 /**
  * Investigations (TDR-025). The property that matters most is negative — work
@@ -94,23 +97,23 @@ const runBoth = (
 runBoth("work belongs to the investigation it was recorded under", (store) =>
   Effect.gen(function* () {
     const first = yield* store.current;
-    const second = yield* store.createInvestigation("second");
+    const second = yield* store.createInvestigation("second", ME);
 
     yield* store.insert(entityStep("alpha"));
-    yield* store.openInvestigation(second.id);
+    yield* store.openInvestigation(second.id, ME);
     yield* store.insert(entityStep("beta"));
 
     assert.deepStrictEqual(yield* entityIds(store), ["beta"]);
-    yield* store.openInvestigation(first.id);
+    yield* store.openInvestigation(first.id, ME);
     assert.deepStrictEqual(yield* entityIds(store), ["alpha"]);
   })
 );
 
 runBoth("the log is scoped too, not only the projection", (store) =>
   Effect.gen(function* () {
-    const second = yield* store.createInvestigation("second");
+    const second = yield* store.createInvestigation("second", ME);
     yield* store.insert(entityStep("alpha"));
-    yield* store.openInvestigation(second.id);
+    yield* store.openInvestigation(second.id, ME);
     yield* store.insert(entityStep("beta"));
 
     const log = yield* store.log;
@@ -128,8 +131,8 @@ runBoth("queries answer for one investigation", (store) =>
     yield* store.insert(entityStep("b"));
     yield* store.insert(relationStep("a-b", "a", "b"));
 
-    const second = yield* store.createInvestigation("second");
-    yield* store.openInvestigation(second.id);
+    const second = yield* store.createInvestigation("second", ME);
+    yield* store.openInvestigation(second.id, ME);
     yield* store.insert(entityStep("a"));
     yield* store.insert(entityStep("b"));
 
@@ -137,7 +140,7 @@ runBoth("queries answer for one investigation", (store) =>
     assert.deepStrictEqual(yield* store.paths("a", "b"), []);
     assert.deepStrictEqual(yield* store.relatedness("a"), []);
 
-    yield* store.openInvestigation(first.id);
+    yield* store.openInvestigation(first.id, ME);
     assert.isAbove((yield* store.paths("a", "b")).length, 0);
   })
 );
@@ -147,8 +150,8 @@ runBoth("a branch starts from what its parent knew", (store) =>
     const parent = yield* store.current;
     yield* store.insert(entityStep("inherited"));
 
-    const branch = yield* store.forkInvestigation(parent.id, "hypothesis");
-    yield* store.openInvestigation(branch.id);
+    const branch = yield* store.forkInvestigation(parent.id, "hypothesis", ME);
+    yield* store.openInvestigation(branch.id, ME);
     assert.deepStrictEqual(yield* entityIds(store), ["inherited"]);
   })
 );
@@ -157,16 +160,16 @@ runBoth("work on a branch stays there", (store) =>
   Effect.gen(function* () {
     const parent = yield* store.current;
     yield* store.insert(entityStep("inherited"));
-    const branch = yield* store.forkInvestigation(parent.id, "hypothesis");
+    const branch = yield* store.forkInvestigation(parent.id, "hypothesis", ME);
 
-    yield* store.openInvestigation(branch.id);
+    yield* store.openInvestigation(branch.id, ME);
     yield* store.insert(entityStep("speculative"));
     assert.deepStrictEqual(yield* entityIds(store), [
       "inherited",
       "speculative",
     ]);
 
-    yield* store.openInvestigation(parent.id);
+    yield* store.openInvestigation(parent.id, ME);
     assert.deepStrictEqual(yield* entityIds(store), ["inherited"]);
   })
 );
@@ -176,11 +179,11 @@ runBoth("a branch does not see what its parent did afterwards", (store) =>
   Effect.gen(function* () {
     const parent = yield* store.current;
     yield* store.insert(entityStep("before"));
-    const branch = yield* store.forkInvestigation(parent.id, "hypothesis");
+    const branch = yield* store.forkInvestigation(parent.id, "hypothesis", ME);
 
     yield* store.insert(entityStep("after"));
 
-    yield* store.openInvestigation(branch.id);
+    yield* store.openInvestigation(branch.id, ME);
     assert.deepStrictEqual(yield* entityIds(store), ["before"]);
   })
 );
@@ -189,15 +192,19 @@ runBoth("a branch of a branch inherits both, bounded by each fork", (store) =>
   Effect.gen(function* () {
     const root = yield* store.current;
     yield* store.insert(entityStep("root-1"));
-    const child = yield* store.forkInvestigation(root.id, "child");
+    const child = yield* store.forkInvestigation(root.id, "child", ME);
 
     yield* store.insert(entityStep("root-2"));
 
-    yield* store.openInvestigation(child.id);
+    yield* store.openInvestigation(child.id, ME);
     yield* store.insert(entityStep("child-1"));
-    const grandchild = yield* store.forkInvestigation(child.id, "grandchild");
+    const grandchild = yield* store.forkInvestigation(
+      child.id,
+      "grandchild",
+      ME
+    );
 
-    yield* store.openInvestigation(grandchild.id);
+    yield* store.openInvestigation(grandchild.id, ME);
     yield* store.insert(entityStep("grandchild-1"));
 
     // Sees the root as of the child's fork, the child as of its own, and itself
@@ -213,19 +220,19 @@ runBoth("a branch of a branch inherits both, bounded by each fork", (store) =>
 runBoth("discarding leaves the log intact and stops it contributing", (store) =>
   Effect.gen(function* () {
     const parent = yield* store.current;
-    const branch = yield* store.forkInvestigation(parent.id, "rejected");
-    yield* store.openInvestigation(branch.id);
+    const branch = yield* store.forkInvestigation(parent.id, "rejected", ME);
+    yield* store.openInvestigation(branch.id, ME);
     yield* store.insert(entityStep("speculative"));
 
-    yield* store.openInvestigation(parent.id);
-    yield* store.discardInvestigation(branch.id);
+    yield* store.openInvestigation(parent.id, ME);
+    yield* store.discardInvestigation(branch.id, ME);
 
-    const investigations = yield* store.investigations;
+    const investigations = yield* store.investigations(ME);
     const discarded = investigations.find((one) => one.id === branch.id);
     assert.strictEqual(discarded?.status, "discarded");
 
     // Still there when opened: append-only means the record survives (I3).
-    yield* store.openInvestigation(branch.id);
+    yield* store.openInvestigation(branch.id, ME);
     assert.deepStrictEqual(yield* entityIds(store), ["speculative"]);
   })
 );
@@ -233,7 +240,9 @@ runBoth("discarding leaves the log intact and stops it contributing", (store) =>
 runBoth("the open investigation cannot be discarded", (store) =>
   Effect.gen(function* () {
     const open = yield* store.current;
-    const result = yield* Effect.result(store.discardInvestigation(open.id));
+    const result = yield* Effect.result(
+      store.discardInvestigation(open.id, ME)
+    );
     assert.strictEqual(result._tag, "Failure");
   })
 );
@@ -243,11 +252,11 @@ runBoth(
   (store) =>
     Effect.gen(function* () {
       const opened = yield* Effect.result(
-        store.openInvestigation("nonesuch" as never)
+        store.openInvestigation("nonesuch" as never, ME)
       );
       assert.strictEqual(opened._tag, "Failure");
       const forked = yield* Effect.result(
-        store.forkInvestigation("nonesuch" as never, "x")
+        store.forkInvestigation("nonesuch" as never, "x", ME)
       );
       assert.strictEqual(forked._tag, "Failure");
     })
@@ -281,12 +290,12 @@ describe("the open investigation survives reopening the store", () => {
     it.effect("remembers which case was open", () =>
       Effect.gen(function* () {
         const store = yield* DuckDBGraphService;
-        const made = yield* store.createInvestigation("acme");
-        yield* store.openInvestigation(made.id);
+        const made = yield* store.createInvestigation("acme", ME);
+        yield* store.openInvestigation(made.id, ME);
         // Same database, read back through the same persisted state the next
         // process would see.
         assert.strictEqual((yield* store.current).id, made.id);
-        const remembered = yield* store.investigations;
+        const remembered = yield* store.investigations(ME);
         assert.strictEqual(remembered.length, 2);
       })
     );
@@ -296,11 +305,11 @@ describe("the open investigation survives reopening the store", () => {
 runBoth("evidence shared between cases can be surfaced", (store) =>
   Effect.gen(function* () {
     const first = yield* store.current;
-    const second = yield* store.createInvestigation("second");
+    const second = yield* store.createInvestigation("second", ME);
 
     // Same evidence id in both, by construction: `entityStep` derives it.
     yield* store.insert(entityStep("shared"));
-    yield* store.openInvestigation(second.id);
+    yield* store.openInvestigation(second.id, ME);
     yield* store.insert(entityStep("shared"));
     yield* store.insert(entityStep("private"));
 

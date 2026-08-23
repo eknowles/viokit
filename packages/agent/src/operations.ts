@@ -1,11 +1,12 @@
 import type { Engine } from "@viokit/engine";
 import { Engine as EngineTag } from "@viokit/engine";
+import type { Principal } from "@viokit/schema";
 import {
   CatalogFilter,
+  CurrentPrincipal,
   EvidenceInput,
   evidenceId,
   GraphState,
-  localUser,
   Manual,
   MatchRule,
   reviveJsonDates,
@@ -43,7 +44,7 @@ export interface AgentOperation {
   readonly name: string;
   readonly run: (
     args: Record<string, unknown>
-  ) => Effect.Effect<unknown, unknown, Engine>;
+  ) => Effect.Effect<unknown, unknown, Engine | CurrentPrincipal>;
 }
 
 const arg = (
@@ -99,6 +100,20 @@ const engine = <A, E>(
   Effect.gen(function* () {
     const e = yield* EngineTag;
     return yield* fn(e);
+  });
+
+/**
+ * Run as whoever is acting (TDR-023). Provided per request on the HTTP surface
+ * and once for the local front-ends, so all three authorize identically — I8
+ * forbids one having a path the others do not, and that includes an easier one.
+ */
+const asPrincipal = <A, E>(
+  fn: (e: Engine["Service"], principal: Principal) => Effect.Effect<A, E>
+): Effect.Effect<A, E, Engine | CurrentPrincipal> =>
+  Effect.gen(function* () {
+    const e = yield* EngineTag;
+    const principal = yield* CurrentPrincipal;
+    return yield* fn(e, principal);
   });
 
 const asNumber = (value: unknown): number | undefined =>
@@ -352,13 +367,14 @@ export const operations: readonly AgentOperation[] = [
     name: "view_state_load",
     run: (args) =>
       Effect.gen(function* () {
+        const me = yield* CurrentPrincipal;
         const open = yield* engine((e) => e.currentInvestigation);
         const key = yield* decode(ViewStateKey, {
           // The open investigation, not a placeholder: TDR-012 shipped
           // `defaultInvestigation` waiting for this to exist (TDR-025).
           investigation: args.investigation ?? open.id,
           surface: String(args.surface),
-          user: args.user ?? localUser,
+          user: args.user ?? me.id,
         });
         return yield* engine((e) => e.loadViewState(key, Number(args.version)));
       }),
@@ -376,12 +392,13 @@ export const operations: readonly AgentOperation[] = [
     name: "view_state_save",
     run: (args) =>
       Effect.gen(function* () {
+        const me = yield* CurrentPrincipal;
         const open = yield* engine((e) => e.currentInvestigation);
         const document = yield* decode(ViewStateDocument, {
           key: {
             investigation: args.investigation ?? open.id,
             surface: String(args.surface),
-            user: args.user ?? localUser,
+            user: args.user ?? me.id,
           },
           payload: args.payload ?? null,
           version: Number(args.version),
@@ -404,7 +421,7 @@ export const operations: readonly AgentOperation[] = [
     description:
       "The investigations on this deployment, including branches. A branch is an investigation with a parent.",
     name: "investigations",
-    run: () => engine((e) => e.investigations),
+    run: () => asPrincipal((e, me) => e.investigations(me.id)),
   },
   {
     args: [],
@@ -417,14 +434,18 @@ export const operations: readonly AgentOperation[] = [
     description:
       "Start a new investigation. Does not open it — creating a case and switching to it are separate acts.",
     name: "create_investigation",
-    run: (args) => engine((e) => e.createInvestigation(String(args.name))),
+    run: (args) =>
+      asPrincipal((e, me) => e.createInvestigation(String(args.name), me.id)),
   },
   {
     args: [arg("id", "string", "investigation id")],
     description:
       "Answer for a different investigation from here on. Rebuilds the projection, which holds one investigation at a time.",
     name: "open_investigation",
-    run: (args) => engine((e) => e.openInvestigation(String(args.id) as never)),
+    run: (args) =>
+      asPrincipal((e, me) =>
+        e.openInvestigation(String(args.id) as never, me.id)
+      ),
   },
   {
     args: [
@@ -435,8 +456,12 @@ export const operations: readonly AgentOperation[] = [
       "Branch an investigation at its current end, to work a hypothesis without disturbing the case it came from.",
     name: "fork_investigation",
     run: (args) =>
-      engine((e) =>
-        e.forkInvestigation(String(args.from) as never, String(args.name))
+      asPrincipal((e, me) =>
+        e.forkInvestigation(
+          String(args.from) as never,
+          String(args.name),
+          me.id
+        )
       ),
   },
   {
@@ -445,7 +470,32 @@ export const operations: readonly AgentOperation[] = [
       "Stop an investigation contributing. Removes no step from the log — a rejected hypothesis stays on the record (I3).",
     name: "discard_investigation",
     run: (args) =>
-      engine((e) => e.discardInvestigation(String(args.id) as never)),
+      asPrincipal((e, me) =>
+        e.discardInvestigation(String(args.id) as never, me.id)
+      ),
+  },
+  {
+    args: [
+      arg("id", "string", "investigation id"),
+      arg("principal", "string", "who to admit"),
+    ],
+    description:
+      "Admit a principal to an investigation. Only its owner may — membership is the unit of authorization.",
+    name: "add_member",
+    run: (args) =>
+      asPrincipal((e, me) =>
+        e.addMember(
+          String(args.id) as never,
+          String(args.principal) as never,
+          me.id
+        )
+      ),
+  },
+  {
+    args: [],
+    description: "Who this deployment believes is acting.",
+    name: "whoami",
+    run: () => asPrincipal((_e, me) => Effect.succeed(me)),
   },
   {
     args: [],

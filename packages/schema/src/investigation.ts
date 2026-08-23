@@ -1,4 +1,5 @@
 import { Schema } from "effect";
+import { PrincipalId } from "./principal.js";
 
 /**
  * Investigations: the unit of work (TDR-025).
@@ -39,7 +40,15 @@ export class Investigation extends Schema.Class<Investigation>("Investigation")(
      */
     forkedAt: Schema.optionalKey(Schema.Number),
     id: InvestigationId,
+    /**
+     * Who may reach this case (TDR-023). The owner is always among them:
+     * membership is the unit of authorization, because "may use the graph" is
+     * not a useful permission and a case is.
+     */
+    members: Schema.Array(PrincipalId),
     name: Schema.String,
+    /** Whoever created it. Always a member; only they may admit others. */
+    owner: PrincipalId,
     /** Present on a branch, absent on a root investigation. */
     parent: Schema.optionalKey(InvestigationId),
     status: InvestigationStatus,

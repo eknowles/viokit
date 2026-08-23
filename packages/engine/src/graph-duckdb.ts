@@ -7,15 +7,19 @@ import {
   type ExtentHit,
   GraphState,
   type GraphStore,
-  type Investigation,
+  Investigation,
   type InvestigationId,
   investigationId,
   LEGACY_INVESTIGATION_NAME,
+  LOCAL_PRINCIPAL,
+  type PrincipalId,
   ProvenanceError,
+  principalId,
   Relation,
   reviveDates,
   SharedArtifact,
   Step,
+  Unauthorized,
   UnknownInvestigation,
 } from "@viokit/schema";
 import { Context, Effect, Layer, Option, Schema, Semaphore } from "effect";
@@ -71,7 +75,9 @@ interface Row {
   kind?: string;
   lat?: unknown;
   lon?: unknown;
+  members?: unknown;
   name?: string;
+  owner?: unknown;
   parent?: unknown;
   path_entities?: string[];
   path_rels?: string[];
@@ -123,7 +129,9 @@ export class DuckDBGraphService extends Context.Service<
         created_at BIGINT,
         parent VARCHAR,
         forked_at BIGINT,
-        status VARCHAR
+        status VARCHAR,
+        owner VARCHAR,
+        members VARCHAR
       );
       CREATE TABLE IF NOT EXISTS ${entityTable} (
         id VARCHAR,
@@ -162,23 +170,31 @@ export class DuckDBGraphService extends Context.Service<
 
       const loadInvestigations = async (): Promise<void> => {
         const reader = await connection.runAndReadAll(
-          `SELECT id, name, created_at, parent, forked_at, status FROM ${investigationTable}`
+          `SELECT id, name, created_at, parent, forked_at, status, owner, members FROM ${investigationTable}`
         );
         reader.readAll();
         investigations.clear();
         for (const row of reader.getRowObjectsJS() as Row[]) {
           const parent = row.parent as string | null;
           const forkedAt = row.forked_at as number | bigint | null;
+          // Constructed, never cast: an `as Investigation` here is what let a
+          // missing `members` reach a filter that then dereferenced it.
+          const owner = principalId((row.owner as string | null) ?? "local");
           investigations.set(
             row.id as string,
-            {
+            Investigation.make({
               createdAt: new Date(Number(row.created_at)),
               ...(forkedAt === null ? {} : { forkedAt: Number(forkedAt) }),
               id: investigationId(row.id as string),
+              members: ((row.members as string | null) ?? owner)
+                .split(",")
+                .filter((one: string) => one !== "")
+                .map(principalId),
               name: row.name as string,
+              owner,
               ...(parent === null ? {} : { parent: investigationId(parent) }),
               status: row.status as Investigation["status"],
-            } as Investigation
+            })
           );
         }
       };
@@ -186,8 +202,11 @@ export class DuckDBGraphService extends Context.Service<
       const writeInvestigation = async (
         investigation: Investigation
       ): Promise<void> => {
+        await connection.run(`DELETE FROM ${investigationTable} WHERE id = ?`, [
+          investigation.id,
+        ]);
         await connection.run(
-          `INSERT INTO ${investigationTable} VALUES (?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO ${investigationTable} VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             investigation.id,
             investigation.name,
@@ -195,6 +214,8 @@ export class DuckDBGraphService extends Context.Service<
             investigation.parent ?? null,
             investigation.forkedAt ?? null,
             investigation.status,
+            investigation.owner,
+            investigation.members.join(","),
           ]
         );
         investigations.set(investigation.id, investigation);
@@ -202,18 +223,21 @@ export class DuckDBGraphService extends Context.Service<
 
       const newInvestigation = (
         name: string,
+        owner: PrincipalId,
         from?: { readonly parent: InvestigationId; readonly forkedAt: number }
       ): Investigation =>
-        ({
+        Investigation.make({
           createdAt: new Date(),
           ...(from === undefined ? {} : { forkedAt: from.forkedAt }),
           // A case can be handed between machines, so its identity must not be
           // something two machines could both produce (TDR-025 open question).
           id: investigationId(randomUUID()),
+          members: [owner],
           name,
+          owner,
           ...(from === undefined ? {} : { parent: from.parent }),
           status: "open",
-        }) as Investigation;
+        });
 
       const maxSeq = async (): Promise<number> => {
         const reader = await connection.runAndReadAll(
@@ -323,7 +347,8 @@ export class DuckDBGraphService extends Context.Service<
         }
         const orphans = await maxSeq();
         const investigation = newInvestigation(
-          orphans > 0 ? LEGACY_INVESTIGATION_NAME : "default"
+          orphans > 0 ? LEGACY_INVESTIGATION_NAME : "default",
+          LOCAL_PRINCIPAL.id
         );
         await writeInvestigation(investigation);
         await rememberOpen(investigation.id);
@@ -468,19 +493,61 @@ export class DuckDBGraphService extends Context.Service<
           : Effect.succeed(found);
       };
 
+      /**
+       * A refusal, not an empty answer: "you may not reach this" and "this case
+       * is empty" are different facts, and returning the second for the first
+       * is the kind of quiet wrongness this codebase keeps finding.
+       */
+      const reachable = (
+        id: InvestigationId,
+        by: PrincipalId
+      ): Effect.Effect<Investigation, UnknownInvestigation | Unauthorized> =>
+        Effect.flatMap(known(id), (investigation) =>
+          investigation.members.includes(by)
+            ? Effect.succeed(investigation)
+            : Unauthorized.make({
+                message: `principal '${by}' is not a member of investigation '${id}'`,
+              })
+        );
+
+      const ownedBy = (
+        id: InvestigationId,
+        by: PrincipalId
+      ): Effect.Effect<Investigation, UnknownInvestigation | Unauthorized> =>
+        Effect.flatMap(known(id), (investigation) =>
+          investigation.owner === by
+            ? Effect.succeed(investigation)
+            : Unauthorized.make({
+                message: `only the owner of investigation '${id}' may do this`,
+              })
+        );
+
       const store: GraphStore = {
-        createInvestigation: (name) =>
+        addMember: (id, principal, by) =>
+          Effect.gen(function* () {
+            const investigation = yield* ownedBy(id, by);
+            if (investigation.members.includes(principal)) {
+              return investigation;
+            }
+            const widened = Investigation.make({
+              ...investigation,
+              members: [...investigation.members, principal],
+            });
+            yield* Effect.promise(() => writeInvestigation(widened));
+            return widened;
+          }),
+        createInvestigation: (name, owner) =>
           Effect.promise(async () => {
-            const investigation = newInvestigation(name);
+            const investigation = newInvestigation(name, owner);
             await writeInvestigation(investigation);
             return investigation;
           }),
         current: Effect.sync(
           () => investigations.get(currentId) as Investigation
         ),
-        discardInvestigation: (id) =>
+        discardInvestigation: (id, by) =>
           Effect.gen(function* () {
-            const investigation = yield* known(id);
+            const investigation = yield* ownedBy(id, by);
             if (id === currentId) {
               // Nothing would be left to answer for.
               return yield* UnknownInvestigation.make({
@@ -499,11 +566,11 @@ export class DuckDBGraphService extends Context.Service<
         dispose: Effect.try(() => {
           instance.closeSync();
         }),
-        forkInvestigation: (from, name) =>
+        forkInvestigation: (from, name, by) =>
           Effect.gen(function* () {
-            yield* known(from);
+            yield* reachable(from, by);
             return yield* Effect.promise(async () => {
-              const investigation = newInvestigation(name, {
+              const investigation = newInvestigation(name, by, {
                 forkedAt: await maxSeq(),
                 parent: from,
               });
@@ -537,7 +604,12 @@ export class DuckDBGraphService extends Context.Service<
             );
             return result;
           }),
-        investigations: Effect.sync(() => [...investigations.values()]),
+        investigations: (by) =>
+          Effect.sync(() =>
+            [...investigations.values()].filter((one) =>
+              one.members.includes(by)
+            )
+          ),
         log: Effect.tryPromise(async () => {
           const scope = scopeOf(currentId);
           const reader = await connection.runAndReadAll(
@@ -549,9 +621,9 @@ export class DuckDBGraphService extends Context.Service<
             .getRowObjectsJS()
             .map((row: Row) => decodeStep(parseJson(row.data)));
         }),
-        openInvestigation: (id) =>
+        openInvestigation: (id, by) =>
           Effect.gen(function* () {
-            const investigation = yield* known(id);
+            const investigation = yield* reachable(id, by);
             currentId = id;
             yield* Effect.promise(() => rememberOpen(id));
             // The projection holds one investigation at a time, so switching

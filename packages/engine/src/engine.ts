@@ -19,6 +19,7 @@ import type {
   MatchRule,
   OfflineCacheMiss,
   PackManifest,
+  PrincipalId,
   ProvenanceError,
   RateLimited,
   RelatedEntity,
@@ -31,6 +32,7 @@ import type {
   StepOperation,
   TransformError,
   TransformSpec,
+  Unauthorized,
   UnknownCatalogEntry,
   UnknownInvestigation,
   ViewStateDocument,
@@ -104,23 +106,37 @@ export class Engine extends Context.Service<
     ) => Effect.Effect<Bundle, EvidenceReadError>;
     /** The investigation everything else here answers for. */
     readonly currentInvestigation: Effect.Effect<Investigation>;
-    readonly investigations: Effect.Effect<readonly Investigation[]>;
+    /** The investigations a principal may reach — not all of them: listing the
+     * names of cases somebody is not party to is itself disclosure (TDR-023). */
+    readonly investigations: (
+      by: PrincipalId
+    ) => Effect.Effect<readonly Investigation[]>;
     readonly createInvestigation: (
-      name: string
+      name: string,
+      owner: PrincipalId
     ) => Effect.Effect<Investigation>;
+    /** Admit a principal to an investigation. Owner only. */
+    readonly addMember: (
+      id: InvestigationId,
+      principal: PrincipalId,
+      by: PrincipalId
+    ) => Effect.Effect<Investigation, UnknownInvestigation | Unauthorized>;
     /** Answer for a different investigation from here on. */
     readonly openInvestigation: (
-      id: InvestigationId
-    ) => Effect.Effect<Investigation, UnknownInvestigation>;
+      id: InvestigationId,
+      by: PrincipalId
+    ) => Effect.Effect<Investigation, UnknownInvestigation | Unauthorized>;
     /** Branch an investigation at its current end, to work a hypothesis. */
     readonly forkInvestigation: (
       from: InvestigationId,
-      name: string
-    ) => Effect.Effect<Investigation, UnknownInvestigation>;
+      name: string,
+      by: PrincipalId
+    ) => Effect.Effect<Investigation, UnknownInvestigation | Unauthorized>;
     /** Stop an investigation contributing, without removing a step (I3). */
     readonly discardInvestigation: (
-      id: InvestigationId
-    ) => Effect.Effect<void, UnknownInvestigation>;
+      id: InvestigationId,
+      by: PrincipalId
+    ) => Effect.Effect<void, UnknownInvestigation | Unauthorized>;
     /** Which artifacts more than one investigation cites — the only operation
      * that looks across cases, named so it cannot be reached by accident. */
     readonly sharedEvidence: Effect.Effect<readonly SharedArtifact[]>;
@@ -234,13 +250,15 @@ const engineLayerWith = (registry: Layer.Layer<PackRegistry>) =>
             const input = yield* runtime.run(source);
             return yield* evidenceStore.put(input);
           }),
+        addMember: (id, principal, by) => graph.addMember(id, principal, by),
         catalog: (filter) => catalog.list(filter),
         correlate: (staged, existing, rules) =>
           correlate.resolve(staged, existing, rules),
-        createInvestigation: (name) => graph.createInvestigation(name),
+        createInvestigation: (name, owner) =>
+          graph.createInvestigation(name, owner),
         currentInvestigation: graph.current,
         describe: (id) => catalog.describe(id),
-        discardInvestigation: (id) => graph.discardInvestigation(id),
+        discardInvestigation: (id, by) => graph.discardInvestigation(id, by),
         evidence: (id) => evidenceStore.get(id),
         exportBundle: (path) =>
           Effect.gen(function* () {
@@ -254,13 +272,14 @@ const engineLayerWith = (registry: Layer.Layer<PackRegistry>) =>
               steps,
             });
           }),
-        forkInvestigation: (from, name) => graph.forkInvestigation(from, name),
+        forkInvestigation: (from, name, by) =>
+          graph.forkInvestigation(from, name, by),
         ingest: (input) => evidenceStore.put(input),
         insert: (step) => graph.insert(step),
-        investigations: graph.investigations,
+        investigations: (by) => graph.investigations(by),
         loadViewState: (key, version) => viewState.load(key, version),
         log: graph.log,
-        openInvestigation: (id) => graph.openInvestigation(id),
+        openInvestigation: (id, by) => graph.openInvestigation(id, by),
         paths: (from, to, maxDepth) => graph.paths(from, to, maxDepth),
         queryEntity: (id) => graph.queryEntity(id),
         relatedness: (seed, maxDepth) => graph.relatedness(seed, maxDepth),

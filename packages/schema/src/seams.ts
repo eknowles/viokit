@@ -6,6 +6,7 @@ import type {
   SharedArtifact,
   UnknownInvestigation,
 } from "./investigation.js";
+import type { PrincipalId, Unauthorized } from "./principal.js";
 import type {
   CatalogEntry,
   CatalogEntryDetail,
@@ -83,7 +84,19 @@ export interface GraphStore {
    * Start a new investigation. Does not open it — creating a case and switching
    * to it are separate acts.
    */
-  readonly createInvestigation: (name: string) => Effect.Effect<Investigation>;
+  /**
+   * Admit a principal to an investigation. Only its owner may: membership is
+   * the unit of authorization (TDR-023), so widening it is an owner's act.
+   */
+  readonly addMember: (
+    id: InvestigationId,
+    principal: PrincipalId,
+    by: PrincipalId
+  ) => Effect.Effect<Investigation, UnknownInvestigation | Unauthorized>;
+  readonly createInvestigation: (
+    name: string,
+    owner: PrincipalId
+  ) => Effect.Effect<Investigation>;
   /**
    * The investigation this store is currently answering for. Every method below
    * except the investigation lifecycle is scoped to it (TDR-025).
@@ -95,8 +108,9 @@ export interface GraphStore {
    * to answer for.
    */
   readonly discardInvestigation: (
-    id: InvestigationId
-  ) => Effect.Effect<void, UnknownInvestigation>;
+    id: InvestigationId,
+    by: PrincipalId
+  ) => Effect.Effect<void, UnknownInvestigation | Unauthorized>;
   /**
    * Release the store's backing resources (close the database file). Persisted
    * stores release the path so it can be reopened elsewhere; in-memory stores
@@ -110,10 +124,17 @@ export interface GraphStore {
    */
   readonly forkInvestigation: (
     from: InvestigationId,
-    name: string
-  ) => Effect.Effect<Investigation, UnknownInvestigation>;
+    name: string,
+    by: PrincipalId
+  ) => Effect.Effect<Investigation, UnknownInvestigation | Unauthorized>;
   readonly insert: (step: Step) => Effect.Effect<Step, ProvenanceError>;
-  readonly investigations: Effect.Effect<readonly Investigation[]>;
+  /**
+   * The investigations a principal may reach. Deliberately not all of them:
+   * listing the names of cases somebody is not party to is itself disclosure.
+   */
+  readonly investigations: (
+    by: PrincipalId
+  ) => Effect.Effect<readonly Investigation[]>;
   readonly log: Effect.Effect<readonly Step[]>;
   /**
    * Answer for a different investigation from here on. Rebuilds the projection,
@@ -121,8 +142,9 @@ export interface GraphStore {
    * exchange for scope living in exactly one place.
    */
   readonly openInvestigation: (
-    id: InvestigationId
-  ) => Effect.Effect<Investigation, UnknownInvestigation>;
+    id: InvestigationId,
+    by: PrincipalId
+  ) => Effect.Effect<Investigation, UnknownInvestigation | Unauthorized>;
   /** Shortest paths (depth-bounded) between two entities, via relation edges. */
   readonly paths: (
     from: string,

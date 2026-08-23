@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { assert, describe, layer } from "@effect/vitest";
 import { manifest as webDns } from "@viokit/packs/web-dns/manifest";
-import { SourceTransportService } from "@viokit/schema";
+import { LOCAL_PRINCIPAL, SourceTransportService } from "@viokit/schema";
 import { Effect, Layer } from "effect";
 import { Engine, makeEngineLayer } from "../src/engine.js";
 import { EvidenceBackendMemory } from "../src/evidence-fs.js";
@@ -37,6 +37,8 @@ const read = (path: string) => readFileSync(path, "utf8");
 
 const sha256 = (bytes: Uint8Array) =>
   createHash("sha256").update(bytes).digest("hex");
+
+const ME = LOCAL_PRINCIPAL.id;
 
 /** An investigation with something in it, exported. */
 const investigate = Effect.gen(function* () {
@@ -73,8 +75,8 @@ describe("an export is one investigation (TDR-025)", () => {
         }
 
         // A second case, opened, exported.
-        const second = yield* engine.createInvestigation("second");
-        yield* engine.openInvestigation(second.id);
+        const second = yield* engine.createInvestigation("second", ME);
+        yield* engine.openInvestigation(second.id, ME);
         const bundle = yield* engine.exportBundle(out());
 
         assert.deepStrictEqual(bundle.manifest.steps, []);
@@ -92,9 +94,13 @@ describe("an export is one investigation (TDR-025)", () => {
       Effect.gen(function* () {
         const engine = yield* Engine;
         const parent = yield* engine.currentInvestigation;
-        const branch = yield* engine.forkInvestigation(parent.id, "hypothesis");
+        const branch = yield* engine.forkInvestigation(
+          parent.id,
+          "hypothesis",
+          ME
+        );
 
-        yield* engine.openInvestigation(branch.id);
+        yield* engine.openInvestigation(branch.id, ME);
         const steps = yield* engine.runCatalogTransform(
           "crt-sh-certificate-search",
           { domain: "speculative.test" }
@@ -103,7 +109,7 @@ describe("an export is one investigation (TDR-025)", () => {
           yield* engine.insert(step);
         }
 
-        yield* engine.openInvestigation(parent.id);
+        yield* engine.openInvestigation(parent.id, ME);
         const bundle = yield* engine.exportBundle(out());
         assert.deepStrictEqual(bundle.manifest.steps, []);
       })

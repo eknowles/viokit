@@ -6,7 +6,7 @@ import { Cause, Effect, type Layer, ManagedRuntime } from "effect";
 import { z } from "zod";
 import type { AgentOperation, ArgSpec } from "./operations.js";
 import { operations } from "./operations.js";
-import { AgentProgramLayer } from "./program.js";
+import { AgentProgramLayer, localPrincipalLayer } from "./program.js";
 
 /**
  * The agent surface (TDR-016): every operation in the shared table, exposed as
@@ -65,6 +65,7 @@ const makeRunTool =
   (operation: AgentOperation, args: Record<string, unknown>) =>
     runtime.runPromise(
       operation.run(args).pipe(
+        Effect.provide(localPrincipalLayer),
         Effect.matchCause({
           onFailure: (cause) => errorResult(`error: ${Cause.pretty(cause)}`),
           onSuccess: textResult,
