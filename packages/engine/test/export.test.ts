@@ -283,8 +283,14 @@ describe("evidentiary export", () => {
           bundle.manifest.integrity,
           "SHA-256 digest of its bytes"
         );
-        // What is still outside its reach is said plainly.
-        assert.include(bundle.manifest.integrity, "custody before export");
+        // The trail is covered too now, not just the payload (TDR-026).
+        assert.include(bundle.manifest.integrity, "tagmanifest-sha256.txt");
+        // What is still outside its reach is said plainly: a signature attests
+        // the deployment's claim about custody, not custody at acquisition.
+        assert.include(
+          bundle.manifest.integrity,
+          "not proof of custody at the moment of acquisition"
+        );
       })
     );
 

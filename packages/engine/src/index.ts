@@ -14,6 +14,7 @@ export * from "./ontology.js";
 export * from "./principals.js";
 export * from "./redactions.js";
 export * from "./secrets.js";
+export * from "./signing.js";
 export * from "./source-runtime.js";
 export * from "./transform.js";
 export * from "./view-state.js";

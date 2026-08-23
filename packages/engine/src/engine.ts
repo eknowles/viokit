@@ -72,6 +72,7 @@ import { DuckDBGraphLayer, DuckDBGraphService } from "./graph-duckdb.js";
 import { RateLimiterLayer } from "./rate-limit.js";
 import { RedactionStoreLayer, withheldIn } from "./redactions.js";
 import { SecretProviderEnvLayer } from "./secrets.js";
+import { BundleSignerLayer, BundleSignerService } from "./signing.js";
 import { SourceRuntimeLayer } from "./source-runtime.js";
 import { TransformRunnerLayer } from "./transform.js";
 
@@ -266,6 +267,7 @@ const engineLayerWith = (registry: Layer.Layer<PackRegistry>) =>
       const catalog = yield* CatalogService;
       const viewState = yield* ViewStateStoreService;
       const redactions = yield* RedactionStoreService;
+      const signer = yield* BundleSignerService;
       const capabilities = Option.getOrElse(
         yield* Effect.serviceOption(TransportCapabilities),
         () => defaultTransportCapabilities
@@ -302,6 +304,7 @@ const engineLayerWith = (registry: Layer.Layer<PackRegistry>) =>
               evidence: (id) => evidenceStore.get(id),
               graph: state,
               path,
+              signer,
               steps,
               withheld,
             });
@@ -371,6 +374,12 @@ const engineLayerWith = (registry: Layer.Layer<PackRegistry>) =>
     Layer.provide(RateLimiterLayer),
     Layer.provide(SecretProviderEnvLayer),
     Layer.provide(RedactionStoreLayer),
+    // Provided *to* the signer, not merged beside it: the signer resolves its
+    // key through `SecretProvider` from its own construction context, so a
+    // sibling layer is invisible to it and every bundle comes out unsigned
+    // while claiming a key was configured. The same wiring mistake the browser
+    // engine made.
+    Layer.provide(Layer.provide(BundleSignerLayer, SecretProviderEnvLayer)),
     Layer.provide(EvidenceLayer)
   );
 

@@ -10,6 +10,7 @@ import type {
 } from "@viokit/schema";
 import { EvidenceReadError } from "@viokit/schema";
 import { Effect, Option, Schema } from "effect";
+import type { BundleSigner, SigningKey } from "./signing.js";
 
 /**
  * Evidentiary export (TDR-010): a BagIt-shaped bundle a recipient can verify
@@ -35,7 +36,7 @@ const BAGIT_DECLARATION =
  * export, and it says so.
  */
 const INTEGRITY_NOTE =
-  "Each artifact's evidenceId IS the SHA-256 digest of its bytes, and manifest-sha256.txt records the same digest in BagIt form. Verifying an artifact therefore also confirms it is the one the steps reference: `shasum -a 256 -c manifest-sha256.txt`. This attests that the artifacts are as they were at export; it does not attest to custody before export, which would require signing at acquisition. Where an artifact records `acquiredBy`, that is the principal this deployment authenticated as obtaining it — an unsigned assertion by the exporting deployment, not a cryptographic proof.";
+  "Each artifact's evidenceId IS the SHA-256 digest of its bytes, and manifest-sha256.txt records the same digest in BagIt form. tagmanifest-sha256.txt digests the tag files, so the trail — steps, custody, and what was withheld — is covered too: `shasum -a 256 -c manifest-sha256.txt && shasum -a 256 -c tagmanifest-sha256.txt`. Where this bundle is signed, the signature is over tagmanifest-sha256.txt and therefore covers everything transitively; see the `signing` block for how to check it. Where an artifact records `acquiredBy`, that is the principal this deployment authenticated as obtaining it — attested by the signature as this deployment's claim, not proof of custody at the moment of acquisition.";
 
 export interface ExportedEvidence {
   readonly acquiredAt: string;
@@ -58,6 +59,20 @@ export interface WithheldEvidence {
   readonly redactedBy: string;
 }
 
+/** How, and whether, this bundle is signed (TDR-026). */
+export interface BundleSigning {
+  readonly algorithm: "ed25519";
+  /** Stated plainly, because a bundle carrying its own key proves internal
+   * consistency and not authenticity. */
+  readonly note: string;
+  /** SHA-256 of the public key, so a recipient can compare it with a key they
+   * already hold rather than trusting the one that travelled with the bundle. */
+  readonly publicKeyFingerprint?: string;
+  readonly signed: boolean;
+  /** What a recipient runs. Stock openssl; none of our software. */
+  readonly verify: string;
+}
+
 export interface BundleManifest {
   readonly evidence: readonly ExportedEvidence[];
   readonly exportedAt: string;
@@ -65,6 +80,8 @@ export interface BundleManifest {
   readonly integrity: string;
   /** Artifacts a step references that the store could not produce. */
   readonly missingEvidence: readonly string[];
+  /** Whether the trail below is signed, and how to check it. */
+  readonly signing: BundleSigning;
   readonly steps: readonly unknown[];
   /**
    * What this bundle is deliberately not carrying, and why.
@@ -88,6 +105,41 @@ export interface Bundle {
 /** Recomputed from the bytes read back rather than trusted from metadata: a
  * digest taken from what we believe would attest to nothing. Since TDR-021 it
  * must equal the artifact's id, which the tests assert. */
+const encodeUtf8 = (value: string): Uint8Array =>
+  new TextEncoder().encode(value);
+
+const VERIFY_COMMAND =
+  "openssl pkeyutl -verify -pubin -inkey signing-key.pub.pem -rawin -in tagmanifest-sha256.txt -sigfile tagmanifest-sha256.txt.sig";
+
+const UNSIGNED_NOTE =
+  "This bundle is NOT signed: the deployment that exported it held no signing key. Its digests still show the artifacts and the trail are internally consistent, but nothing attributes them to anyone.";
+
+const SIGNED_NOTE =
+  "The signature covers tagmanifest-sha256.txt, which digests bagit.txt, manifest-sha256.txt and viokit-manifest.json — so it covers the artifacts and the trail transitively. The public key travels here for convenience only: verifying against it proves the bundle is internally consistent, not who produced it. Compare publicKeyFingerprint against a key you obtained separately.";
+
+/**
+ * Sign if this deployment can, and declare the outcome either way. A recipient
+ * assuming a signature that is absent is worse than an unsigned bundle plainly
+ * labelled, so the manifest always says which it is.
+ */
+const signingFor = (input: ExportInput) =>
+  Effect.gen(function* () {
+    const key =
+      input.signer === undefined
+        ? Option.none<SigningKey>()
+        : yield* input.signer.publicKey;
+    const signed = Option.isSome(key);
+    return {
+      algorithm: "ed25519" as const,
+      note: signed ? SIGNED_NOTE : UNSIGNED_NOTE,
+      ...(signed
+        ? { publicKeyFingerprint: key.value.publicKeyFingerprint }
+        : {}),
+      signed,
+      verify: signed ? VERIFY_COMMAND : "n/a — this bundle is unsigned",
+    };
+  });
+
 const sha256 = (bytes: Uint8Array): string =>
   createHash("sha256").update(bytes).digest("hex");
 
@@ -98,6 +150,11 @@ export interface ExportInput {
   ) => Effect.Effect<Option.Option<Evidence>, EvidenceReadError>;
   readonly graph: GraphState;
   readonly path: string;
+  /**
+   * Produces a detached signature over the tag manifest, where this deployment
+   * holds a key. Absent means the bundle is unsigned — and says so.
+   */
+  readonly signer?: BundleSigner;
   readonly steps: readonly Step[];
   /** Artifacts withheld from this case, by evidence id (TDR-024). */
   readonly withheld?: ReadonlyMap<string, Redaction>;
@@ -162,6 +219,8 @@ export const writeBundle = (
       });
     }
 
+    const signing = yield* signingFor(input);
+
     const manifest: BundleManifest = {
       evidence: exported,
       exportedAt: input.at.toISOString(),
@@ -170,6 +229,7 @@ export const writeBundle = (
       ),
       integrity: INTEGRITY_NOTE,
       missingEvidence: missing,
+      signing,
       steps: input.steps.map((step) =>
         JSON.parse(JSON.stringify(Schema.encodeUnknownSync(Schema.Any)(step)))
       ),
@@ -195,16 +255,59 @@ export const writeBundle = (
           BAGIT_DECLARATION,
           "utf8"
         );
+        const payloadManifest = `${exported
+          .map((item) => `${item.sha256}  ${item.file}`)
+          .join("\n")}\n`;
         await writeFile(
           join(input.path, "manifest-sha256.txt"),
-          `${exported.map((item) => `${item.sha256}  ${item.file}`).join("\n")}\n`,
+          payloadManifest,
           "utf8"
         );
+        const manifestJson = `${JSON.stringify(manifest, null, 2)}\n`;
         await writeFile(
           join(input.path, "viokit-manifest.json"),
-          `${JSON.stringify(manifest, null, 2)}\n`,
+          manifestJson,
           "utf8"
         );
+
+        // BagIt's own answer to "what covers the tag files" (RFC 8493 §2.2.1).
+        // Emitted whether or not anyone signs: without it `viokit-manifest.json`
+        // — the steps, the custody records, the withheld list — is covered by no
+        // digest at all, and the trail could be altered undetected.
+        const tagManifest = `${[
+          [sha256(encodeUtf8(BAGIT_DECLARATION)), "bagit.txt"],
+          [sha256(encodeUtf8(payloadManifest)), "manifest-sha256.txt"],
+          [sha256(encodeUtf8(manifestJson)), "viokit-manifest.json"],
+        ]
+          .map(([digest, file]) => `${digest}  ${file}`)
+          .join("\n")}\n`;
+        await writeFile(
+          join(input.path, "tagmanifest-sha256.txt"),
+          tagManifest,
+          "utf8"
+        );
+
+        // Signing the tag manifest covers everything transitively: artifacts
+        // through the payload manifest, the trail through this one.
+        const produced =
+          input.signer === undefined
+            ? undefined
+            : Option.getOrUndefined(
+                await Effect.runPromise(
+                  input.signer.sign(encodeUtf8(tagManifest))
+                )
+              );
+        if (produced !== undefined) {
+          await writeFile(
+            join(input.path, "tagmanifest-sha256.txt.sig"),
+            produced.signature
+          );
+          await writeFile(
+            join(input.path, "signing-key.pub.pem"),
+            produced.publicKeyPem,
+            "utf8"
+          );
+        }
       },
     });
 
