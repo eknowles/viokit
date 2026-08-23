@@ -1,4 +1,4 @@
-import type { ResolvedCredential } from "@viokit/schema";
+import type { ResolvedCredential, TransportResult } from "@viokit/schema";
 import { SourceError, SourceTransportService } from "@viokit/schema";
 import { Effect, Layer, Stream } from "effect";
 import {
@@ -45,6 +45,41 @@ const withCredential = (
   return parsed.toString();
 };
 
+/**
+ * What the response actually was. The status and content type used to be
+ * discarded here — every artifact was recorded as `application/octet-stream`,
+ * and a `401` was indistinguishable from a `200`, because Effect's `HttpClient`
+ * does not fail on a 4xx. Both are load-bearing: evidence should say what it
+ * holds, and a credential wall is only detectable from the status.
+ */
+const collect = (
+  chunks: readonly Uint8Array[],
+  response: {
+    readonly headers: Record<string, string | undefined>;
+    readonly status: number;
+  }
+): TransportResult => {
+  const bytes = new Uint8Array(
+    chunks.reduce((total, chunk) => total + chunk.byteLength, 0)
+  );
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  const declared = response.headers["content-type"];
+  return {
+    bytes,
+    // A response that declares nothing is unspecified bytes — which is what
+    // this value should always have meant.
+    contentType:
+      declared === undefined || declared === ""
+        ? "application/octet-stream"
+        : declared,
+    status: response.status,
+  };
+};
+
 export const HttpTransportLayer: Layer.Layer<
   SourceTransportService,
   never,
@@ -55,24 +90,16 @@ export const HttpTransportLayer: Layer.Layer<
     const client = yield* HttpClient.HttpClient;
     return {
       fetch: (source, context) =>
-        HttpClientResponse.stream(
-          HttpClient.get(withCredential(source.url, context?.credential), {
-            headers: credentialHeaders(context?.credential),
-          })
-        ).pipe(
-          Stream.provideService(HttpClient.HttpClient, client),
-          Stream.runCollect,
-          Effect.map((chunks) => {
-            const bytes = new Uint8Array(
-              chunks.reduce((total, chunk) => total + chunk.byteLength, 0)
-            );
-            let offset = 0;
-            for (const chunk of chunks) {
-              bytes.set(chunk, offset);
-              offset += chunk.byteLength;
-            }
-            return { bytes, contentType: "application/octet-stream" };
-          }),
+        HttpClient.get(withCredential(source.url, context?.credential), {
+          headers: credentialHeaders(context?.credential),
+        }).pipe(
+          Effect.provideService(HttpClient.HttpClient, client),
+          Effect.flatMap((response) =>
+            HttpClientResponse.stream(Effect.succeed(response)).pipe(
+              Stream.runCollect,
+              Effect.map((chunks) => collect(chunks, response))
+            )
+          ),
           Effect.mapError((error) =>
             SourceError.make({ message: error.message })
           )

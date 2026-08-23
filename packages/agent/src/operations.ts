@@ -396,6 +396,13 @@ export const operations: readonly AgentOperation[] = [
     run: (args) =>
       engine((e) => e.relatedness(String(args.seed), asNumber(args.maxDepth))),
   },
+  {
+    args: [arg("sourceId", "string", "catalog id of the source")],
+    description:
+      "Check a source's access classification against what it actually serves. Acquires it and reports the observed classification, the declared one, and the evidence behind the observation. Reports only — applying the result is a separate act.",
+    name: "verify_access",
+    run: (args) => engine((e) => e.verifyAccess(String(args.sourceId))),
+  },
 ];
 
 /** Operation names, as both front-ends must expose them (parity, I8). */

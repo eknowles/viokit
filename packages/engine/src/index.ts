@@ -1,3 +1,4 @@
+export * from "./access-probe.js";
 export * from "./cache.js";
 export * from "./catalog.js";
 export * from "./correlate.js";

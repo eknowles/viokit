@@ -169,6 +169,43 @@ describe("MCP tool round-trips", () => {
   });
 });
 
+describe("verifying a source's access through a front-end", () => {
+  it("returns the observed classification, the declared one, and its evidence", async () => {
+    const client = await connect();
+    const { text: body, isError } = await call(client, "verify_access", {
+      sourceId: "dnsviz.net",
+    });
+    expect(isError).toBe(false);
+    const observation = JSON.parse(body) as {
+      declared: string;
+      evidence: string[];
+      observed: string;
+      sourceId: string;
+    };
+    expect(observation.sourceId).toBe("dnsviz.net");
+    // The stub serves json, and the pack declares this one an open api.
+    expect(observation.observed).toBe("open_api");
+    expect(observation.declared).toBe("open_api");
+    expect(observation.evidence).toHaveLength(1);
+  });
+
+  it("fails for a source the catalog does not know", async () => {
+    const client = await connect();
+    const { isError } = await call(client, "verify_access", {
+      sourceId: "nonesuch",
+    });
+    expect(isError).toBe(true);
+  });
+
+  it("is reachable identically from the cli", async () => {
+    const code = await runCli(
+      ["verify_access", "--sourceId", "dnsviz.net"],
+      deployment()
+    );
+    expect(code).toBe(0);
+  });
+});
+
 describe("front-end parity (I8)", () => {
   it("every operation is reachable from both surfaces", async () => {
     const client = await connect();

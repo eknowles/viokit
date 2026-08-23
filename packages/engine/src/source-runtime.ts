@@ -79,6 +79,7 @@ const toEvidenceInput = (
     bytes: result.bytes,
     contentType: result.contentType,
     observedAt: timestamp,
+    ...(result.status === undefined ? {} : { status: result.status }),
   };
 };
 

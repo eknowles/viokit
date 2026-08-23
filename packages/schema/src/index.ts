@@ -1,3 +1,4 @@
+export * from "./access.js";
 export * from "./boundary.js";
 export * from "./catalog.js";
 export * from "./runnability.js";

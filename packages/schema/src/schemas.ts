@@ -207,6 +207,15 @@ const evidenceFields = {
   bytes: Schema.Uint8Array,
   contentType: Schema.String,
   observedAt: Schema.Date,
+  /**
+   * The protocol status the source answered with, where the transport had one.
+   * Worth keeping rather than observing in passing: that an artifact *is* a
+   * "sign in" page is a fact about it that outlives the request. Absent on a
+   * cache hit, which does not re-observe a status, and on transports that have
+   * none. Adding it does not disturb identity — an evidence id is the digest of
+   * the bytes alone (TDR-021).
+   */
+  status: Schema.optionalKey(Schema.Number),
 };
 
 export class Evidence extends Schema.Class<Evidence>("Evidence")({
@@ -332,6 +341,13 @@ export const UNVERSIONED = "unversioned";
 
 export class SourceSpec extends Schema.Class<SourceSpec>("SourceSpec")({
   access: withDefault(SourceAccess, "unknown"),
+  /**
+   * The artifacts a probe classified this source from. Absent means `access` is
+   * a declaration nobody checked — the state every spec promoted before the
+   * catalog required evidence is in, and the difference between a classification
+   * and a claim.
+   */
+  accessEvidence: Schema.optionalKey(Schema.Array(EvidenceId)),
   auth: Schema.optionalKey(SourceAuth),
   cache: withDefault(
     CachePolicy,

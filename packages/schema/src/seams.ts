@@ -126,6 +126,12 @@ export class SourceRuntimeService extends Context.Service<
 export interface TransportResult {
   readonly bytes: Uint8Array;
   readonly contentType: string;
+  /**
+   * The protocol status, where the transport has one. Absent rather than a
+   * fabricated success for transports that do not — a dataset read has no
+   * status, and inventing a `200` would be a lie a classifier then reads.
+   */
+  readonly status?: number;
 }
 
 /** A transport seam: turns a source into raw response bytes (task 4.5/5.1). */
@@ -258,6 +264,14 @@ export interface Catalog {
     transformId: string,
     input: unknown
   ) => Effect.Effect<readonly Step[], UnknownCatalogEntry | TransformError>;
+  /**
+   * The registered spec behind a source id. `describe` publishes a projection
+   * of a source for callers across a front-end boundary; this is for the engine
+   * itself, which needs the spec to acquire from it.
+   */
+  readonly source: (
+    id: string
+  ) => Effect.Effect<SourceSpec, UnknownCatalogEntry>;
 }
 
 export class CatalogService extends Context.Service<CatalogService, Catalog>()(

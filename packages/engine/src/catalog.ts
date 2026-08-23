@@ -14,6 +14,7 @@ import {
   CatalogEntryDetail,
   CatalogService,
   defaultTransportCapabilities,
+  isBareHost,
   PackManifest,
   PackRegistrationError,
   PackRegistry,
@@ -116,7 +117,13 @@ const sourceEntry = (
     ...(pack === undefined ? {} : { pack }),
     ...(verdict.reason === undefined ? {} : { reason: verdict.reason }),
     ...(source.access === undefined ? {} : { access: source.access }),
+    // Derived from whether the spec carries the artifacts it was classified
+    // from, so an unchecked classification cannot pass for a checked one.
+    accessVerified: (source.accessEvidence?.length ?? 0) > 0,
     description: `${source.transport} source at ${source.url}`,
+    // A spec pointing at a site's front door is registered but not really
+    // wired up: it acquires a homepage whatever the source actually offers.
+    frontDoor: isBareHost(source.url),
     id: source.id,
     kind: "source",
     name: source.id,
@@ -345,6 +352,14 @@ export const CatalogLayer: Layer.Layer<
           transform.project as never,
           input
         );
+      },
+      source: (id) => {
+        const found = registered.sources.get(id);
+        return found === undefined
+          ? UnknownCatalogEntry.make({
+              message: `no source with id '${id}'`,
+            })
+          : Effect.succeed(found);
       },
     };
 

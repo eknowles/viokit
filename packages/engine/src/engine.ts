@@ -1,4 +1,5 @@
 import type {
+  AccessObservation,
   BBox,
   CatalogEntry,
   CatalogEntryDetail,
@@ -35,14 +36,17 @@ import type {
 import {
   CatalogService,
   CorrelateResolverService,
+  defaultTransportCapabilities,
   emptyPackRegistry,
   PackRegistry,
   SourceRuntimeService,
   TransformRunnerService,
+  TransportCapabilities,
   ViewStateStoreService,
 } from "@viokit/schema";
-import type { Option } from "effect";
-import { Context, Effect, Layer } from "effect";
+import { Context, Effect, Layer, Option } from "effect";
+import type { ProbeError } from "./access-probe.js";
+import { verifyAccess } from "./access-probe.js";
 import { CacheLayer } from "./cache.js";
 import { CatalogLayer } from "./catalog.js";
 import { CorrelateLayer } from "./correlate.js";
@@ -152,6 +156,11 @@ export class Engine extends Context.Service<
     readonly saveViewState: (
       document: ViewStateDocument
     ) => Effect.Effect<void, ViewStateWriteError>;
+    /** Check a registered source's access classification against what it
+     * actually serves. Reports; never rewrites the source's own value. */
+    readonly verifyAccess: (
+      sourceId: string
+    ) => Effect.Effect<AccessObservation, ProbeError>;
   }
 >()("Engine") {}
 
@@ -186,6 +195,10 @@ const engineLayerWith = (registry: Layer.Layer<PackRegistry>) =>
       const correlate = yield* CorrelateResolverService;
       const catalog = yield* CatalogService;
       const viewState = yield* ViewStateStoreService;
+      const capabilities = Option.getOrElse(
+        yield* Effect.serviceOption(TransportCapabilities),
+        () => defaultTransportCapabilities
+      );
 
       return {
         acquire: (source) =>
@@ -225,6 +238,15 @@ const engineLayerWith = (registry: Layer.Layer<PackRegistry>) =>
         saveViewState: (document) => viewState.save(document),
         spatial: (bbox) => graph.spatial(bbox),
         timeline: (from, to) => graph.timeline(from, to),
+        // The probe reads the services this layer already holds, so it is
+        // provided them here rather than being a second composition root.
+        verifyAccess: (sourceId) =>
+          verifyAccess(sourceId).pipe(
+            Effect.provideService(CatalogService, catalog),
+            Effect.provideService(EvidenceService, evidenceStore),
+            Effect.provideService(SourceRuntimeService, runtime),
+            Effect.provideService(TransportCapabilities, capabilities)
+          ),
       };
     })
   ).pipe(
