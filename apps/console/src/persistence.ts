@@ -13,15 +13,19 @@ import type { Client } from "./client.js";
 export const SURFACE = "console";
 
 /** Bump when the payload's shape changes; older documents then read as absent. */
-export const VERSION = 1;
+export const VERSION = 2;
 
 export interface ConsoleViewState {
+  readonly graphSelection: string | null;
+  readonly graphTime: number | null;
   readonly runnableOnly: boolean;
   readonly selectedTransform: string | null;
   readonly view: string;
 }
 
 export const defaultViewState: ConsoleViewState = {
+  graphSelection: null,
+  graphTime: null,
   runnableOnly: false,
   selectedTransform: null,
   view: "catalog",
@@ -36,7 +40,10 @@ const isViewState = (value: unknown): value is ConsoleViewState => {
     typeof candidate.view === "string" &&
     typeof candidate.runnableOnly === "boolean" &&
     (candidate.selectedTransform === null ||
-      typeof candidate.selectedTransform === "string")
+      typeof candidate.selectedTransform === "string") &&
+    (candidate.graphSelection === null ||
+      typeof candidate.graphSelection === "string") &&
+    (candidate.graphTime === null || typeof candidate.graphTime === "number")
   );
 };
 

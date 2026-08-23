@@ -34,8 +34,10 @@ export const useAtom = <A>(
   return [value, set] as const;
 };
 
-export type ViewName = "catalog" | "launcher" | "evidence" | "graph";
+export type ViewName = "catalog" | "launcher" | "evidence" | "graph" | "canvas";
 
 export const viewAtom = Atom.make<ViewName>("catalog");
 export const selectedTransformAtom = Atom.make<string | null>(null);
 export const runnableOnlyAtom = Atom.make(false);
+export const graphSelectionAtom = Atom.make<string | null>(null);
+export const graphTimeAtom = Atom.make<number | null>(null);

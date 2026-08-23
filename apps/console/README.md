@@ -17,6 +17,7 @@ Point the console elsewhere with `VITE_VIOKIT_API` (default `http://127.0.0.1:40
 | Transform | a form generated from the transform's published contract; runs by catalog id, **stages** steps, commits on a separate action |
 | Evidence | submit an artifact you retrieved by hand for a source the engine cannot fetch |
 | Graph | entity lookup and the four query surfaces, as tables |
+| Canvas | the replayed graph drawn as nodes and edges, with a time filter and node detail |
 
 View state — current view, selected transform, catalog filter — is persisted **server-side**,
 schema-encoded and versioned (TDR-012, I12), never in the browser. Set `VIOKIT_VIEW_STATE_DIR` to
@@ -24,6 +25,8 @@ choose where it lives (default `./.viokit/view-state`).
 
 ## What it deliberately does not do
 
-- **Visualise the graph.** Results are tables. The 4D canvas is its own design problem.
+- **Show the whole graph regardless of size.** The canvas renders up to a bound and *says* when it
+  has truncated, because a subset presented as the whole graph is the worst failure available to an
+  investigation tool. Map and timeline panes, and live updates, are still to come.
 - **Reach the engine any other way.** Everything goes through operations the MCP and CLI surfaces
   also expose (I8), and every response is decoded with `@viokit/schema` (I6).

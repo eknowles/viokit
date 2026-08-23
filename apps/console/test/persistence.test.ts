@@ -25,6 +25,8 @@ describe("restoring the console's view state", () => {
         value: {
           key: { investigation: "default", surface: "console", user: "local" },
           payload: {
+            graphSelection: "acme.test",
+            graphTime: null,
             runnableOnly: true,
             selectedTransform: "whois",
             view: "launcher",
@@ -34,6 +36,8 @@ describe("restoring the console's view state", () => {
       })
     );
     assert.deepStrictEqual(state, {
+      graphSelection: "acme.test",
+      graphTime: null,
       runnableOnly: true,
       selectedTransform: "whois",
       view: "launcher",

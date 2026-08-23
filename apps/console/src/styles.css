@@ -182,3 +182,73 @@ footer {
   margin-top: 24px;
   border-top: 1px solid var(--line);
 }
+
+/* Graph canvas */
+.graph-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.graph-controls label {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.graph-controls input[type="range"] {
+  width: 260px;
+}
+
+svg[aria-label="investigation graph"] {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+}
+
+.edge {
+  stroke: var(--line);
+  stroke-width: 1.5;
+}
+.node {
+  cursor: pointer;
+}
+.node circle {
+  fill: var(--accent);
+  stroke: var(--bg);
+  stroke-width: 2;
+}
+.node text {
+  font-size: 11px;
+  pointer-events: none;
+  fill: var(--dim);
+}
+.node:hover circle {
+  fill: var(--ok);
+}
+.node:hover text {
+  fill: var(--text);
+}
+.node.selected circle {
+  fill: var(--ok);
+  r: 10;
+}
+.node.selected text {
+  fill: var(--text);
+}
+
+.detail {
+  padding: 12px;
+  margin-top: 12px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+}
+.detail h3 {
+  margin-top: 0;
+  color: var(--text);
+}
+.detail td:first-child {
+  width: 120px;
+  color: var(--dim);
+}

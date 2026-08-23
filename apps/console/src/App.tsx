@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
+  graphSelectionAtom,
+  graphTimeAtom,
   runnableOnlyAtom,
   selectedTransformAtom,
   useAtom,
@@ -17,6 +19,7 @@ import {
 import { CatalogView } from "./views/Catalog.js";
 import { EvidenceView } from "./views/Evidence.js";
 import { GraphView } from "./views/Graph.js";
+import { GraphCanvasView } from "./views/GraphCanvas.js";
 import { LauncherView } from "./views/Launcher.js";
 
 const VIEWS: readonly { readonly label: string; readonly name: ViewName }[] = [
@@ -24,6 +27,7 @@ const VIEWS: readonly { readonly label: string; readonly name: ViewName }[] = [
   { label: "Transform", name: "launcher" },
   { label: "Evidence", name: "evidence" },
   { label: "Graph", name: "graph" },
+  { label: "Canvas", name: "canvas" },
 ];
 
 /** Operations the console needs; missing ones are reported loudly on load. */
@@ -39,6 +43,10 @@ const REQUIRED = [
 const Body = ({
   client,
   view,
+  graphSelection,
+  graphTime,
+  onGraphSelect,
+  onGraphTime,
   onLaunch,
   onRunnableOnly,
   runnableOnly,
@@ -46,6 +54,10 @@ const Body = ({
 }: {
   readonly client: Client;
   readonly onLaunch: (id: string) => void;
+  readonly graphSelection: string | null;
+  readonly graphTime: number | null;
+  readonly onGraphSelect: (id: string | null) => void;
+  readonly onGraphTime: (at: number | null) => void;
   readonly onRunnableOnly: (value: boolean) => void;
   readonly runnableOnly: boolean;
   readonly transformId: string | null;
@@ -67,6 +79,17 @@ const Body = ({
   if (view === "evidence") {
     return <EvidenceView client={client} />;
   }
+  if (view === "canvas") {
+    return (
+      <GraphCanvasView
+        client={client}
+        onSelect={onGraphSelect}
+        onTime={onGraphTime}
+        selected={graphSelection}
+        time={graphTime}
+      />
+    );
+  }
   return <GraphView client={client} />;
 };
 
@@ -82,6 +105,8 @@ export const App = () => {
   );
   const [problem, setProblem] = useState<string | null>(null);
   const [runnableOnly, setRunnableOnly] = useAtom(runnableOnlyAtom);
+  const [graphSelection, setGraphSelection] = useAtom(graphSelectionAtom);
+  const [graphTime, setGraphTime] = useAtom(graphTimeAtom);
   // Restored before anything is saved, so restoring does not immediately
   // overwrite what it just read.
   const [restored, setRestored] = useState(false);
@@ -115,12 +140,21 @@ export const App = () => {
       setView(state.view as ViewName);
       setTransformId(state.selectedTransform);
       setRunnableOnly(state.runnableOnly);
+      setGraphSelection(state.graphSelection);
+      setGraphTime(state.graphTime);
       setRestored(true);
     });
     return () => {
       cancelled = true;
     };
-  }, [client, setView, setTransformId, setRunnableOnly]);
+  }, [
+    client,
+    setView,
+    setTransformId,
+    setRunnableOnly,
+    setGraphSelection,
+    setGraphTime,
+  ]);
 
   const persist = useMemo(
     () =>
@@ -132,8 +166,22 @@ export const App = () => {
     if (!restored) {
       return;
     }
-    persist({ runnableOnly, selectedTransform: transformId, view });
-  }, [persist, restored, runnableOnly, transformId, view]);
+    persist({
+      graphSelection,
+      graphTime,
+      runnableOnly,
+      selectedTransform: transformId,
+      view,
+    });
+  }, [
+    persist,
+    restored,
+    runnableOnly,
+    transformId,
+    view,
+    graphSelection,
+    graphTime,
+  ]);
 
   return (
     <main>
@@ -161,6 +209,10 @@ export const App = () => {
       <section>
         <Body
           client={client}
+          graphSelection={graphSelection}
+          graphTime={graphTime}
+          onGraphSelect={setGraphSelection}
+          onGraphTime={setGraphTime}
           onLaunch={(id) => {
             setTransformId(id);
             setView("launcher");
