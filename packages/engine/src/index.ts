@@ -12,3 +12,4 @@ export * from "./ontology.js";
 export * from "./secrets.js";
 export * from "./source-runtime.js";
 export * from "./transform.js";
+export * from "./view-state.js";

@@ -1,3 +1,6 @@
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "@effect/vitest";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
@@ -5,6 +8,7 @@ import {
   Engine,
   EvidenceBackendMemory,
   makeEngineLayer,
+  makeViewStateLayer,
   OntologyRegistryLayer,
 } from "@viokit/engine";
 import { manifest as peopleManifest } from "@viokit/packs/people-identity/manifest";
@@ -14,6 +18,10 @@ import { Effect, Layer } from "effect";
 import { runCli } from "../src/cli.js";
 import { makeAgentServer } from "../src/mcp.js";
 import { findOperation, operationNames } from "../src/operations.js";
+
+/** A throwaway view-state root per run: the store is a deployment input. */
+const tempViewState = () =>
+  makeViewStateLayer(mkdtempSync(join(tmpdir(), "viokit-vs-")));
 
 const text = (value: string): Uint8Array => new TextEncoder().encode(value);
 
@@ -36,7 +44,12 @@ const transport = Layer.succeed(SourceTransportService, {
 const deployment = () =>
   Layer.provide(
     makeEngineLayer([webDns]),
-    Layer.mergeAll(transport, EvidenceBackendMemory, OntologyRegistryLayer)
+    Layer.mergeAll(
+      transport,
+      EvidenceBackendMemory,
+      OntologyRegistryLayer,
+      tempViewState()
+    )
   ) as Layer.Layer<Engine, unknown, never>;
 
 const connect = async (layer = deployment()) => {
@@ -382,7 +395,12 @@ describe("end-to-end: using a source the engine cannot fetch", () => {
   const peopleDeployment = () =>
     Layer.provide(
       makeEngineLayer([peopleManifest]),
-      Layer.mergeAll(transport, EvidenceBackendMemory, OntologyRegistryLayer)
+      Layer.mergeAll(
+        transport,
+        EvidenceBackendMemory,
+        OntologyRegistryLayer,
+        tempViewState()
+      )
     ) as Layer.Layer<Engine, unknown, never>;
 
   it("an agent finds the source excluded, then works it manually", async () => {

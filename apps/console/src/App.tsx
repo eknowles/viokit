@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import {
+  runnableOnlyAtom,
   selectedTransformAtom,
   useAtom,
   type ViewName,
@@ -7,6 +8,12 @@ import {
 } from "./atoms.js";
 import type { Client, OperationDeclaration } from "./client.js";
 import { defaultOrigin, makeClient, OperationFailure } from "./client.js";
+import {
+  type ConsoleViewState,
+  debounce,
+  loadViewState,
+  saveViewState,
+} from "./persistence.js";
 import { CatalogView } from "./views/Catalog.js";
 import { EvidenceView } from "./views/Evidence.js";
 import { GraphView } from "./views/Graph.js";
@@ -33,15 +40,26 @@ const Body = ({
   client,
   view,
   onLaunch,
+  onRunnableOnly,
+  runnableOnly,
   transformId,
 }: {
   readonly client: Client;
   readonly onLaunch: (id: string) => void;
+  readonly onRunnableOnly: (value: boolean) => void;
+  readonly runnableOnly: boolean;
   readonly transformId: string | null;
   readonly view: ViewName;
 }) => {
   if (view === "catalog") {
-    return <CatalogView client={client} onLaunch={onLaunch} />;
+    return (
+      <CatalogView
+        client={client}
+        onLaunch={onLaunch}
+        onRunnableOnly={onRunnableOnly}
+        runnableOnly={runnableOnly}
+      />
+    );
   }
   if (view === "launcher") {
     return <LauncherView client={client} transformId={transformId} />;
@@ -63,6 +81,10 @@ export const App = () => {
     []
   );
   const [problem, setProblem] = useState<string | null>(null);
+  const [runnableOnly, setRunnableOnly] = useAtom(runnableOnlyAtom);
+  // Restored before anything is saved, so restoring does not immediately
+  // overwrite what it just read.
+  const [restored, setRestored] = useState(false);
 
   useEffect(() => {
     client
@@ -83,6 +105,35 @@ export const App = () => {
         )
       );
   }, [client]);
+
+  useEffect(() => {
+    let cancelled = false;
+    loadViewState(client).then((state) => {
+      if (cancelled) {
+        return;
+      }
+      setView(state.view as ViewName);
+      setTransformId(state.selectedTransform);
+      setRunnableOnly(state.runnableOnly);
+      setRestored(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [client, setView, setTransformId, setRunnableOnly]);
+
+  const persist = useMemo(
+    () =>
+      debounce((state: ConsoleViewState) => saveViewState(client, state), 400),
+    [client]
+  );
+
+  useEffect(() => {
+    if (!restored) {
+      return;
+    }
+    persist({ runnableOnly, selectedTransform: transformId, view });
+  }, [persist, restored, runnableOnly, transformId, view]);
 
   return (
     <main>
@@ -114,14 +165,15 @@ export const App = () => {
             setTransformId(id);
             setView("launcher");
           }}
+          onRunnableOnly={setRunnableOnly}
+          runnableOnly={runnableOnly}
           transformId={transformId}
           view={view}
         />
       </section>
 
       <footer className="hint">
-        View state is not persisted — a reload starts over. Persisted view state
-        must be schema-encoded and server-backed (I12); see TDR-012.
+        View state is stored server-side, schema-encoded and versioned (I12).
       </footer>
     </main>
   );

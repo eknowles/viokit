@@ -2,12 +2,16 @@ import type { Engine } from "@viokit/engine";
 import { Engine as EngineTag } from "@viokit/engine";
 import {
   CatalogFilter,
+  defaultInvestigation,
   EvidenceInput,
   GraphState,
+  localUser,
   Manual,
   MatchRule,
   reviveJsonDates,
   Step,
+  ViewStateDocument,
+  ViewStateKey,
 } from "@viokit/schema";
 import { Effect, Schema } from "effect";
 
@@ -283,6 +287,51 @@ export const operations: readonly AgentOperation[] = [
           minLon: Number(args.minLon),
         })
       ),
+  },
+  {
+    args: [
+      arg("surface", "string", "which surface's configuration this is"),
+      arg("version", "number", "the version the surface understands"),
+      arg("investigation", "string", "investigation id", true),
+      arg("user", "string", "user id", true),
+    ],
+    description:
+      "Load a surface's stored configuration. Absent covers never-saved, unreadable, and written-under-another-version alike — all mean start from defaults.",
+    name: "view_state_load",
+    run: (args) =>
+      Effect.gen(function* () {
+        const key = yield* decode(ViewStateKey, {
+          investigation: args.investigation ?? defaultInvestigation,
+          surface: String(args.surface),
+          user: args.user ?? localUser,
+        });
+        return yield* engine((e) => e.loadViewState(key, Number(args.version)));
+      }),
+  },
+  {
+    args: [
+      arg("surface", "string", "which surface's configuration this is"),
+      arg("version", "number", "the version the surface understands"),
+      arg("payload", "json", "the configuration to store"),
+      arg("investigation", "string", "investigation id", true),
+      arg("user", "string", "user id", true),
+    ],
+    description:
+      "Persist a surface's configuration. Never enters the step log or evidence — view state is not part of the trail (I12).",
+    name: "view_state_save",
+    run: (args) =>
+      Effect.gen(function* () {
+        const document = yield* decode(ViewStateDocument, {
+          key: {
+            investigation: args.investigation ?? defaultInvestigation,
+            surface: String(args.surface),
+            user: args.user ?? localUser,
+          },
+          payload: args.payload ?? null,
+          version: Number(args.version),
+        });
+        return yield* engine((e) => e.saveViewState(document));
+      }),
   },
   {
     args: [

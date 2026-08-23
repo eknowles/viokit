@@ -1,3 +1,6 @@
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { assert, describe, layer } from "@effect/vitest";
 import { Engine, EngineLayer } from "@viokit/engine";
 import {
@@ -8,6 +11,11 @@ import {
 import { Effect, Layer } from "effect";
 import { EvidenceBackendMemory } from "../src/evidence-fs.js";
 import { OntologyRegistryLayer } from "../src/ontology.js";
+import { makeViewStateLayer } from "../src/view-state.js";
+
+/** A throwaway view-state root per run: the store is a deployment input. */
+const tempViewState = () =>
+  makeViewStateLayer(mkdtempSync(join(tmpdir(), "viokit-vs-")));
 
 /**
  * P1 exit proof (task 5.2): both an HTTP source and a dataset source execute
@@ -45,7 +53,8 @@ const exitProofLayer = Layer.provide(
   Layer.mergeAll(
     EvidenceBackendMemory,
     dispatchTransport,
-    OntologyRegistryLayer
+    OntologyRegistryLayer,
+    tempViewState()
   )
 );
 

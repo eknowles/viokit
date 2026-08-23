@@ -7,10 +7,9 @@ import { useCallback, useSyncExternalStore } from "react";
  * from the schemas it carries. The React binding is this file: small enough to
  * discard if a first-party one lands.
  *
- * Nothing here is persisted. I12 requires view state to be schema-encoded,
- * versioned, per (user, investigation), and server-backed; until TDR-012
- * decides that, a reload starts over rather than half-satisfying the invariant
- * in `localStorage`.
+ * State is persisted server-side through the operation table (TDR-012), never
+ * in the browser: I12 requires view state to be schema-encoded, versioned, per
+ * (user, investigation), and server-backed. See `persistence.ts`.
  */
 
 export const registry = AtomRegistry.make();
@@ -39,3 +38,4 @@ export type ViewName = "catalog" | "launcher" | "evidence" | "graph";
 
 export const viewAtom = Atom.make<ViewName>("catalog");
 export const selectedTransformAtom = Atom.make<string | null>(null);
+export const runnableOnlyAtom = Atom.make(false);

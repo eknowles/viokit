@@ -18,11 +18,12 @@ Point the console elsewhere with `VITE_VIOKIT_API` (default `http://127.0.0.1:40
 | Evidence | submit an artifact you retrieved by hand for a source the engine cannot fetch |
 | Graph | entity lookup and the four query surfaces, as tables |
 
+View state — current view, selected transform, catalog filter — is persisted **server-side**,
+schema-encoded and versioned (TDR-012, I12), never in the browser. Set `VIOKIT_VIEW_STATE_DIR` to
+choose where it lives (default `./.viokit/view-state`).
+
 ## What it deliberately does not do
 
-- **Persist view state.** A reload starts over. I12 requires view state to be schema-encoded,
-  versioned, per (user, investigation), and server-backed; a `localStorage` shortcut would satisfy
-  the need and violate the invariant. See TDR-012.
 - **Visualise the graph.** Results are tables. The 4D canvas is its own design problem.
 - **Reach the engine any other way.** Everything goes through operations the MCP and CLI surfaces
   also expose (I8), and every response is decoded with `@viokit/schema` (I6).

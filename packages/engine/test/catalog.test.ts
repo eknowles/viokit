@@ -1,15 +1,22 @@
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { assert, describe, layer } from "@effect/vitest";
 import {
   AddEntity,
+  defaultInvestigation,
   Entity,
   type EvidenceInput,
   entityId,
+  localUser,
   PackManifest,
   RegisteredTransform,
   SourceSpec,
   SourceTransportService,
   TemporalExtent,
   TransformSpec,
+  ViewStateDocument,
+  ViewStateKey,
 } from "@viokit/schema";
 import { Effect, Layer, Schema } from "effect";
 import { Engine, EngineLayer, makeEngineLayer } from "../src/engine.js";
@@ -18,6 +25,7 @@ import {
   OntologyRegistryLayer,
   OntologyRegistryService,
 } from "../src/ontology.js";
+import { makeViewStateLayer } from "../src/view-state.js";
 
 const text = (value: string): Uint8Array => new TextEncoder().encode(value);
 
@@ -85,7 +93,8 @@ const transport = Layer.succeed(SourceTransportService, {
 const deployment = Layer.mergeAll(
   transport,
   EvidenceBackendMemory,
-  OntologyRegistryLayer
+  OntologyRegistryLayer,
+  makeViewStateLayer(mkdtempSync(join(tmpdir(), "viokit-vs-")))
 );
 
 const withPacks = Layer.provide(makeEngineLayer([webDns]), deployment);
@@ -373,6 +382,70 @@ describe("catalog reports runnability", () => {
         assert.strictEqual(all.length, 3);
         // Every source carries a verdict, runnable or not.
         assert.isTrue(all.every((entry) => entry.runnable !== undefined));
+      })
+    );
+  });
+});
+
+/**
+ * I12's separation clause, tested rather than asserted: view state is
+ * configuration, and an investigation must replay identically whether or not
+ * any has ever been saved.
+ */
+describe("view state stays out of the evidentiary record (I3, I12)", () => {
+  layer(withPacks)((it) => {
+    it.effect("saving appends no step and leaves replay byte-identical", () =>
+      Effect.gen(function* () {
+        const engine = yield* Engine;
+
+        const steps = yield* engine.runCatalogTransform("whois-lookup", {
+          domain: "trail.test",
+        });
+        for (const step of steps) {
+          yield* engine.insert(step);
+        }
+        const logBefore = yield* engine.log;
+        const replayBefore = yield* engine.replay;
+
+        yield* engine.saveViewState(
+          ViewStateDocument.make({
+            key: ViewStateKey.make({
+              investigation: defaultInvestigation,
+              surface: "console",
+              user: localUser,
+            }),
+            payload: { selected: "whois-lookup", view: "launcher" } as never,
+            version: 1,
+          })
+        );
+
+        const logAfter = yield* engine.log;
+        const replayAfter = yield* engine.replay;
+
+        assert.strictEqual(logAfter.length, logBefore.length);
+        assert.deepStrictEqual(
+          JSON.stringify(replayAfter),
+          JSON.stringify(replayBefore)
+        );
+      })
+    );
+
+    it.effect("no step or evidence mentions the saved payload", () =>
+      Effect.gen(function* () {
+        const engine = yield* Engine;
+        yield* engine.saveViewState(
+          ViewStateDocument.make({
+            key: ViewStateKey.make({
+              investigation: defaultInvestigation,
+              surface: "console",
+              user: localUser,
+            }),
+            payload: { marker: "view-state-marker-value" } as never,
+            version: 1,
+          })
+        );
+        const log = yield* engine.log;
+        assert.notInclude(JSON.stringify(log), "view-state-marker-value");
       })
     );
   });

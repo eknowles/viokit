@@ -1,3 +1,6 @@
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { assert, describe, layer } from "@effect/vitest";
 import { manifest as peopleManifest } from "@viokit/packs/people-identity/manifest";
 import { judyrecords_com } from "@viokit/packs/people-identity/sources";
@@ -7,6 +10,11 @@ import { Effect, Layer } from "effect";
 import { Engine, makeEngineLayer } from "../src/engine.js";
 import { EvidenceBackendMemory } from "../src/evidence-fs.js";
 import { OntologyRegistryLayer } from "../src/ontology.js";
+import { makeViewStateLayer } from "../src/view-state.js";
+
+/** A throwaway view-state root per run: the store is a deployment input. */
+const tempViewState = () =>
+  makeViewStateLayer(mkdtempSync(join(tmpdir(), "viokit-vs-")));
 
 const text = (value: string): Uint8Array => new TextEncoder().encode(value);
 
@@ -25,7 +33,12 @@ const transport = Layer.succeed(SourceTransportService, {
  */
 const withWebDns = Layer.provide(
   makeEngineLayer([manifest]),
-  Layer.mergeAll(transport, EvidenceBackendMemory, OntologyRegistryLayer)
+  Layer.mergeAll(
+    transport,
+    EvidenceBackendMemory,
+    OntologyRegistryLayer,
+    tempViewState()
+  )
 );
 
 describe("registering the web-dns pack", () => {
@@ -94,7 +107,12 @@ describe("registering the web-dns pack", () => {
 
 const peopleIdentity = Layer.provide(
   makeEngineLayer([peopleManifest]),
-  Layer.mergeAll(transport, EvidenceBackendMemory, OntologyRegistryLayer)
+  Layer.mergeAll(
+    transport,
+    EvidenceBackendMemory,
+    OntologyRegistryLayer,
+    tempViewState()
+  )
 );
 
 /**

@@ -3,6 +3,7 @@ import {
   EvidenceBackendMemory,
   EvidenceRootDir,
   makeEngineLayer,
+  makeViewStateLayer,
   OntologyRegistryLayer,
 } from "@viokit/engine";
 import { manifest as webDns } from "@viokit/packs/web-dns/manifest";
@@ -48,11 +49,20 @@ const graphConfig = Layer.succeed(
   process.env.VIOKIT_GRAPH_DB ?? ""
 );
 
+/**
+ * Where view state lives (TDR-012). Kept apart from the graph and evidence
+ * stores: configuration must never travel with the evidentiary record.
+ */
+const viewStateLayer = makeViewStateLayer(
+  process.env.VIOKIT_VIEW_STATE_DIR ?? "./.viokit/view-state"
+);
+
 const deployment = Layer.mergeAll(
   DispatchTransportLayer,
   evidenceBackend,
   OntologyRegistryLayer,
-  graphConfig
+  graphConfig,
+  viewStateLayer
 );
 
 /** Build a program layer over an explicit pack set (used by tests and hosts). */

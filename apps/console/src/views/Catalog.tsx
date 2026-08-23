@@ -42,13 +42,16 @@ const Status = ({
 export const CatalogView = ({
   client,
   onLaunch,
+  onRunnableOnly,
+  runnableOnly,
 }: {
   readonly client: Client;
   readonly onLaunch: (transformId: string) => void;
+  readonly onRunnableOnly: (value: boolean) => void;
+  readonly runnableOnly: boolean;
 }) => {
   const [entries, setEntries] = useState<readonly Entry[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [runnableOnly, setRunnableOnly] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -94,7 +97,7 @@ export const CatalogView = ({
         <input
           checked={runnableOnly}
           id="runnable-only"
-          onChange={(e) => setRunnableOnly(e.target.checked)}
+          onChange={(e) => onRunnableOnly(e.target.checked)}
           type="checkbox"
         />
         only what can run here

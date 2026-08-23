@@ -1,3 +1,6 @@
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { assert, describe, layer } from "@effect/vitest";
 import {
   AddEntity,
@@ -16,6 +19,11 @@ import { Effect, Layer, Option } from "effect";
 import { Engine, EngineLayer } from "../src/engine.js";
 import { EvidenceBackendMemory } from "../src/evidence-fs.js";
 import { OntologyRegistryLayer } from "../src/ontology.js";
+import { makeViewStateLayer } from "../src/view-state.js";
+
+/** A throwaway view-state root per run: the store is a deployment input. */
+const tempViewState = () =>
+  makeViewStateLayer(mkdtempSync(join(tmpdir(), "viokit-vs-")));
 
 const sourceSpec = SourceSpec.make({
   id: "s1",
@@ -50,7 +58,12 @@ const step = Step.make({
 
 const engineLayer = Layer.provide(
   EngineLayer,
-  Layer.mergeAll(fakeTransport, EvidenceBackendMemory, OntologyRegistryLayer)
+  Layer.mergeAll(
+    fakeTransport,
+    EvidenceBackendMemory,
+    OntologyRegistryLayer,
+    tempViewState()
+  )
 );
 
 describe("acquire stores evidence with a live acquisition path (I9)", () => {

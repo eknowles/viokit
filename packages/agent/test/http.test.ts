@@ -1,8 +1,12 @@
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "@effect/vitest";
 import {
   type Engine,
   EvidenceBackendMemory,
   makeEngineLayer,
+  makeViewStateLayer,
   OntologyRegistryLayer,
 } from "@viokit/engine";
 import { manifest as webDns } from "@viokit/packs/web-dns/manifest";
@@ -10,6 +14,10 @@ import { SourceTransportService } from "@viokit/schema";
 import { Effect, Layer } from "effect";
 import { makeHandler } from "../src/http.js";
 import { findOperation, operationNames } from "../src/operations.js";
+
+/** A throwaway view-state root per run: the store is a deployment input. */
+const tempViewState = () =>
+  makeViewStateLayer(mkdtempSync(join(tmpdir(), "viokit-vs-")));
 
 const text = (value: string): Uint8Array => new TextEncoder().encode(value);
 
@@ -24,7 +32,12 @@ const transport = Layer.succeed(SourceTransportService, {
 const deployment = () =>
   Layer.provide(
     makeEngineLayer([webDns]),
-    Layer.mergeAll(transport, EvidenceBackendMemory, OntologyRegistryLayer)
+    Layer.mergeAll(
+      transport,
+      EvidenceBackendMemory,
+      OntologyRegistryLayer,
+      tempViewState()
+    )
   ) as Layer.Layer<Engine, unknown, never>;
 
 const handler = () => makeHandler(deployment());
@@ -169,5 +182,53 @@ describe("three-way parity (I8)", () => {
     for (const name of http) {
       expect(findOperation(name)).toBeDefined();
     }
+  });
+});
+
+describe("view state over the surface (I12)", () => {
+  const save = (h: (r: Request) => Promise<Response>, payload: unknown) =>
+    post(h, "view_state_save", { payload, surface: "console", version: 1 });
+
+  const load = (h: (r: Request) => Promise<Response>, version = 1) =>
+    post(h, "view_state_load", { surface: "console", version });
+
+  it("round-trips a surface's configuration", async () => {
+    const h = handler();
+    const saved = await save(h, { selected: "whois", view: "launcher" });
+    expect(saved.status).toBe(200);
+
+    const loaded = await load(h);
+    const body = (await loaded.json()) as {
+      value?: { payload: Record<string, unknown> };
+    };
+    expect(body.value?.payload).toEqual({
+      selected: "whois",
+      view: "launcher",
+    });
+  });
+
+  it("reports absence for a version the surface no longer understands", async () => {
+    const h = handler();
+    await save(h, { view: "graph" });
+    const loaded = await load(h, 2);
+    expect(await loaded.text()).toContain("None");
+  });
+
+  it("saving appends no step (I3, I12)", async () => {
+    const h = handler();
+    const before = await (await post(h, "log")).json();
+    await save(h, { view: "graph" });
+    const after = await (await post(h, "log")).json();
+    expect(after).toEqual(before);
+  });
+
+  it("is exposed on every surface, like every other operation", async () => {
+    const listed = (await (await get(handler(), "/operations")).json()) as {
+      name: string;
+    }[];
+    const names = listed.map((o) => o.name);
+    expect(names).toContain("view_state_save");
+    expect(names).toContain("view_state_load");
+    expect(findOperation("view_state_save")).toBeDefined();
   });
 });

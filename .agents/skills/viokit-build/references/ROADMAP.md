@@ -79,8 +79,9 @@ store, and the shared-schema contract. Nothing domain-specific.
   catalog, transform launcher with generated forms, evidence submission, graph queries as tables).
   Results workbench (graph/map/timeline, linked selection), docking layout, and view-state
   persistence remain.
-- **Outstanding P3 exit criterion:** I12 view-state persistence is *not* met. The console persists
-  nothing by design rather than half-satisfying the invariant client-side; TDR-012 decides it.
+- **I12 view-state persistence: met** (TDR-012) — schema-encoded, versioned, per
+  (user, investigation, surface), server-backed, and stored apart from the step log. User and
+  investigation remain placeholders until governance (P4) and the investigations capability exist.
 - **TDRs to decide:** TDR-002 client state/routing, TDR-003 transport (WS+Arrow), TDR-004 docking,
   TDR-008 schema→form, TDR-009 Effect↔Arrow mapping, TDR-012 view-state backend.
 - **Exit criteria:** an agent discovers the catalog, runs a transform, and reads the graph through

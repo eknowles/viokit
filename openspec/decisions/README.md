@@ -19,7 +19,7 @@
 | TDR-009 | Effect Schema ↔ Arrow mapping approach | proposed | open (real build item) |
 | TDR-010 | Evidentiary bundle export format | proposed | open |
 | TDR-011 | Egress / identity–proxy model | decided 2026-08-05 | runtime-owned `Egress` stage (direct/proxy/disabled); identity↔egress binding; gates browser transport |
-| TDR-012 | View-state persistence backend | proposed | schema-encoded, per user+investigation, server-backed |
+| TDR-012 | View-state persistence backend | decided 2026-08-23 | `ViewStateStore` seam keyed by (user, investigation, surface); versioned schema-encoded documents; filesystem first, SQLite behind the same seam; kept apart from the step log; user/investigation are placeholders until governance and the investigations capability |
 | TDR-013 | Source-catalog store — SQLite vs filesystem vs in-memory | decided 2026-08-05 | `CandidateStore`/`WorkQueue` seams; SQLite single-file first (atomic claims + dedup); filesystem fallback |
 | TDR-014 | Source-catalog front-end — MCP server + CLI | decided 2026-08-05 | stdio MCP (`@modelcontextprotocol/sdk` v1) for agents + thin CLI; both over one `SourceCatalogService` |
 | TDR-015 | Entity resolution / dedup (correlate) | decided | app-level `correlate` transform emitting evidence-attributed `ResolveEntity` steps (I2/I3); identifier **normalization to canonical forms is part of the mechanism** (strict deterministic match); schema rules in packs; fuzzy deferred to P4 veracity; store-rewrite rejected (I3/I11) |

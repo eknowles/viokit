@@ -26,6 +26,9 @@ import type {
   TransformError,
   TransformSpec,
   UnknownCatalogEntry,
+  ViewStateDocument,
+  ViewStateKey,
+  ViewStateWriteError,
 } from "@viokit/schema";
 import {
   CatalogService,
@@ -34,6 +37,7 @@ import {
   PackRegistry,
   SourceRuntimeService,
   TransformRunnerService,
+  ViewStateStoreService,
 } from "@viokit/schema";
 import type { Option } from "effect";
 import { Context, Effect, Layer } from "effect";
@@ -122,6 +126,18 @@ export class Engine extends Context.Service<
       transformId: string,
       input: unknown
     ) => Effect.Effect<readonly Step[], UnknownCatalogEntry | TransformError>;
+    /** A surface's stored configuration. Absent covers "never saved",
+     * "unreadable", and "written under another version" alike — all mean the
+     * surface starts from defaults (I12). */
+    readonly loadViewState: (
+      key: ViewStateKey,
+      version: number
+    ) => Effect.Effect<Option.Option<ViewStateDocument>>;
+    /** Persist a surface's configuration. Appends no step and writes no
+     * evidence — view state is never part of the trail (I3, I12). */
+    readonly saveViewState: (
+      document: ViewStateDocument
+    ) => Effect.Effect<void, ViewStateWriteError>;
   }
 >()("Engine") {}
 
@@ -140,9 +156,10 @@ export const DefaultPackRegistryLayer: Layer.Layer<PackRegistry> =
  * what it can do. Everything else is fixed: the retained DuckDB graph store
  * (TDR-005) and the standard runtime slices.
  *
- * The ontology registry is a deployment input, not an internal slice: packs
- * register types into it at runtime, so the deployment must hold the same
- * instance the catalog reads from.
+ * The ontology registry and the view-state store are deployment inputs, not
+ * internal slices: packs register types into the registry at runtime, and where
+ * view state lives is deployment configuration, so the deployment must hold
+ * the same instances the engine reads from.
  */
 const engineLayerWith = (registry: Layer.Layer<PackRegistry>) =>
   Layer.effect(
@@ -154,6 +171,7 @@ const engineLayerWith = (registry: Layer.Layer<PackRegistry>) =>
       const transform = yield* TransformRunnerService;
       const correlate = yield* CorrelateResolverService;
       const catalog = yield* CatalogService;
+      const viewState = yield* ViewStateStoreService;
 
       return {
         acquire: (source) =>
@@ -167,6 +185,7 @@ const engineLayerWith = (registry: Layer.Layer<PackRegistry>) =>
         describe: (id) => catalog.describe(id),
         ingest: (input) => evidence.put(input),
         insert: (step) => graph.insert(step),
+        loadViewState: (key, version) => viewState.load(key, version),
         log: graph.log,
         paths: (from, to, maxDepth) => graph.paths(from, to, maxDepth),
         queryEntity: (id) => graph.queryEntity(id),
@@ -176,6 +195,7 @@ const engineLayerWith = (registry: Layer.Layer<PackRegistry>) =>
           catalog.runTransform(transformId, input),
         runTransform: (spec, source, project, input) =>
           transform.run(spec, source, project, input),
+        saveViewState: (document) => viewState.save(document),
         spatial: (bbox) => graph.spatial(bbox),
         timeline: (from, to) => graph.timeline(from, to),
       };
