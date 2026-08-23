@@ -3,6 +3,7 @@ import type {
   CatalogFilter,
   PackManifest as PackManifestType,
   RegisteredTransform as RegisteredTransformType,
+  SecretResolves,
   SourceSpec,
   Step,
   TransformError,
@@ -17,6 +18,7 @@ import {
   PackRegistrationError,
   PackRegistry,
   runnabilityOf,
+  SecretProviderService,
   SourceSpec as SourceSpecSchema,
   TransformRunnerService,
   TransportCapabilities,
@@ -104,11 +106,12 @@ const register = (
 const sourceEntry = (
   source: SourceSpec,
   pack: string | undefined,
-  capabilities: readonly TransportKind[]
+  capabilities: readonly TransportKind[],
+  secretResolves: SecretResolves
 ): CatalogEntry => {
   // Derived here from the same function the source runtime uses, so what the
   // catalog advertises is what acquisition actually does.
-  const verdict = runnabilityOf(source, capabilities);
+  const verdict = runnabilityOf(source, capabilities, secretResolves);
   return CatalogEntry.make({
     ...(pack === undefined ? {} : { pack }),
     ...(verdict.reason === undefined ? {} : { reason: verdict.reason }),
@@ -241,14 +244,41 @@ export const CatalogLayer: Layer.Layer<
       yield* Effect.serviceOption(TransportCapabilities),
       () => defaultTransportCapabilities
     );
+    // The catalog resolves through the same provider the runtime uses, so what
+    // it advertises as runnable is what acquisition will actually do.
+    const secrets = Option.getOrNull(
+      yield* Effect.serviceOption(SecretProviderService)
+    );
     const registered = yield* register(manifests);
+
+    /** Which credential references resolve here, read live — a key can appear
+     * or disappear between listings without rebuilding the catalog. */
+    const resolvedRefs = Effect.gen(function* () {
+      const refs = new Set<string>();
+      if (secrets === null) {
+        return refs;
+      }
+      for (const source of registered.sources.values()) {
+        const ref = source.auth?.secretRef;
+        if (ref !== undefined && Option.isSome(yield* secrets.get(ref))) {
+          refs.add(ref);
+        }
+      }
+      return refs;
+    });
 
     const entries = Effect.gen(function* () {
       const types = yield* ontology.list;
+      const resolved = yield* resolvedRefs;
       const out: CatalogEntry[] = [];
       for (const [id, source] of registered.sources) {
         out.push(
-          sourceEntry(source, registered.sourcePack.get(id), capabilities)
+          sourceEntry(
+            source,
+            registered.sourcePack.get(id),
+            capabilities,
+            (ref) => resolved.has(ref)
+          )
         );
       }
       for (const [id, transform] of registered.transforms) {
@@ -272,8 +302,14 @@ export const CatalogLayer: Layer.Layer<
           }
           const source = registered.sources.get(id);
           if (source !== undefined) {
+            const resolved = yield* resolvedRefs;
             return describeSource(
-              sourceEntry(source, registered.sourcePack.get(id), capabilities)
+              sourceEntry(
+                source,
+                registered.sourcePack.get(id),
+                capabilities,
+                (ref) => resolved.has(ref)
+              )
             );
           }
           const type = yield* ontology.get(id);

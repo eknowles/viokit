@@ -49,3 +49,11 @@ write-once rules as pipeline-acquired artifacts, preserving the human provenance
 #### Scenario: Identical manual artifacts collapse to one record
 - **WHEN** the same bytes are submitted twice as manually acquired
 - **THEN** the store holds one record, because identity is the content hash (I1)
+
+### Requirement: Evidence never carries the credential used to acquire it
+Evidence produced by acquiring a credential-gated source SHALL record the acquisition as it does any
+other, without the credential that authorised it.
+
+#### Scenario: Stored evidence is free of the credential
+- **WHEN** evidence is produced by acquiring a source that required a credential
+- **THEN** the stored record contains no credential value

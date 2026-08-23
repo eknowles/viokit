@@ -33,3 +33,20 @@ Configuration: `VIOKIT_HTTP_HOST` (default `127.0.0.1`), `VIOKIT_HTTP_PORT` (def
 
 > **The HTTP surface is unauthenticated.** It binds to loopback and must not be exposed beyond the
 > local machine until governance (P4) lands.
+
+## Credentials
+
+Credential-gated sources name a secret; the value never lives in a pack (TDR-018).
+
+```ts
+// in a pack's sources.ts
+auth: { scheme: "bearer", secretRef: "SHODAN_KEY" }
+auth: { scheme: "header", name: "x-api-key", secretRef: "SECURITYTRAILS_KEY" }
+auth: { scheme: "query",  name: "api_key",   secretRef: "ACLED_KEY" }
+```
+
+Provide the value in the environment: `SHODAN_KEY=… bun --bun packages/agent/src/http.ts`. A
+reference that does not resolve — including one exported as an empty string — makes the source
+report as **not runnable**, with the reference named, so the catalog stops promising a source whose
+key is absent. Resolution happens inside the runtime; credentials never reach a transform, a
+front-end, the cache fingerprint, stored evidence, or an error message.

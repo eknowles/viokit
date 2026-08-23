@@ -1,5 +1,6 @@
 import { assert, describe, it } from "@effect/vitest";
 import {
+  SecretProviderService,
   SourceAuth,
   SourceRuntimeService,
   SourceSpec,
@@ -11,6 +12,7 @@ import { Effect, Layer } from "effect";
 import { CacheLayer } from "../src/cache.js";
 import { EgressLayer } from "../src/egress.js";
 import { RateLimiterLayer } from "../src/rate-limit.js";
+import { makeEnvSecretProvider } from "../src/secrets.js";
 import { SourceRuntimeLayer } from "../src/source-runtime.js";
 
 const text = (value: string): Uint8Array => new TextEncoder().encode(value);
@@ -25,12 +27,19 @@ const countingTransport = (calls: string[]) =>
       }),
   });
 
-const runtime = (calls: string[], capabilities?: readonly TransportKind[]) => {
+const runtime = (
+  calls: string[],
+  capabilities?: readonly TransportKind[],
+  secrets: Record<string, string | undefined> = {}
+) => {
   const base = SourceRuntimeLayer.pipe(
     Layer.provide(countingTransport(calls)),
     Layer.provide(CacheLayer),
     Layer.provide(EgressLayer),
-    Layer.provide(RateLimiterLayer)
+    Layer.provide(RateLimiterLayer),
+    Layer.provide(
+      Layer.succeed(SecretProviderService, makeEnvSecretProvider(secrets))
+    )
   );
   return capabilities === undefined
     ? base
@@ -93,8 +102,13 @@ describe("the runtime refuses sources this deployment cannot run", () => {
   it("acquires a credential-gated source once credentials are configured", async () => {
     const calls: string[] = [];
     const result = await run(
-      acquire(source("requires_key", SourceAuth.make({ apiKey: "k" }))),
-      runtime(calls)
+      acquire(
+        source(
+          "requires_key",
+          SourceAuth.make({ scheme: "bearer", secretRef: "TEST_KEY" })
+        )
+      ),
+      runtime(calls, undefined, { TEST_KEY: "resolved-value" })
     );
 
     assert.strictEqual(result._tag, "Success");

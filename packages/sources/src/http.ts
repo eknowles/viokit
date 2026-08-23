@@ -1,3 +1,4 @@
+import type { ResolvedCredential } from "@viokit/schema";
 import { SourceError, SourceTransportService } from "@viokit/schema";
 import { Effect, Layer, Stream } from "effect";
 import {
@@ -12,6 +13,38 @@ import {
  * (retry/rate-limit/cache/egress) is owned by the engine's `SourceRuntimeLayer`,
  * so this layer provides only the transport.
  */
+/**
+ * Apply a credential the runtime resolved. The transport never resolves — it
+ * receives a value or nothing (I4/I10) — and applies it as the source's spec
+ * declared: a bearer token, a named header, or a query parameter.
+ */
+const credentialHeaders = (
+  credential: ResolvedCredential | undefined
+): Record<string, string> => {
+  if (credential === undefined) {
+    return {};
+  }
+  if (credential.scheme === "bearer") {
+    return { authorization: `Bearer ${credential.value}` };
+  }
+  if (credential.scheme === "header") {
+    return { [credential.name ?? "authorization"]: credential.value };
+  }
+  return {};
+};
+
+const withCredential = (
+  url: string,
+  credential: ResolvedCredential | undefined
+): string => {
+  if (credential === undefined || credential.scheme !== "query") {
+    return url;
+  }
+  const parsed = new URL(url);
+  parsed.searchParams.set(credential.name ?? "key", credential.value);
+  return parsed.toString();
+};
+
 export const HttpTransportLayer: Layer.Layer<
   SourceTransportService,
   never,
@@ -21,8 +54,12 @@ export const HttpTransportLayer: Layer.Layer<
   Effect.gen(function* () {
     const client = yield* HttpClient.HttpClient;
     return {
-      fetch: (source) =>
-        HttpClientResponse.stream(HttpClient.get(source.url)).pipe(
+      fetch: (source, credential) =>
+        HttpClientResponse.stream(
+          HttpClient.get(withCredential(source.url, credential), {
+            headers: credentialHeaders(credential),
+          })
+        ).pipe(
           Stream.provideService(HttpClient.HttpClient, client),
           Stream.runCollect,
           Effect.map((chunks) => {

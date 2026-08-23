@@ -45,6 +45,7 @@ import { EvidenceService } from "./evidence.js";
 import { EvidenceLayer } from "./evidence-fs.js";
 import { DuckDBGraphLayer, DuckDBGraphService } from "./graph-duckdb.js";
 import { RateLimiterLayer } from "./rate-limit.js";
+import { SecretProviderEnvLayer } from "./secrets.js";
 import { SourceRuntimeLayer } from "./source-runtime.js";
 import { TransformRunnerLayer } from "./transform.js";
 
@@ -189,6 +190,7 @@ const engineLayerWith = (registry: Layer.Layer<PackRegistry>) =>
     Layer.provide(CacheLayer),
     Layer.provide(EgressLayer),
     Layer.provide(RateLimiterLayer),
+    Layer.provide(SecretProviderEnvLayer),
     Layer.provide(EvidenceLayer)
   );
 

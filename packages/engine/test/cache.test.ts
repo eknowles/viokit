@@ -28,7 +28,7 @@ describe("request fingerprint", () => {
     };
     const authed = SourceSpec.make({
       ...base,
-      auth: { apiKey: "secret" },
+      auth: { scheme: "bearer", secretRef: "EXAMPLE_KEY" },
     });
     const plain = SourceSpec.make({ ...base });
     assert.strictEqual(requestFingerprint(authed), requestFingerprint(plain));

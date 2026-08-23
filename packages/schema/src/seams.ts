@@ -8,6 +8,7 @@ import type {
   UnknownCatalogEntry,
 } from "./runtime-catalog.js";
 import type {
+  AuthScheme,
   EgressDisabledError,
   Entity,
   Evidence,
@@ -128,9 +129,22 @@ export interface TransportResult {
 }
 
 /** A transport seam: turns a source into raw response bytes (task 4.5/5.1). */
+/**
+ * A credential the runtime resolved and the transport applies. The transport
+ * receives the value, never the provider — credential handling is runtime
+ * policy (I4/I10), and transports are the component a pack is most likely to
+ * contribute.
+ */
+export interface ResolvedCredential {
+  readonly name: string | undefined;
+  readonly scheme: AuthScheme;
+  readonly value: string;
+}
+
 export interface SourceTransport {
   readonly fetch: (
-    source: SourceSpec
+    source: SourceSpec,
+    credential?: ResolvedCredential
   ) => Effect.Effect<TransportResult, SourceError>;
 }
 
@@ -185,6 +199,23 @@ export class CorrelateResolverService extends Context.Service<
   CorrelateResolverService,
   CorrelateResolver
 >()("CorrelateResolverService") {}
+
+/**
+ * Resolves credential references (TDR-018). Lives behind a seam so the backend
+ * — environment, file, and later a keychain — is a swap rather than a rewrite.
+ * Only the runtime holds this: transports receive an already-resolved
+ * credential, so a pack-contributed transport cannot reach arbitrary secrets
+ * (I4/I10).
+ */
+export interface SecretProvider {
+  /** The value for a reference, or `None` when it does not resolve here. */
+  readonly get: (secretRef: string) => Effect.Effect<Option.Option<string>>;
+}
+
+export class SecretProviderService extends Context.Service<
+  SecretProviderService,
+  SecretProvider
+>()("SecretProviderService") {}
 
 /**
  * The runtime catalog: what this deployment can do. Folded from the pack

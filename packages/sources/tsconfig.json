@@ -4,6 +4,8 @@
   "compilerOptions": {
     "paths": {
       "*": ["./*"]
-    }
+    },
+    "types": ["node", "bun-types"],
+    "lib": ["ES2023", "DOM", "DOM.Iterable"]
   }
 }

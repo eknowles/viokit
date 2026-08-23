@@ -5,9 +5,21 @@ export const Transport = Schema.Literals(["http", "dataset"]);
 export type Transport = typeof Transport.Type;
 
 /** Authentication for a source. Credentials never enter the cache or evidence. */
+/** How a resolved credential is applied to an outbound request. */
+export const AuthScheme = Schema.Literals(["bearer", "header", "query"]);
+export type AuthScheme = typeof AuthScheme.Type;
+
+/**
+ * A source's credential, as a *reference* to a secret held outside the spec
+ * plus how to apply it. There is deliberately no field that can hold a
+ * credential value: packs are tracked source, so a spec that *can* carry a
+ * secret eventually will (TDR-018). `name` supplies the header or query
+ * parameter name for the schemes that need one.
+ */
 export class SourceAuth extends Schema.Class<SourceAuth>("SourceAuth")({
-  apiKey: Schema.optionalKey(Schema.String),
-  token: Schema.optionalKey(Schema.String),
+  name: Schema.optionalKey(Schema.String),
+  scheme: AuthScheme,
+  secretRef: Schema.String,
 }) {}
 
 export class RetryPolicy extends Schema.Class<RetryPolicy>("RetryPolicy")({
@@ -424,6 +436,18 @@ export class SourceNotRunnable extends Schema.TaggedErrorClass<SourceNotRunnable
   "SourceNotRunnable",
   {
     message: Schema.String,
+  }
+) {}
+
+/**
+ * A credential reference that does not resolve in this deployment. Carries the
+ * reference, never a value — the type is what keeps a resolved secret out of
+ * every failure path.
+ */
+export class SecretNotFound extends Schema.TaggedErrorClass<SecretNotFound>()(
+  "SecretNotFound",
+  {
+    secretRef: Schema.String,
   }
 ) {}
 

@@ -1,6 +1,8 @@
 import type {
   AcquisitionPath,
   EvidenceInput,
+  ResolvedCredential as ResolvedCredentialType,
+  SecretProvider,
   SourceError,
   SourceSpec,
   SourceTransport,
@@ -16,6 +18,7 @@ import {
   type RateLimited,
   RetryExhausted,
   runnabilityOf,
+  SecretProviderService,
   SourceNotRunnable,
   SourceRuntimeService,
   SourceTransportService,
@@ -97,6 +100,32 @@ const egressPolicyOf = (
   source: SourceSpec
 ): import("@viokit/schema").EgressPolicy => source.egress ?? { _tag: "direct" };
 
+/**
+ * Resolve a source's credential reference, if it declares one. Resolution
+ * happens here so the credential never leaves the runtime except as an applied
+ * request (I4/I10); `undefined` means "declared but unresolvable", which the
+ * runnability check turns into a refusal naming the reference.
+ */
+const resolveCredential = (
+  source: SourceSpec,
+  secrets: SecretProvider | undefined
+): Effect.Effect<ResolvedCredentialType | undefined> =>
+  Effect.gen(function* () {
+    const { auth } = source;
+    if (auth === undefined || secrets === undefined) {
+      return;
+    }
+    const value = yield* secrets.get(auth.secretRef);
+    if (Option.isNone(value)) {
+      return;
+    }
+    return {
+      name: auth.name,
+      scheme: auth.scheme,
+      value: value.value,
+    };
+  });
+
 /** Rate-limit → egress → transport fetch → optional cache write-back. */
 const egressPath = (
   source: SourceSpec,
@@ -106,7 +135,8 @@ const egressPath = (
   transport: SourceTransport,
   fingerprint: string,
   now: number,
-  policy: import("@viokit/schema").CachePolicy
+  policy: import("@viokit/schema").CachePolicy,
+  credential: ResolvedCredentialType | undefined
 ): Effect.Effect<
   EvidenceInput,
   SourceError | RetryExhausted | RateLimited | EgressDisabledError
@@ -118,7 +148,10 @@ const egressPath = (
 
     const decision = yield* egress.resolve(egressPolicyOf(source));
 
-    const fetched = yield* retryFetch(source, transport.fetch(source));
+    const fetched = yield* retryFetch(
+      source,
+      transport.fetch(source, credential)
+    );
 
     const input = toEvidenceInput(
       fetched,
@@ -161,6 +194,9 @@ export const SourceRuntimeLayer: Layer.Layer<
       yield* Effect.serviceOption(TransportCapabilities),
       () => defaultTransportCapabilities
     );
+    const secrets = Option.getOrUndefined(
+      yield* Effect.serviceOption(SecretProviderService)
+    );
 
     return {
       run: (source) =>
@@ -169,7 +205,10 @@ export const SourceRuntimeLayer: Layer.Layer<
           // a transform or a front-end (I4/I10) — and decided *before* any
           // transport call, so a browser-only source yields its reason rather
           // than a network error that looks like a bug.
-          const runnable = runnabilityOf(source, capabilities);
+          const credential = yield* resolveCredential(source, secrets);
+          const runnable = runnabilityOf(source, capabilities, (ref) =>
+            source.auth?.secretRef === ref ? credential !== undefined : false
+          );
           if (!runnable.runnable) {
             return yield* SourceNotRunnable.make({
               message: `source '${source.id}' cannot be acquired here: ${runnable.reason ?? "unknown reason"}`,
@@ -190,7 +229,8 @@ export const SourceRuntimeLayer: Layer.Layer<
               transport,
               fingerprint,
               now,
-              policy
+              policy,
+              credential
             );
           }
 
@@ -228,7 +268,8 @@ export const SourceRuntimeLayer: Layer.Layer<
             transport,
             fingerprint,
             now,
-            policy
+            policy,
+            credential
           );
         }),
     };

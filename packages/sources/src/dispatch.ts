@@ -31,10 +31,10 @@ export const DispatchTransportLayer: Layer.Layer<
     );
 
     return {
-      fetch: (source) =>
+      fetch: (source, credential) =>
         source.transport === "dataset"
-          ? dataset.fetch(source)
-          : http.fetch(source),
+          ? dataset.fetch(source, credential)
+          : http.fetch(source, credential),
     };
   })
 );

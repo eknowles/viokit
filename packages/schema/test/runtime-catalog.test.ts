@@ -256,3 +256,62 @@ describe("SourceSpec access classification", () => {
     );
   });
 });
+
+describe("SourceAuth references a secret, never carries one (TDR-018)", () => {
+  it("decodes a bearer reference", () => {
+    const spec = Schema.decodeUnknownSync(SourceSpec)({
+      access: "requires_key",
+      auth: { scheme: "bearer", secretRef: "SHODAN_KEY" },
+      id: "shodan",
+      transport: "http",
+      url: "https://api.shodan.io",
+    });
+    assert.strictEqual(spec.auth?.secretRef, "SHODAN_KEY");
+    assert.strictEqual(spec.auth?.scheme, "bearer");
+  });
+
+  it("decodes a named header or query reference", () => {
+    for (const scheme of ["header", "query"] as const) {
+      const spec = Schema.decodeUnknownSync(SourceSpec)({
+        auth: { name: "x-api-key", scheme, secretRef: "K" },
+        id: "s",
+        transport: "http",
+        url: "https://x.test",
+      });
+      assert.strictEqual(spec.auth?.name, "x-api-key");
+    }
+  });
+
+  it("rejects a spec carrying a literal credential (I6)", () => {
+    assert.throws(() =>
+      Schema.decodeUnknownSync(SourceSpec)({
+        auth: { apiKey: "sk-live-actually-a-secret" },
+        id: "s",
+        transport: "http",
+        url: "https://x.test",
+      })
+    );
+  });
+
+  it("rejects auth with no reference", () => {
+    assert.throws(() =>
+      Schema.decodeUnknownSync(SourceSpec)({
+        auth: { scheme: "bearer" },
+        id: "s",
+        transport: "http",
+        url: "https://x.test",
+      })
+    );
+  });
+
+  it("rejects an unknown application scheme", () => {
+    assert.throws(() =>
+      Schema.decodeUnknownSync(SourceSpec)({
+        auth: { scheme: "smoke-signal", secretRef: "K" },
+        id: "s",
+        transport: "http",
+        url: "https://x.test",
+      })
+    );
+  });
+});

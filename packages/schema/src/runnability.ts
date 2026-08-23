@@ -38,9 +38,19 @@ export const defaultTransportCapabilities: readonly TransportKind[] = [
 
 const runnable: Runnability = { runnable: true };
 
+/**
+ * Whether a credential reference resolves in this deployment. Supplied by the
+ * caller, because resolution is environment-dependent while everything else
+ * here is a property of the spec. Defaults to "nothing resolves", so a caller
+ * that has not wired a provider under-promises rather than claiming a source
+ * works when its key is absent.
+ */
+export type SecretResolves = (secretRef: string) => boolean;
+
 export const runnabilityOf = (
   source: SourceSpec,
-  capabilities: readonly TransportKind[] = defaultTransportCapabilities
+  capabilities: readonly TransportKind[] = defaultTransportCapabilities,
+  secretResolves: SecretResolves = () => false
 ): Runnability => {
   if (source.access === "browser_scrape" && !capabilities.includes("browser")) {
     return {
@@ -49,9 +59,15 @@ export const runnabilityOf = (
       runnable: false,
     };
   }
+  if (source.auth !== undefined && !secretResolves(source.auth.secretRef)) {
+    return {
+      reason: `credential '${source.auth.secretRef}' does not resolve in this deployment`,
+      runnable: false,
+    };
+  }
   if (source.access === "requires_key" && source.auth === undefined) {
     return {
-      reason: "source requires credentials and none are configured on its spec",
+      reason: "source requires credentials and none are declared on its spec",
       runnable: false,
     };
   }

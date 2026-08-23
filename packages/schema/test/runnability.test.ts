@@ -1,10 +1,14 @@
 import { assert, describe, it } from "@effect/vitest";
 import {
   runnabilityOf,
+  type SecretResolves,
   SourceAuth,
   SourceSpec,
   type TransportKind,
 } from "../src/index.js";
+
+const resolvesAll: SecretResolves = () => true;
+const auth = SourceAuth.make({ scheme: "bearer", secretRef: "SHODAN_KEY" });
 
 const spec = (
   access: SourceSpec["access"],
@@ -49,23 +53,47 @@ describe("runnability derivation", () => {
     );
   });
 
-  it("a credential-gated source without auth is not runnable", () => {
+  it("a credential-gated source declaring no credential is not runnable", () => {
     const verdict = runnabilityOf(spec("requires_key"));
     assert.strictEqual(verdict.runnable, false);
     assert.include(verdict.reason ?? "", "credentials");
   });
 
-  it("a credential-gated source with auth is runnable", () => {
+  it("a declared credential that does not resolve is not runnable", () => {
     const verdict = runnabilityOf(
-      spec("requires_key", { auth: SourceAuth.make({ apiKey: "k" }) })
+      spec("requires_key", { auth }),
+      undefined,
+      () => false
+    );
+    assert.strictEqual(verdict.runnable, false);
+    assert.include(verdict.reason ?? "", "SHODAN_KEY");
+    // The reason names the reference, never a value.
+    assert.notInclude(verdict.reason ?? "", "secret");
+  });
+
+  it("a declared credential that resolves makes the source runnable", () => {
+    const verdict = runnabilityOf(
+      spec("requires_key", { auth }),
+      undefined,
+      resolvesAll
     );
     assert.strictEqual(verdict.runnable, true);
   });
 
+  it("an open source declaring a credential still needs it to resolve", () => {
+    assert.strictEqual(
+      runnabilityOf(spec("open_api", { auth }), undefined, () => false)
+        .runnable,
+      false
+    );
+  });
+
   it("a source declaring a transport this deployment lacks is not runnable", () => {
-    const verdict = runnabilityOf(spec("dataset", { transport: "dataset" }), [
-      "http",
-    ]);
+    const verdict = runnabilityOf(
+      spec("dataset", { transport: "dataset" }),
+      ["http"],
+      resolvesAll
+    );
     assert.strictEqual(verdict.runnable, false);
     assert.include(verdict.reason ?? "", "dataset");
   });
