@@ -1,5 +1,10 @@
 import { Schema } from "effect";
-import { SourceSpec, TransformArchetype, TransformSpec } from "./schemas.js";
+import {
+  SourceAccess,
+  SourceSpec,
+  TransformArchetype,
+  TransformSpec,
+} from "./schemas.js";
 
 /**
  * The runtime catalog: what a *running deployment* can do, as opposed to
@@ -23,12 +28,23 @@ export type CatalogEntryKind = typeof CatalogEntryKind.Type;
  * only for transforms.
  */
 export class CatalogEntry extends Schema.Class<CatalogEntry>("CatalogEntry")({
+  /** How a source is reached; absent for transforms and types. */
+  access: Schema.optionalKey(SourceAccess),
   archetype: Schema.optionalKey(TransformArchetype),
   description: Schema.optionalKey(Schema.String),
   id: Schema.String,
   kind: CatalogEntryKind,
   name: Schema.String,
   pack: Schema.optionalKey(Schema.String),
+  /** Why this source cannot be acquired here; absent when it can. */
+  reason: Schema.optionalKey(Schema.String),
+  /**
+   * Whether this deployment can actually acquire this source. Absent for
+   * transforms and types, which are not acquired. A registered source that is
+   * not runnable is still listed — the catalog reports registration in full and
+   * says which entries are usable, rather than hiding them.
+   */
+  runnable: Schema.optionalKey(Schema.Boolean),
 }) {}
 
 /**
@@ -40,6 +56,8 @@ export class CatalogFilter extends Schema.Class<CatalogFilter>("CatalogFilter")(
     archetype: Schema.optionalKey(TransformArchetype),
     kind: Schema.optionalKey(CatalogEntryKind),
     pack: Schema.optionalKey(Schema.String),
+    /** Narrow to sources this deployment can acquire. */
+    runnable: Schema.optionalKey(Schema.Boolean),
   }
 ) {}
 

@@ -1,10 +1,12 @@
 import { assert, describe, it } from "@effect/vitest";
 import { Schema } from "effect";
 import {
+  AcquisitionPath,
   CatalogEntry,
   CatalogEntryDetail,
   CatalogFilter,
   PackManifest,
+  SourceSpec,
 } from "../src/index.js";
 
 describe("CatalogEntry decode (I6)", () => {
@@ -182,6 +184,74 @@ describe("PackManifest decode (I6)", () => {
       Schema.decodeUnknownSync(PackManifest)({
         sources: [source],
         transforms: [],
+      })
+    );
+  });
+});
+
+describe("Manual acquisition path (I6, I9)", () => {
+  it("decodes a manual path naming its retriever and origin", () => {
+    const path = Schema.decodeUnknownSync(AcquisitionPath)({
+      _tag: "manual",
+      by: "ed",
+      ref: "https://example.test/record/1",
+    });
+    assert.strictEqual(path._tag, "manual");
+    if (path._tag === "manual") {
+      assert.strictEqual(path.by, "ed");
+      assert.strictEqual(path.ref, "https://example.test/record/1");
+    }
+  });
+
+  it("accepts a manual path with no origin", () => {
+    const path = Schema.decodeUnknownSync(AcquisitionPath)({
+      _tag: "manual",
+      by: "ed",
+    });
+    assert.strictEqual(path._tag, "manual");
+  });
+
+  it("rejects a manual path with no retriever", () => {
+    assert.throws(() =>
+      Schema.decodeUnknownSync(AcquisitionPath)({ _tag: "manual" })
+    );
+  });
+
+  it("still decodes the pipeline paths unchanged", () => {
+    for (const tag of ["live", "cache", "proxy"]) {
+      const path = Schema.decodeUnknownSync(AcquisitionPath)({ _tag: tag });
+      assert.strictEqual(path._tag, tag);
+    }
+  });
+});
+
+describe("SourceSpec access classification", () => {
+  it("defaults to unknown rather than a reachable kind", () => {
+    const spec = Schema.decodeUnknownSync(SourceSpec)({
+      id: "s",
+      transport: "http",
+      url: "https://x.test",
+    });
+    assert.strictEqual(spec.access, "unknown");
+  });
+
+  it("keeps a browser-only classification through decode", () => {
+    const spec = Schema.decodeUnknownSync(SourceSpec)({
+      access: "browser_scrape",
+      id: "s",
+      transport: "http",
+      url: "https://x.test",
+    });
+    assert.strictEqual(spec.access, "browser_scrape");
+  });
+
+  it("rejects an access value outside the vocabulary", () => {
+    assert.throws(() =>
+      Schema.decodeUnknownSync(SourceSpec)({
+        access: "carrier_pigeon",
+        id: "s",
+        transport: "http",
+        url: "https://x.test",
       })
     );
   });

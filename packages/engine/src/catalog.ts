@@ -6,16 +6,20 @@ import type {
   SourceSpec,
   Step,
   TransformError,
+  TransportKind,
 } from "@viokit/schema";
 import {
   CatalogEntry,
   CatalogEntryDetail,
   CatalogService,
+  defaultTransportCapabilities,
   PackManifest,
   PackRegistrationError,
   PackRegistry,
+  runnabilityOf,
   SourceSpec as SourceSpecSchema,
   TransformRunnerService,
+  TransportCapabilities,
   UnknownCatalogEntry,
 } from "@viokit/schema";
 import { Effect, Layer, Option, Schema } from "effect";
@@ -99,15 +103,23 @@ const register = (
 
 const sourceEntry = (
   source: SourceSpec,
-  pack: string | undefined
-): CatalogEntry =>
-  CatalogEntry.make({
+  pack: string | undefined,
+  capabilities: readonly TransportKind[]
+): CatalogEntry => {
+  // Derived here from the same function the source runtime uses, so what the
+  // catalog advertises is what acquisition actually does.
+  const verdict = runnabilityOf(source, capabilities);
+  return CatalogEntry.make({
     ...(pack === undefined ? {} : { pack }),
+    ...(verdict.reason === undefined ? {} : { reason: verdict.reason }),
+    ...(source.access === undefined ? {} : { access: source.access }),
     description: `${source.transport} source at ${source.url}`,
     id: source.id,
     kind: "source",
     name: source.id,
+    runnable: verdict.runnable,
   });
+};
 
 const transformEntry = (
   transform: RegisteredTransformType,
@@ -147,6 +159,9 @@ const matches = (entry: CatalogEntry, filter: CatalogFilter | undefined) => {
     return false;
   }
   if (filter.pack !== undefined && entry.pack !== filter.pack) {
+    return false;
+  }
+  if (filter.runnable !== undefined && entry.runnable !== filter.runnable) {
     return false;
   }
   return !(
@@ -222,13 +237,19 @@ export const CatalogLayer: Layer.Layer<
     const manifests = yield* PackRegistry;
     const ontology = yield* OntologyRegistryService;
     const runner = yield* TransformRunnerService;
+    const capabilities = Option.getOrElse(
+      yield* Effect.serviceOption(TransportCapabilities),
+      () => defaultTransportCapabilities
+    );
     const registered = yield* register(manifests);
 
     const entries = Effect.gen(function* () {
       const types = yield* ontology.list;
       const out: CatalogEntry[] = [];
       for (const [id, source] of registered.sources) {
-        out.push(sourceEntry(source, registered.sourcePack.get(id)));
+        out.push(
+          sourceEntry(source, registered.sourcePack.get(id), capabilities)
+        );
       }
       for (const [id, transform] of registered.transforms) {
         out.push(transformEntry(transform, registered.transformPack.get(id)));
@@ -252,7 +273,7 @@ export const CatalogLayer: Layer.Layer<
           const source = registered.sources.get(id);
           if (source !== undefined) {
             return describeSource(
-              sourceEntry(source, registered.sourcePack.get(id))
+              sourceEntry(source, registered.sourcePack.get(id), capabilities)
             );
           }
           const type = yield* ontology.get(id);

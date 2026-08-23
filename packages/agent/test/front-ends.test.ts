@@ -1,14 +1,19 @@
 import { describe, expect, it } from "@effect/vitest";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
-import { Engine } from "@viokit/engine";
+import {
+  Engine,
+  EvidenceBackendMemory,
+  makeEngineLayer,
+  OntologyRegistryLayer,
+} from "@viokit/engine";
+import { manifest as peopleManifest } from "@viokit/packs/people-identity/manifest";
 import { manifest as webDns } from "@viokit/packs/web-dns/manifest";
 import { SourceTransportService } from "@viokit/schema";
 import { Effect, Layer } from "effect";
 import { runCli } from "../src/cli.js";
 import { makeAgentServer } from "../src/mcp.js";
 import { findOperation, operationNames } from "../src/operations.js";
-import { makeAgentProgramLayer } from "../src/program.js";
 
 const text = (value: string): Uint8Array => new TextEncoder().encode(value);
 
@@ -22,14 +27,17 @@ const transport = Layer.succeed(SourceTransportService, {
 
 /**
  * A real deployment behind both front-ends: the `web-dns` pack registered into
- * a real engine, with only the network transport stubbed.
+ * a real engine, with the transport stubbed.
+ *
+ * Built from `makeEngineLayer` rather than `makeAgentProgramLayer`, because the
+ * program layer wires its own dispatch transport — providing a stub to it does
+ * nothing, and these tests would quietly reach the real network.
  */
 const deployment = () =>
-  Layer.provide(makeAgentProgramLayer([webDns]), transport) as Layer.Layer<
-    Engine,
-    unknown,
-    never
-  >;
+  Layer.provide(
+    makeEngineLayer([webDns]),
+    Layer.mergeAll(transport, EvidenceBackendMemory, OntologyRegistryLayer)
+  ) as Layer.Layer<Engine, unknown, never>;
 
 const connect = async (layer = deployment()) => {
   const server = makeAgentServer(layer);
@@ -266,5 +274,183 @@ describe("CLI surface", () => {
 
     const missingArg = await runCli(["catalog_describe"], layer);
     expect(missingArg).toBe(1);
+  });
+});
+
+describe("manual acquisition through the front-ends (I1, I9)", () => {
+  const b64 = (value: string) => Buffer.from(value, "utf8").toString("base64");
+
+  it("turns manually retrieved bytes into content-addressed evidence", async () => {
+    const client = await connect();
+
+    const submitted = await call(client, "ingest", {
+      by: "ed",
+      content: b64("a page copied out of a login-walled portal"),
+      contentType: "text/html",
+      ref: "https://portal.test/record/42",
+    });
+
+    expect(submitted.isError).toBe(false);
+    const evidence = JSON.parse(submitted.text) as {
+      acquisitionPath: { _tag: string; by: string; ref: string };
+      id: string;
+    };
+    expect(evidence.acquisitionPath._tag).toBe("manual");
+    expect(evidence.acquisitionPath.by).toBe("ed");
+    expect(evidence.acquisitionPath.ref).toBe("https://portal.test/record/42");
+    expect(evidence.id.length).toBeGreaterThan(0);
+  });
+
+  it("collapses identical submissions to one record (I1)", async () => {
+    const client = await connect();
+    const payload = {
+      by: "ed",
+      content: b64("the same bytes twice"),
+      contentType: "text/plain",
+    };
+
+    const first = await call(client, "ingest", payload);
+    const second = await call(client, "ingest", payload);
+
+    const a = JSON.parse(first.text) as { id: string };
+    const b = JSON.parse(second.text) as { id: string };
+    expect(a.id).toBe(b.id);
+  });
+
+  it("rejects a submission with no retriever and stores nothing", async () => {
+    const client = await connect();
+    const rejected = await call(client, "ingest", {
+      content: b64("orphan bytes"),
+      contentType: "text/plain",
+    });
+    expect(rejected.isError).toBe(true);
+  });
+
+  it("rejects a payload that is not valid base64", async () => {
+    const client = await connect();
+    const rejected = await call(client, "ingest", {
+      by: "ed",
+      content: "!!! not base64 !!!",
+      contentType: "text/plain",
+    });
+    expect(rejected.isError).toBe(true);
+  });
+
+  it("submitted evidence can carry a committed step (I2)", async () => {
+    const client = await connect();
+
+    const submitted = await call(client, "ingest", {
+      by: "ed",
+      content: b64("manually retrieved record"),
+      contentType: "text/plain",
+    });
+    const evidence = JSON.parse(submitted.text) as { id: string };
+
+    const staged = await call(client, "run_transform", {
+      input: { domain: "manual.test" },
+      transformId: "crt-sh-certificate-search",
+    });
+    const [step] = JSON.parse(staged.text) as Record<string, unknown>[];
+
+    // Re-attribute the step to the manually acquired evidence.
+    const attributed = { ...step, evidenceIds: [evidence.id] };
+    const committed = await call(client, "insert", { step: attributed });
+    expect(committed.isError).toBe(false);
+  });
+
+  it("appears on the CLI as well as the tool surface (parity)", async () => {
+    expect(findOperation("ingest")).toBeDefined();
+    const code = await runCli(
+      [
+        "ingest",
+        "--content",
+        b64("via the command surface"),
+        "--contentType",
+        "text/plain",
+        "--by",
+        "ed",
+      ],
+      deployment()
+    );
+    expect(code).toBe(0);
+  });
+});
+
+describe("end-to-end: using a source the engine cannot fetch", () => {
+  const b64 = (value: string) => Buffer.from(value, "utf8").toString("base64");
+
+  const peopleDeployment = () =>
+    Layer.provide(
+      makeEngineLayer([peopleManifest]),
+      Layer.mergeAll(transport, EvidenceBackendMemory, OntologyRegistryLayer)
+    ) as Layer.Layer<Engine, unknown, never>;
+
+  it("an agent finds the source excluded, then works it manually", async () => {
+    const client = await connect(peopleDeployment());
+
+    // 1. The agent asks for what it can actually run here.
+    const usable = await call(client, "catalog_list", {
+      kind: "source",
+      runnable: true,
+    });
+    const usableIds = (JSON.parse(usable.text) as { id: string }[]).map(
+      (entry) => entry.id
+    );
+    expect(usableIds).not.toContain("voterrecords.com");
+
+    // 2. It looks at the full listing and learns why that one is missing.
+    const all = await call(client, "catalog_list", { kind: "source" });
+    const gated = (
+      JSON.parse(all.text) as {
+        access: string;
+        id: string;
+        reason: string;
+        runnable: boolean;
+      }[]
+    ).find((entry) => entry.id === "voterrecords.com");
+    expect(gated?.runnable).toBe(false);
+    expect(gated?.access).toBe("browser_scrape");
+    expect(gated?.reason).toContain("browser");
+
+    // 3. A person retrieves the record by hand and submits it as evidence.
+    const submitted = await call(client, "ingest", {
+      by: "ed",
+      content: b64("<html>voter record for J. Doe</html>"),
+      contentType: "text/html",
+      ref: "https://voterrecords.com/search?q=doe",
+    });
+    expect(submitted.isError).toBe(false);
+    const evidence = JSON.parse(submitted.text) as {
+      acquisitionPath: { _tag: string; by: string };
+      id: string;
+    };
+    expect(evidence.acquisitionPath._tag).toBe("manual");
+    expect(evidence.acquisitionPath.by).toBe("ed");
+
+    // 4. A step attributed to that evidence commits like any other (I2).
+    const step = {
+      evidenceIds: [evidence.id],
+      id: "manual-step",
+      operation: {
+        _tag: "AddEntity",
+        entity: {
+          id: "j-doe",
+          identifiers: [{ kind: "name", value: "J. Doe" }],
+          kind: "person",
+          spatialExtent: { lat: 0, lon: 0 },
+          temporalExtent: {
+            validFrom: "2024-01-01T00:00:00.000Z",
+            validTo: "2024-12-31T00:00:00.000Z",
+          },
+        },
+      },
+    };
+    const committed = await call(client, "insert", { step });
+    expect(committed.isError).toBe(false);
+
+    // 5. And it reads back out of the graph.
+    await call(client, "replay");
+    const queried = await call(client, "query_entity", { id: "j-doe" });
+    expect(queried.text).toContain("J. Doe");
   });
 });

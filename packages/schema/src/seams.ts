@@ -22,6 +22,7 @@ import type {
   RateLimited,
   RetryExhausted,
   SourceError,
+  SourceNotRunnable,
   SourceSpec,
   Step,
   StepOperation,
@@ -111,6 +112,7 @@ export interface SourceRuntime {
     | OfflineCacheMiss
     | RateLimited
     | RetryExhausted
+    | SourceNotRunnable
   >;
 }
 

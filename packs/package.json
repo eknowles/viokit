@@ -4,8 +4,10 @@
   "private": true,
   "type": "module",
   "exports": {
-    "./web-dns/manifest": "./web-dns/manifest.ts",
-    "./*": "./*"
+    "./*": "./*",
+    "./people-identity/manifest": "./people-identity/manifest.ts",
+    "./people-identity/sources": "./people-identity/sources.ts",
+    "./web-dns/manifest": "./web-dns/manifest.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"

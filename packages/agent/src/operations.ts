@@ -2,7 +2,9 @@ import type { Engine } from "@viokit/engine";
 import { Engine as EngineTag } from "@viokit/engine";
 import {
   CatalogFilter,
+  EvidenceInput,
   GraphState,
+  Manual,
   MatchRule,
   reviveJsonDates,
   Step,
@@ -22,7 +24,7 @@ import { Effect, Schema } from "effect";
  */
 
 /** How one argument arrives over a front-end boundary. */
-export type ArgKind = "string" | "number" | "json";
+export type ArgKind = "string" | "number" | "boolean" | "json";
 
 export interface ArgSpec {
   readonly description: string;
@@ -48,21 +50,44 @@ const arg = (
 ): ArgSpec => ({ description, kind, name, optional });
 
 /**
+ * Dates only ever appear nested inside a structure, so scalars pass through
+ * untouched — reviving a bare string would try to parse it as a JSON document,
+ * which a base64 payload is not.
+ */
+const revived = (value: unknown): unknown =>
+  typeof value === "object" && value !== null ? reviveJsonDates(value) : value;
+
+/**
  * Decode a payload against a shared schema at the boundary (I6).
  *
  * Payloads arrive as JSON, where dates are ISO strings; these schemas carry
  * `Date` on both sides, so the strings are revived before decoding (the same
  * boundary concern the graph store's JSON column has).
  */
-const decode = <S extends Schema.ConstraintDecoder<unknown>>(
+const tryDecode = <S extends Schema.ConstraintDecoder<unknown>>(
   schema: S,
   value: unknown
 ): Effect.Effect<S["Type"], Error> =>
   Effect.try({
     catch: (cause) =>
       cause instanceof Error ? cause : new Error(String(cause)),
-    try: () => Schema.decodeUnknownSync(schema)(reviveJsonDates(value)),
+    try: () => Schema.decodeUnknownSync(schema)(value),
   });
+
+/** Decode a payload that arrived as JSON over a front-end boundary. */
+const decode = <S extends Schema.ConstraintDecoder<unknown>>(
+  schema: S,
+  value: unknown
+): Effect.Effect<S["Type"], Error> => tryDecode(schema, revived(value));
+
+/**
+ * Decode a value assembled in this process from already-decoded parts. It skips
+ * revival, which round-trips through JSON and would destroy a `Uint8Array`.
+ */
+const decodeValue = <S extends Schema.ConstraintDecoder<unknown>>(
+  schema: S,
+  value: unknown
+): Effect.Effect<S["Type"], Error> => tryDecode(schema, value);
 
 const engine = <A, E>(
   fn: (e: Engine["Service"]) => Effect.Effect<A, E>
@@ -81,6 +106,12 @@ export const operations: readonly AgentOperation[] = [
       arg("kind", "string", "source | transform | type", true),
       arg("pack", "string", "pack slug", true),
       arg("archetype", "string", "transform archetype", true),
+      arg(
+        "runnable",
+        "boolean",
+        "narrow to sources this deployment can actually acquire",
+        true
+      ),
     ],
     description:
       "List what this deployment can do: registered sources, transforms, and ontology types.",
@@ -93,6 +124,7 @@ export const operations: readonly AgentOperation[] = [
             : { archetype: args.archetype }),
           ...(args.kind === undefined ? {} : { kind: args.kind }),
           ...(args.pack === undefined ? {} : { pack: args.pack }),
+          ...(args.runnable === undefined ? {} : { runnable: args.runnable }),
         });
         return yield* engine((e) => e.catalog(filter));
       }),
@@ -132,6 +164,39 @@ export const operations: readonly AgentOperation[] = [
         const existing = yield* decode(GraphState, args.existing);
         const rules = yield* decode(Schema.Array(MatchRule), args.rules);
         return yield* engine((e) => e.correlate(staged, existing, rules));
+      }),
+  },
+  {
+    args: [
+      arg("content", "string", "the retrieved bytes, base64-encoded"),
+      arg("contentType", "string", "media type of the retrieved bytes"),
+      arg("by", "string", "who retrieved it"),
+      arg("ref", "string", "where it came from (URL, case reference)", true),
+    ],
+    description:
+      "Submit externally acquired bytes as evidence, recorded as manually retrieved. For sources the engine cannot fetch: a person or an agent retrieves the artifact and submits it here.",
+    name: "ingest",
+    run: (args) =>
+      Effect.gen(function* () {
+        // Binary cannot cross a JSON boundary as a Uint8Array — encoding one
+        // yields an index-keyed object that will not decode back — so it
+        // arrives base64 and is converted by the shared codec (I6).
+        const bytes = yield* decode(
+          Schema.Uint8ArrayFromBase64,
+          String(args.content)
+        );
+        const acquiredAt = new Date();
+        const input = yield* decodeValue(EvidenceInput, {
+          acquiredAt,
+          acquisitionPath: Manual.make({
+            by: String(args.by),
+            ...(args.ref === undefined ? {} : { ref: String(args.ref) }),
+          }),
+          bytes,
+          contentType: String(args.contentType),
+          observedAt: acquiredAt,
+        });
+        return yield* engine((e) => e.ingest(input));
       }),
   },
   {

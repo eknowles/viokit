@@ -175,7 +175,18 @@ export class AcqProxy extends Schema.TaggedClass<AcqProxy>()("proxy", {
   ref: Schema.optionalKey(Schema.String),
 }) {}
 
-export const AcquisitionPath = Schema.Union([Live, Cache, AcqProxy]);
+/**
+ * Evidence a person (or an agent driving an interface by hand) retrieved, for
+ * sources no transport here can reach. `by` is required: unlike the pipeline
+ * paths, where the actor is implicit, a human act has an actor worth naming,
+ * and evidence that cannot say who obtained it is weak evidence (I9).
+ */
+export class Manual extends Schema.TaggedClass<Manual>()("manual", {
+  by: Schema.String,
+  ref: Schema.optionalKey(Schema.String),
+}) {}
+
+export const AcquisitionPath = Schema.Union([Live, Cache, AcqProxy, Manual]);
 export type AcquisitionPath = typeof AcquisitionPath.Type;
 
 const evidenceFields = {
@@ -271,7 +282,24 @@ export class Step extends Schema.Class<Step>("Step")({
   operation: StepOperation,
 }) {}
 
+/**
+ * How a source is reached. Shared with the discovery harness's candidate record
+ * (`catalog.ts`): the same fact before and after promotion, so it is defined
+ * once rather than as two vocabularies that drift. Distinct from `Transport`,
+ * which is the mechanism the runtime uses; `browser_scrape` and `requires_key`
+ * describe sources no transport here can reach unaided.
+ */
+export const SourceAccess = Schema.Literals([
+  "open_api",
+  "dataset",
+  "browser_scrape",
+  "requires_key",
+  "unknown",
+]);
+export type SourceAccess = typeof SourceAccess.Type;
+
 export class SourceSpec extends Schema.Class<SourceSpec>("SourceSpec")({
+  access: withDefault(SourceAccess, "unknown"),
   auth: Schema.optionalKey(SourceAuth),
   cache: withDefault(
     CachePolicy,
@@ -382,6 +410,18 @@ export class OfflineCacheMiss extends Schema.TaggedErrorClass<OfflineCacheMiss>(
 
 export class EgressDisabledError extends Schema.TaggedErrorClass<EgressDisabledError>()(
   "EgressDisabled",
+  {
+    message: Schema.String,
+  }
+) {}
+
+/**
+ * A source this deployment cannot acquire: it needs a transport that is not
+ * provided (browser), or credentials that are not configured. Raised before any
+ * transport call, so the caller learns the reason instead of a network failure.
+ */
+export class SourceNotRunnable extends Schema.TaggedErrorClass<SourceNotRunnable>()(
+  "SourceNotRunnable",
   {
     message: Schema.String,
   }

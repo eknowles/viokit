@@ -9,15 +9,19 @@ import type {
 import {
   AcqProxy,
   Cache,
+  defaultTransportCapabilities,
   type EgressDisabledError,
   Live,
   OfflineCacheMiss,
   type RateLimited,
   RetryExhausted,
+  runnabilityOf,
+  SourceNotRunnable,
   SourceRuntimeService,
   SourceTransportService,
+  TransportCapabilities,
 } from "@viokit/schema";
-import { Clock, Duration, Effect, Layer, Schedule } from "effect";
+import { Clock, Duration, Effect, Layer, Option, Schedule } from "effect";
 import type { CacheStore } from "./cache.js";
 import {
   CacheService,
@@ -153,10 +157,25 @@ export const SourceRuntimeLayer: Layer.Layer<
     const rateLimiter = yield* RateLimiterService;
     const transport = yield* SourceTransportService;
     const clock = yield* Clock.Clock;
+    const capabilities = Option.getOrElse(
+      yield* Effect.serviceOption(TransportCapabilities),
+      () => defaultTransportCapabilities
+    );
 
     return {
       run: (source) =>
         Effect.gen(function* () {
+          // Runnability is acquisition policy, so it is decided here and not by
+          // a transform or a front-end (I4/I10) — and decided *before* any
+          // transport call, so a browser-only source yields its reason rather
+          // than a network error that looks like a bug.
+          const runnable = runnabilityOf(source, capabilities);
+          if (!runnable.runnable) {
+            return yield* SourceNotRunnable.make({
+              message: `source '${source.id}' cannot be acquired here: ${runnable.reason ?? "unknown reason"}`,
+            });
+          }
+
           const now = yield* clock.currentTimeMillis;
           const fingerprint = requestFingerprint(source);
           const policy = cachePolicyOf(source);

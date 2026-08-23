@@ -1,4 +1,6 @@
 import { assert, describe, layer } from "@effect/vitest";
+import { manifest as peopleManifest } from "@viokit/packs/people-identity/manifest";
+import { judyrecords_com } from "@viokit/packs/people-identity/sources";
 import { manifest } from "@viokit/packs/web-dns/manifest";
 import { SourceTransportService } from "@viokit/schema";
 import { Effect, Layer } from "effect";
@@ -85,6 +87,68 @@ describe("registering the web-dns pack", () => {
             relationType: "presents-certificate",
           },
         ]);
+      })
+    );
+  });
+});
+
+const peopleIdentity = Layer.provide(
+  makeEngineLayer([peopleManifest]),
+  Layer.mergeAll(transport, EvidenceBackendMemory, OntologyRegistryLayer)
+);
+
+/**
+ * The case this whole change exists for: a real pack whose sources are mostly
+ * not acquirable here.
+ */
+describe("registering a pack whose sources are browser-gated", () => {
+  layer(peopleIdentity)((it) => {
+    it.effect("reports the browser-only sources as present but unusable", () =>
+      Effect.gen(function* () {
+        const engine = yield* Engine;
+        const entries = yield* engine.catalog({ kind: "source" });
+        assert.strictEqual(entries.length, 5);
+
+        const gated = entries.filter((entry) => entry.runnable === false);
+        assert.deepStrictEqual(gated.map((entry) => entry.id).sort(), [
+          "judyrecords.com",
+          "voterrecords.com",
+        ]);
+        for (const entry of gated) {
+          assert.strictEqual(entry.access, "browser_scrape");
+          assert.include(entry.reason ?? "", "browser");
+        }
+      })
+    );
+
+    it.effect(
+      "narrows to the sources this deployment can actually acquire",
+      () =>
+        Effect.gen(function* () {
+          const engine = yield* Engine;
+          const usable = yield* engine.catalog({
+            kind: "source",
+            runnable: true,
+          });
+          assert.strictEqual(usable.length, 3);
+          assert.isFalse(
+            usable.some((entry) => entry.id.includes("judyrecords"))
+          );
+        })
+    );
+
+    it.effect("refuses to acquire a browser-only source, with its reason", () =>
+      Effect.gen(function* () {
+        const engine = yield* Engine;
+        const result = yield* Effect.result(engine.acquire(judyrecords_com));
+
+        assert.strictEqual(result._tag, "Failure");
+        if (result._tag === "Failure") {
+          assert.strictEqual(
+            (result.failure as { _tag: string })._tag,
+            "SourceNotRunnable"
+          );
+        }
       })
     );
   });

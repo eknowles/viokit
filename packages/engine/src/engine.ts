@@ -19,6 +19,7 @@ import type {
   RelatedEntity,
   RetryExhausted,
   SourceError,
+  SourceNotRunnable,
   SourceSpec,
   Step,
   StepOperation,
@@ -67,6 +68,7 @@ export class Engine extends Context.Service<
       | OfflineCacheMiss
       | RateLimited
       | RetryExhausted
+      | SourceNotRunnable
     >;
     readonly ingest: (
       input: EvidenceInput

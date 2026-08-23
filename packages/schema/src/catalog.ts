@@ -1,4 +1,5 @@
 import { Schema } from "effect";
+import { SourceAccess } from "./schemas.js";
 
 /**
  * Lifecycle of a source candidate in the discovery harness.
@@ -12,16 +13,6 @@ export const SourceCandidateStatus = Schema.Literals([
   "rejected",
 ]);
 export type SourceCandidateStatus = typeof SourceCandidateStatus.Type;
-
-/** How a source is reached. Distinct from its `SourceSpec.transport`. */
-export const SourceAccess = Schema.Literals([
-  "open_api",
-  "dataset",
-  "browser_scrape",
-  "requires_key",
-  "unknown",
-]);
-export type SourceAccess = typeof SourceAccess.Type;
 
 export const SourceTransportKind = Schema.Literals([
   "http",

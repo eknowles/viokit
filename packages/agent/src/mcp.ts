@@ -35,6 +35,9 @@ const baseFor = (kind: ArgSpec["kind"]) => {
   if (kind === "number") {
     return z.number();
   }
+  if (kind === "boolean") {
+    return z.boolean();
+  }
   if (kind === "json") {
     return z.unknown();
   }

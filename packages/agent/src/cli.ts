@@ -36,6 +36,9 @@ const coerce = (spec: ArgSpec, raw: string): unknown => {
   if (spec.kind === "number") {
     return Number(raw);
   }
+  if (spec.kind === "boolean") {
+    return raw !== "false";
+  }
   if (spec.kind === "json") {
     return JSON.parse(raw);
   }

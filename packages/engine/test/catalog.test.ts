@@ -309,3 +309,71 @@ describe("catalog without registered packs", () => {
     );
   });
 });
+
+const gatedPack = PackManifest.make({
+  pack: "gated",
+  sources: [
+    SourceSpec.make({
+      access: "browser_scrape",
+      id: "web-only",
+      transport: "http",
+      url: "https://web-only.test",
+    }),
+    SourceSpec.make({
+      access: "requires_key",
+      id: "key-gated",
+      transport: "http",
+      url: "https://key-gated.test",
+    }),
+    SourceSpec.make({
+      access: "open_api",
+      id: "reachable",
+      transport: "http",
+      url: "https://reachable.test",
+    }),
+  ],
+  transforms: [],
+});
+
+const withGated = Layer.provide(makeEngineLayer([gatedPack]), deployment);
+
+describe("catalog reports runnability", () => {
+  layer(withGated)((it) => {
+    it.effect("marks an unusable source and gives the reason", () =>
+      Effect.gen(function* () {
+        const engine = yield* Engine;
+        const entries = yield* engine.catalog({ kind: "source" });
+
+        const webOnly = entries.find((entry) => entry.id === "web-only");
+        assert.strictEqual(webOnly?.runnable, false);
+        assert.include(webOnly?.reason ?? "", "browser");
+        assert.strictEqual(webOnly?.access, "browser_scrape");
+
+        const keyGated = entries.find((entry) => entry.id === "key-gated");
+        assert.strictEqual(keyGated?.runnable, false);
+        assert.include(keyGated?.reason ?? "", "credentials");
+      })
+    );
+
+    it.effect("narrows a listing to what is usable here", () =>
+      Effect.gen(function* () {
+        const engine = yield* Engine;
+        const usable = yield* engine.catalog({ runnable: true });
+        assert.deepStrictEqual(
+          usable.map((entry) => entry.id),
+          ["reachable"]
+        );
+      })
+    );
+
+    it.effect("reports registration in full when unfiltered", () =>
+      Effect.gen(function* () {
+        const engine = yield* Engine;
+        const all = yield* engine.catalog({ kind: "source" });
+        assert.strictEqual(all.length, 3);
+        // Every source carries a verdict, runnable or not.
+        assert.isTrue(all.every((entry) => entry.runnable !== undefined));
+      })
+    );
+  });
+});

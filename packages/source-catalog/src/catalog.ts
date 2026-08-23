@@ -116,12 +116,24 @@ export const SourceCatalogLayer = Layer.effect(
                   })
                 );
               }
+              // Carry the candidate's classification into the promoted spec
+              // unless the author set one. Losing it here is what left the
+              // catalog unable to say which sources a deployment can run.
+              const withAccess =
+                typeof spec === "object" && spec !== null
+                  ? {
+                      ...(candidate.access === undefined
+                        ? {}
+                        : { access: candidate.access }),
+                      ...(spec as Record<string, unknown>),
+                    }
+                  : spec;
               yield* promoter.writeSource(
                 candidate.category,
                 candidate.domain,
-                spec
+                withAccess
               );
-              return yield* store.markPromoted(parsedId, spec);
+              return yield* store.markPromoted(parsedId, withAccess);
             })
           )
         ),
