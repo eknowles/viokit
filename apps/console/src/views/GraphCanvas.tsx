@@ -3,6 +3,14 @@ import type { Client } from "../client.js";
 import { OperationFailure } from "../client.js";
 import type { GraphSnapshot, PlacedNode } from "../graph-layout.js";
 import { atTime, extentRange, layout } from "../graph-layout.js";
+import type { EvidenceRecord, StepRecord } from "../provenance.js";
+import {
+  decodeContent,
+  describeAcquisition,
+  describeOperation,
+  isPreviewable,
+  stepsFor,
+} from "../provenance.js";
 
 /**
  * The graph pane (TDR-020): the replayed graph as nodes and edges, filtered to
@@ -17,6 +25,128 @@ const SIZE = 600;
 const NODE_RADIUS = 7;
 
 const iso = (ms: number) => new Date(ms).toISOString().slice(0, 10);
+
+/** One evidence record, or null — a gap in the trail is shown as a gap. */
+const readRecord = async (
+  client: Client,
+  id: string
+): Promise<EvidenceRecord | null> => {
+  try {
+    return (await client.call("evidence_get", { id })) as EvidenceRecord;
+  } catch {
+    return null;
+  }
+};
+
+const Provenance = ({
+  client,
+  entityId,
+}: {
+  readonly client: Client;
+  readonly entityId: string;
+}) => {
+  const [steps, setSteps] = useState<readonly StepRecord[] | null>(null);
+  const [evidence, setEvidence] = useState<Record<string, EvidenceRecord>>({});
+  const [preview, setPreview] = useState<{ id: string; text: string } | null>(
+    null
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    setPreview(null);
+    client
+      .call("log")
+      .then(async (result) => {
+        const found = stepsFor(result as StepRecord[], entityId);
+        if (cancelled) {
+          return;
+        }
+        setSteps(found);
+        const ids = [...new Set(found.flatMap((step) => step.evidenceIds))];
+        const records = await Promise.all(
+          ids.map((id) => readRecord(client, id))
+        );
+        if (!cancelled) {
+          const byId: Record<string, EvidenceRecord> = {};
+          for (const record of records) {
+            if (record !== null) {
+              const evidenceRecord = record as EvidenceRecord;
+              byId[evidenceRecord.id] = evidenceRecord;
+            }
+          }
+          setEvidence(byId);
+        }
+      })
+      .catch(() => setSteps([]));
+    return () => {
+      cancelled = true;
+    };
+  }, [client, entityId]);
+
+  const show = (id: string) => {
+    client
+      .call("evidence_get", { id, includeContent: true })
+      .then((record) => {
+        const withContent = record as EvidenceRecord;
+        setPreview({
+          id,
+          text: decodeContent(withContent.content ?? ""),
+        });
+      })
+      .catch(() => setPreview({ id, text: "" }));
+  };
+
+  if (steps === null) {
+    return <p className="hint">Reading the trail…</p>;
+  }
+  if (steps.length === 0) {
+    return (
+      <p className="hint">
+        No steps in the log name this entity — its provenance cannot be shown.
+      </p>
+    );
+  }
+
+  return (
+    <div>
+      <h3>How this got here</h3>
+      {steps.map((step) => (
+        <div className="trail-step" key={step.id}>
+          <div>{describeOperation(step)}</div>
+          {step.evidenceIds.map((id) => {
+            const record = evidence[id];
+            return (
+              <div className="trail-evidence" key={id}>
+                <code>{id}</code>
+                {record === undefined ? (
+                  <span className="hint"> — evidence not found</span>
+                ) : (
+                  <>
+                    <span className="hint">
+                      {" "}
+                      — {describeAcquisition(record.acquisitionPath)},{" "}
+                      {record.contentType}, {record.byteLength} bytes
+                    </span>
+                    {isPreviewable(record.contentType) ? (
+                      <button onClick={() => show(id)} type="button">
+                        view artifact
+                      </button>
+                    ) : null}
+                  </>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      ))}
+      {preview === null ? null : (
+        // Inserted as text, never as markup: a captured page must not execute
+        // in the console.
+        <pre>{preview.text || "(no content)"}</pre>
+      )}
+    </div>
+  );
+};
 
 const NodeDetail = ({ node }: { readonly node: PlacedNode }) => (
   <div className="detail">
@@ -208,6 +338,7 @@ export const GraphCanvasView = ({
             clear selection
           </button>
           <NodeDetail node={selectedNode} />
+          <Provenance client={client} entityId={selectedNode.entity.id} />
         </div>
       )}
     </div>

@@ -232,3 +232,87 @@ describe("view state over the surface (I12)", () => {
     expect(findOperation("view_state_save")).toBeDefined();
   });
 });
+
+describe("following a step to its evidence (I2)", () => {
+  const b64 = (value: string) => Buffer.from(value, "utf8").toString("base64");
+
+  const submit = (h: (r: Request) => Promise<Response>, content: string) =>
+    post(h, "ingest", {
+      by: "ed",
+      content: b64(content),
+      contentType: "text/plain",
+      ref: "https://portal.test/record",
+    });
+
+  it("returns the record without its bytes by default", async () => {
+    const h = handler();
+    const stored = (await (await submit(h, "the artifact")).json()) as {
+      id: string;
+    };
+
+    const fetched = await post(h, "evidence_get", { id: stored.id });
+    expect(fetched.status).toBe(200);
+    const record = (await fetched.json()) as {
+      acquisitionPath: { _tag: string; by: string };
+      byteLength: number;
+      content?: string;
+      id: string;
+    };
+    expect(record.id).toBe(stored.id);
+    expect(record.acquisitionPath._tag).toBe("manual");
+    expect(record.acquisitionPath.by).toBe("ed");
+    expect(record.byteLength).toBe("the artifact".length);
+    expect(record.content).toBeUndefined();
+  });
+
+  it("returns the artifact's bytes when asked", async () => {
+    const h = handler();
+    const stored = (await (await submit(h, "the artifact")).json()) as {
+      id: string;
+    };
+
+    const fetched = await post(h, "evidence_get", {
+      id: stored.id,
+      includeContent: true,
+    });
+    const record = (await fetched.json()) as { content: string };
+    expect(Buffer.from(record.content, "base64").toString("utf8")).toBe(
+      "the artifact"
+    );
+  });
+
+  it("reads an unknown identifier as absent, not an error", async () => {
+    const fetched = await post(handler(), "evidence_get", {
+      id: "0000000000000000",
+    });
+    expect(fetched.status).toBe(200);
+    expect(await fetched.json()).toBeNull();
+  });
+
+  it("a committed step leads to the evidence it was attributed to", async () => {
+    const h = handler();
+    const staged = await post(h, "run_transform", {
+      input: { domain: "trail.test" },
+      transformId: "crt-sh-certificate-search",
+    });
+    const steps = (await staged.json()) as { evidenceIds: string[] }[];
+    const [first] = steps;
+    const evidenceRef = first?.evidenceIds[0];
+
+    const fetched = await post(h, "evidence_get", { id: evidenceRef });
+    const record = (await fetched.json()) as {
+      acquisitionPath: { _tag: string };
+    };
+    // The step names evidence, and the evidence is retrievable — I2 verifiable
+    // from outside the engine for the first time.
+    expect(record.acquisitionPath._tag).toBeDefined();
+  });
+
+  it("reading evidence appends no step", async () => {
+    const h = handler();
+    const stored = (await (await submit(h, "x")).json()) as { id: string };
+    const before = await (await post(h, "log")).json();
+    await post(h, "evidence_get", { id: stored.id, includeContent: true });
+    expect(await (await post(h, "log")).json()).toEqual(before);
+  });
+});

@@ -6,7 +6,9 @@ import type {
   EgressDisabledError,
   Entity,
   Evidence,
+  EvidenceId,
   EvidenceInput,
+  EvidenceReadError,
   EvidenceWriteError,
   ExtentHit,
   GraphPath,
@@ -78,6 +80,11 @@ export class Engine extends Context.Service<
     readonly ingest: (
       input: EvidenceInput
     ) => Effect.Effect<Evidence, EvidenceWriteError>;
+    /** Read a stored artifact back. Absent for an unknown id: a caller
+     * following a trail into a gap should see a gap, not an exception. */
+    readonly evidence: (
+      id: EvidenceId
+    ) => Effect.Effect<Option.Option<Evidence>, EvidenceReadError>;
     readonly insert: (step: Step) => Effect.Effect<Step, ProvenanceError>;
     readonly log: Effect.Effect<readonly Step[]>;
     readonly queryEntity: (id: string) => Effect.Effect<Option.Option<Entity>>;
@@ -165,7 +172,7 @@ const engineLayerWith = (registry: Layer.Layer<PackRegistry>) =>
   Layer.effect(
     Engine,
     Effect.gen(function* () {
-      const evidence = yield* EvidenceService;
+      const evidenceStore = yield* EvidenceService;
       const graph = yield* DuckDBGraphService;
       const runtime = yield* SourceRuntimeService;
       const transform = yield* TransformRunnerService;
@@ -177,13 +184,14 @@ const engineLayerWith = (registry: Layer.Layer<PackRegistry>) =>
         acquire: (source) =>
           Effect.gen(function* () {
             const input = yield* runtime.run(source);
-            return yield* evidence.put(input);
+            return yield* evidenceStore.put(input);
           }),
         catalog: (filter) => catalog.list(filter),
         correlate: (staged, existing, rules) =>
           correlate.resolve(staged, existing, rules),
         describe: (id) => catalog.describe(id),
-        ingest: (input) => evidence.put(input),
+        evidence: (id) => evidenceStore.get(id),
+        ingest: (input) => evidenceStore.put(input),
         insert: (step) => graph.insert(step),
         loadViewState: (key, version) => viewState.load(key, version),
         log: graph.log,

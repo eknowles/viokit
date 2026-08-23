@@ -252,3 +252,17 @@ svg[aria-label="investigation graph"] {
   width: 120px;
   color: var(--dim);
 }
+
+/* Evidence trail */
+.trail-step {
+  padding-left: 12px;
+  margin: 8px 0;
+  border-left: 2px solid var(--line);
+}
+.trail-evidence {
+  margin: 4px 0;
+}
+.trail-evidence button {
+  padding: 2px 8px;
+  margin-left: 8px;
+}

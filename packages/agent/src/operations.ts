@@ -4,6 +4,7 @@ import {
   CatalogFilter,
   defaultInvestigation,
   EvidenceInput,
+  evidenceId,
   GraphState,
   localUser,
   Manual,
@@ -13,7 +14,7 @@ import {
   ViewStateDocument,
   ViewStateKey,
 } from "@viokit/schema";
-import { Effect, Schema } from "effect";
+import { Effect, Option, Schema } from "effect";
 
 /**
  * The one operation table both front-ends are built from. Front-ends map this
@@ -211,6 +212,51 @@ export const operations: readonly AgentOperation[] = [
           id: stored.id,
           observedAt: stored.observedAt,
         };
+      }),
+  },
+  {
+    args: [
+      arg("id", "string", "evidence identifier (the content hash)"),
+      arg(
+        "includeContent",
+        "boolean",
+        "return the artifact's bytes, base64-encoded",
+        true
+      ),
+    ],
+    description:
+      "Read a stored artifact back: how it was acquired, when, and what type. Content is withheld unless asked for, because artifacts can be large and a trail usually wants the record.",
+    name: "evidence_get",
+    run: (args) =>
+      Effect.gen(function* () {
+        const found = yield* engine((e) =>
+          e.evidence(evidenceId(String(args.id)))
+        );
+        if (Option.isNone(found)) {
+          return null;
+        }
+        const record = found.value;
+        const summary = {
+          acquiredAt: record.acquiredAt,
+          acquisitionPath: record.acquisitionPath,
+          byteLength: record.bytes.byteLength,
+          contentType: record.contentType,
+          id: record.id,
+          observedAt: record.observedAt,
+        };
+        if (args.includeContent !== true) {
+          return summary;
+        }
+        // Same boundary fact as `ingest`: a JSON-encoded Uint8Array is an
+        // index-keyed object that will not decode back, so bytes travel as
+        // base64 through the shared codec.
+        const content = yield* Effect.try({
+          catch: (cause) =>
+            cause instanceof Error ? cause : new Error(String(cause)),
+          try: () =>
+            Schema.encodeUnknownSync(Schema.Uint8ArrayFromBase64)(record.bytes),
+        });
+        return { ...summary, content };
       }),
   },
   {
