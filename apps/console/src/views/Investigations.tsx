@@ -1,3 +1,4 @@
+import { Button } from "@viokit/ui";
 import { useCallback, useEffect, useState } from "react";
 import type { Client } from "../client.js";
 import { OperationFailure } from "../client.js";
@@ -107,7 +108,9 @@ export const InvestigationBar = ({
 
   return (
     <div className="investigations">
-      <label htmlFor="investigation">Case</label>
+      <label className="vk-micro vk-dim" htmlFor="investigation">
+        case
+      </label>
       <select
         disabled={busy || open === null}
         id="investigation"
@@ -127,21 +130,21 @@ export const InvestigationBar = ({
       </select>
       {naming === null ? (
         <>
-          <button
+          <Button
             disabled={busy}
             onClick={() => startNaming("new")}
-            type="button"
+            tone="line"
           >
             New
-          </button>
-          <button
+          </Button>
+          <Button
             disabled={busy || open === null}
             onClick={() => startNaming("branch")}
             title="Work a hypothesis without disturbing this case"
-            type="button"
+            tone="line"
           >
             Branch
-          </button>
+          </Button>
         </>
       ) : (
         <>
@@ -159,12 +162,12 @@ export const InvestigationBar = ({
             placeholder={naming === "branch" ? "branch name" : "case name"}
             value={draft}
           />
-          <button disabled={busy} onClick={submitName} type="button">
+          <Button disabled={busy} onClick={submitName} tone="ink">
             {naming === "branch" ? "Branch" : "Create"}
-          </button>
-          <button onClick={() => setNaming(null)} type="button">
+          </Button>
+          <Button onClick={() => setNaming(null)} tone="line">
             Cancel
-          </button>
+          </Button>
         </>
       )}
       {problem === null ? null : <span className="error">{problem}</span>}

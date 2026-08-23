@@ -2,6 +2,10 @@
   "$schema": "./node_modules/@effect/tsgo/schema.json",
   "extends": "./tsconfig.base.json",
   "include": ["packages/*/src/**/*.ts", "packages/*/test/**/*.ts"],
+  // @viokit/ui is a browser package: React, JSX and the DOM lib, none of which
+  // this config (tuned for the Effect backend) provides. It typechecks under
+  // its own tsconfig, which the root `typecheck` script chains to.
+  "exclude": ["packages/ui"],
   "compilerOptions": {
     "types": ["node", "bun-types"],
     "plugins": [

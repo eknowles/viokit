@@ -1,0 +1,69 @@
+/* Entity record: a header with the curation actions, a key/value field list,
+   and the evidence block. The evidence block is bordered rather than inline
+   because "where did this come from" is the claim the whole product rests on
+   and should not read as a footnote. */
+
+@layer vk.components {
+  .vk-record {
+    padding-bottom: var(--vk-space-5);
+  }
+
+  .vk-record__head {
+    display: flex;
+    gap: var(--vk-space-4);
+    align-items: center;
+    padding: var(--vk-space-4) var(--vk-space-5);
+    border-bottom: 1px solid var(--vk-border);
+  }
+
+  .vk-record__title {
+    font-size: var(--vk-console-text);
+    font-weight: var(--vk-weight-medium);
+    letter-spacing: var(--vk-track-tight);
+  }
+
+  .vk-fields {
+    display: grid;
+    grid-template-columns: var(--vk-fields-label-w, 104px) 1fr;
+    align-items: center;
+  }
+
+  .vk-fields__pair {
+    display: contents;
+  }
+
+  .vk-fields dt,
+  .vk-fields dd {
+    display: flex;
+    align-items: center;
+    height: var(--vk-row-head-h);
+    padding: 0 var(--vk-cell-pad);
+    border-bottom: 1px solid var(--vk-border);
+  }
+
+  .vk-fields dt {
+    color: var(--vk-tool-dim);
+  }
+
+  .vk-fields dd {
+    font-size: var(--vk-console-text-sm);
+  }
+
+  .vk-evidence {
+    padding: var(--vk-space-4) var(--vk-space-5);
+    margin: var(--vk-space-5);
+    background: var(--vk-tool-head);
+    border: 1px solid var(--vk-border);
+  }
+
+  .vk-evidence__body {
+    margin-top: var(--vk-space-2);
+    font-size: var(--vk-console-text-sm);
+  }
+
+  .vk-evidence__seal {
+    display: block;
+    margin-top: var(--vk-space-2);
+    color: var(--vk-ok);
+  }
+}

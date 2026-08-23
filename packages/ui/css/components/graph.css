@@ -1,0 +1,30 @@
+/* Canvas surface with a time rail pinned under it. The scrubber is 28px and
+   always present, because a graph without a time axis silently implies every
+   edge is current. */
+
+@layer vk.components {
+  .vk-canvas {
+    display: grid;
+    grid-template-rows: 1fr var(--vk-scrubber-h);
+    height: 100%;
+  }
+
+  .vk-canvas > svg {
+    width: 100%;
+    height: 100%;
+  }
+
+  .vk-scrubber {
+    display: flex;
+    gap: var(--vk-space-4);
+    align-items: center;
+    padding: 0 var(--vk-space-5);
+    border-top: 1px solid var(--vk-border);
+  }
+
+  .vk-scrubber input[type="range"] {
+    flex: 1;
+    height: 2px;
+    accent-color: var(--vk-accent-strong);
+  }
+}

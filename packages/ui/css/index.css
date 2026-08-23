@@ -1,0 +1,31 @@
+/* Viokit design system — the single stylesheet a console app links.
+   Pure CSS: no build step, no preprocessor, no CSS-in-JS. React components in
+   this package emit these class names and nothing else, so the same system is
+   equally usable from plain HTML, Astro, or any other framework. */
+
+@import "./layers.css";
+
+@import "./tokens.css";
+
+@import "./base/reset.css";
+
+@import "./components/app-shell.css";
+@import "./components/rail.css";
+@import "./components/topbar.css";
+@import "./components/pane.css";
+@import "./components/toolbar.css";
+@import "./components/button.css";
+@import "./components/data-grid.css";
+@import "./components/indicators.css";
+@import "./components/record.css";
+@import "./components/log.css";
+@import "./components/blank-slate.css";
+@import "./components/field.css";
+@import "./components/dialog.css";
+@import "./components/tray.css";
+@import "./components/graph.css";
+
+/* Utilities last, so their layer is registered after the component layer even
+   if a bundler drops the @layer order statement above and falls back to
+   ordering layers by first appearance. */
+@import "./base/utilities.css";

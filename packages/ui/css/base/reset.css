@@ -1,0 +1,70 @@
+/* Minimal reset. Lives in `vk.base`, below `vk.components`, so a component rule
+   never has to out-specify it — and below anything unlayered an app writes.
+
+   Deliberately narrow: it does not touch headings, lists, tables or form
+   controls beyond what the console chrome needs, because a design system that
+   silently restyles every element in a host app is a liability. */
+
+@layer vk.base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  * {
+    margin: 0;
+  }
+
+  body {
+    font-family: var(--vk-font-sans);
+    font-size: var(--vk-console-text);
+    -webkit-font-smoothing: antialiased;
+    line-height: var(--vk-console-lh);
+    color: var(--vk-tool-text);
+    background: var(--vk-tool-bg);
+  }
+
+  button {
+    font: inherit;
+    cursor: pointer;
+  }
+
+  a {
+    color: inherit;
+  }
+
+  svg {
+    display: block;
+  }
+
+  :focus-visible {
+    outline: 1px solid var(--vk-accent-strong);
+    outline-offset: 1px;
+  }
+
+  /* Opt-in viewport lock for full-screen app shells: put class="vk-viewport" on
+     <html>. Not applied unconditionally, because a documentation page that
+     imports this stylesheet still needs to scroll. */
+  html.vk-viewport,
+  html.vk-viewport body {
+    height: 100%;
+    overflow: hidden;
+  }
+}
+
+/* Honour a reduced-motion preference across the whole system. Sits in the
+   lowest component-facing layer deliberately: for `!important` the cascade
+   reverses, so a rule here outranks an app's own !important animation. */
+@layer vk.base {
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      scroll-behavior: auto !important;
+      transition-duration: 0.01ms !important;
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+    }
+  }
+}

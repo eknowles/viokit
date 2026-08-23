@@ -1,0 +1,68 @@
+/* Typographic tiers and layout helpers shared by every console component.
+   These are the four voices the dense UI speaks in — micro label, mono metric,
+   body, dim — and nothing else. Keeping them here means a component's CSS says
+   what it *is*, not what size its label happens to be. */
+
+@layer vk.utilities {
+  .vk-micro {
+    font-family: var(--vk-font-mono);
+    font-size: var(--vk-console-micro);
+    text-transform: uppercase;
+    letter-spacing: var(--vk-track-micro);
+  }
+
+  .vk-mono {
+    font-family: var(--vk-font-mono);
+    font-size: var(--vk-console-mono);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .vk-dim {
+    color: var(--vk-tool-dim);
+  }
+
+  .vk-meta {
+    color: var(--vk-tool-meta);
+  }
+
+  .vk-ok {
+    color: var(--vk-ok);
+  }
+
+  .vk-danger {
+    color: var(--vk-danger);
+  }
+
+  .vk-spacer {
+    flex: 1;
+  }
+
+  .vk-fill {
+    height: 100%;
+  }
+
+  .vk-truncate {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .vk-nowrap {
+    white-space: nowrap;
+  }
+
+  /* Reachable by a screen reader, invisible on screen. The icon rail is glyphs
+     only, so its buttons need a name that is not the tooltip. */
+  .vk-sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    white-space: nowrap;
+    border: 0;
+    clip-path: inset(50%);
+  }
+}

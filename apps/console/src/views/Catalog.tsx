@@ -1,3 +1,11 @@
+import {
+  BlankSlate,
+  Button,
+  DataGrid,
+  type DataGridColumn,
+  FilterChip,
+  Toolbar,
+} from "@viokit/ui";
 import { useEffect, useState } from "react";
 import type { Client } from "../client.js";
 import { OperationFailure } from "../client.js";
@@ -39,6 +47,78 @@ const Status = ({
   );
 };
 
+/**
+ * The grid keys on `${kind}:${id}` because ids are only unique within a kind —
+ * a source and a transform may legitimately share one.
+ */
+const rowKey = (entry: Entry): string => `${entry.kind}:${entry.id}`;
+
+/** The grid's row shape: the catalog entry plus the composite key it needs. */
+type Row = Entry & { readonly catalogId: string; readonly id: string };
+
+const COLUMNS = (
+  onLaunch: (id: string) => void
+): readonly DataGridColumn<Row>[] => [
+  {
+    key: "id",
+    label: "id",
+    render: (entry) => (
+      <>
+        <strong>{entry.catalogId}</strong>
+        {entry.description === undefined ? null : (
+          <div className="hint">{entry.description}</div>
+        )}
+      </>
+    ),
+    strong: true,
+  },
+  {
+    dim: true,
+    key: "kind",
+    label: "kind",
+    render: (entry) =>
+      entry.archetype === undefined
+        ? entry.kind
+        : `${entry.kind} · ${entry.archetype}`,
+  },
+  {
+    dim: true,
+    key: "pack",
+    label: "pack",
+    render: (entry) => entry.pack ?? "—",
+  },
+  {
+    dim: true,
+    key: "access",
+    label: "access",
+    mono: true,
+    render: (entry) => entry.access ?? "—",
+  },
+  {
+    key: "status",
+    label: "status",
+    render: (entry) => (
+      <>
+        <Status reason={entry.reason} runnable={entry.runnable} />
+        {entry.reason === undefined ? null : (
+          <div className="hint">{entry.reason}</div>
+        )}
+      </>
+    ),
+  },
+  {
+    align: "right",
+    key: "launch",
+    label: "",
+    render: (entry) =>
+      entry.kind === "transform" ? (
+        <Button onClick={() => onLaunch(entry.catalogId)} tone="line">
+          launch
+        </Button>
+      ) : null,
+  },
+];
+
 export const CatalogView = ({
   client,
   onLaunch,
@@ -77,74 +157,43 @@ export const CatalogView = ({
   }, [client, runnableOnly]);
 
   if (error !== null) {
-    return <p className="error">{error}</p>;
+    return <p className="error console-view">{error}</p>;
   }
   if (entries === null) {
-    return <p className="hint">Loading…</p>;
-  }
-  if (entries.length === 0) {
-    return (
-      <p className="hint">
-        Nothing registered on this deployment
-        {runnableOnly ? " is runnable" : ""}.
-      </p>
-    );
+    return <BlankSlate note="reading the catalog…" />;
   }
 
+  const rows: readonly Row[] = entries.map((entry) => ({
+    ...entry,
+    catalogId: entry.id,
+    id: rowKey(entry),
+  }));
+
   return (
-    <div>
-      <label className="toggle" htmlFor="runnable-only">
-        <input
-          checked={runnableOnly}
-          id="runnable-only"
-          onChange={(e) => onRunnableOnly(e.target.checked)}
-          type="checkbox"
+    <>
+      <Toolbar
+        right={`${rows.length} ${rows.length === 1 ? "entry" : "entries"}${runnableOnly ? " · runnable only" : ""}`}
+      >
+        <FilterChip on={!runnableOnly} onClick={() => onRunnableOnly(false)}>
+          everything
+        </FilterChip>
+        <FilterChip on={runnableOnly} onClick={() => onRunnableOnly(true)}>
+          runnable here
+        </FilterChip>
+      </Toolbar>
+      {rows.length === 0 ? (
+        <BlankSlate
+          icon="library"
+          note={
+            runnableOnly
+              ? "nothing registered on this deployment can run here — the filter is on"
+              : "nothing is registered on this deployment"
+          }
+          title="Empty catalog"
         />
-        only what can run here
-      </label>
-      <table>
-        <thead>
-          <tr>
-            <th>id</th>
-            <th>kind</th>
-            <th>pack</th>
-            <th>access</th>
-            <th>status</th>
-            <th />
-          </tr>
-        </thead>
-        <tbody>
-          {entries.map((entry) => (
-            <tr key={`${entry.kind}:${entry.id}`}>
-              <td>
-                <strong>{entry.id}</strong>
-                {entry.description === undefined ? null : (
-                  <div className="hint">{entry.description}</div>
-                )}
-              </td>
-              <td>
-                {entry.kind}
-                {entry.archetype === undefined ? "" : ` · ${entry.archetype}`}
-              </td>
-              <td>{entry.pack ?? "—"}</td>
-              <td>{entry.access ?? "—"}</td>
-              <td>
-                <Status reason={entry.reason} runnable={entry.runnable} />
-                {entry.reason === undefined ? null : (
-                  <div className="hint">{entry.reason}</div>
-                )}
-              </td>
-              <td>
-                {entry.kind === "transform" ? (
-                  <button onClick={() => onLaunch(entry.id)} type="button">
-                    launch
-                  </button>
-                ) : null}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+      ) : (
+        <DataGrid columns={COLUMNS(onLaunch)} rows={rows} />
+      )}
+    </>
   );
 };

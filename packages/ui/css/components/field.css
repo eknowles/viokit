@@ -1,0 +1,88 @@
+/* Labelled input. Two densities: `comfortable` for forms people fill in once,
+   `compact` for the console, where a field is 28px, square, and labelled in the
+   same micro mono as everything else in the chrome.
+
+   Ported from the design system's inline-styled TextField to real classes so
+   the state rules (:focus, :disabled, error) live in CSS where a browser can
+   apply them, instead of in React state. */
+
+@layer vk.components {
+  .vk-field {
+    display: grid;
+    gap: 7px;
+  }
+
+  .vk-field__label {
+    font-family: var(--vk-font-sans);
+    font-size: var(--vk-text-xs);
+    font-weight: var(--vk-weight-medium);
+    color: var(--vk-text);
+  }
+
+  .vk-field__control {
+    width: 100%;
+    padding: var(--vk-space-5) var(--vk-space-6);
+    font: inherit;
+    font-size: var(--vk-text-body);
+    color: var(--vk-text);
+    outline: none;
+    background: var(--vk-surface-sunken);
+    border: 1px solid var(--vk-border-strong);
+    border-radius: var(--vk-radius-sm);
+    transition: border-color var(--vk-dur-fast) ease;
+  }
+
+  .vk-field__control:focus {
+    border-color: var(--vk-accent);
+  }
+
+  .vk-field__control:disabled {
+    color: var(--vk-faint);
+    cursor: default;
+  }
+
+  .vk-field__note {
+    font-family: var(--vk-font-mono);
+    font-size: 0.76rem;
+    color: var(--vk-faint);
+  }
+
+  .vk-field.is-invalid .vk-field__control {
+    border-color: var(--vk-danger);
+  }
+
+  .vk-field.is-invalid .vk-field__note {
+    color: var(--vk-danger);
+  }
+
+  /* --- compact: the console density --- */
+
+  .vk-field--compact {
+    gap: var(--vk-space-1);
+  }
+
+  .vk-field--compact .vk-field__label {
+    font-family: var(--vk-font-mono);
+    font-size: var(--vk-console-micro);
+    font-weight: var(--vk-weight-body);
+    color: var(--vk-faint);
+    text-transform: uppercase;
+    letter-spacing: var(--vk-track-micro);
+  }
+
+  .vk-field--compact .vk-field__control {
+    height: var(--vk-field-h);
+    padding: 0 var(--vk-space-3);
+    font-size: var(--vk-console-text-sm);
+    border-radius: var(--vk-radius-console);
+  }
+
+  .vk-field--compact textarea.vk-field__control {
+    height: auto;
+    padding: var(--vk-space-2) var(--vk-space-3);
+  }
+
+  .vk-field--compact .vk-field__note {
+    font-size: var(--vk-console-btn);
+  }
+}

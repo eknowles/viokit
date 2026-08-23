@@ -1,0 +1,78 @@
+/* Three 2px indicators, one visual language: the curation stripe down a row's
+   leading edge, the inline meter for a ranked score, the progress bar for work
+   in flight. All 2px, all reading against --vk-tool-track. */
+
+@layer vk.components {
+  .vk-state {
+    display: block;
+    width: 2px;
+    height: var(--vk-row-h);
+    background: var(--vk-tool-track);
+  }
+
+  .vk-state--kept {
+    background: var(--vk-tool-fill);
+  }
+
+  .vk-state--discarded {
+    background: var(--vk-danger);
+  }
+
+  .vk-state--deferred {
+    background: var(--vk-accent-strong);
+  }
+
+  .vk-state--new {
+    background: var(--vk-tool-track);
+  }
+
+  /* Inline meter — a number and its bar, right-aligned so the digits line up. */
+  .vk-meter {
+    display: inline-flex;
+    gap: 7px;
+    align-items: center;
+    justify-content: flex-end;
+  }
+
+  .vk-meter__track {
+    width: var(--vk-meter-w, 44px);
+    height: 2px;
+    background: var(--vk-tool-track);
+  }
+
+  .vk-meter__fill {
+    display: block;
+    height: 2px;
+    background: var(--vk-tool-fill);
+  }
+
+  .vk-meter--accent .vk-meter__fill {
+    background: var(--vk-accent-strong);
+  }
+
+  .vk-meter--ok .vk-meter__fill {
+    background: var(--vk-ok);
+  }
+
+  .vk-meter--danger .vk-meter__fill {
+    background: var(--vk-danger);
+  }
+
+  /* Full-width progress. Animated, unlike the meter: it is reporting movement. */
+  .vk-progress {
+    display: block;
+    height: 2px;
+    background: var(--vk-tool-track);
+  }
+
+  .vk-progress__fill {
+    display: block;
+    height: 2px;
+    background: var(--vk-accent-strong);
+    transition: width var(--vk-dur-slow) var(--vk-ease);
+  }
+
+  .vk-progress--done .vk-progress__fill {
+    background: var(--vk-tool-fill);
+  }
+}

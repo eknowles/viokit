@@ -1,0 +1,102 @@
+/* Popover list anchored under the command bar. Absolutely positioned, so it
+   needs a positioned ancestor — .vk-app__main is one. */
+
+@layer vk.components {
+  .vk-tray {
+    position: absolute;
+    top: var(--vk-topbar-h);
+    right: var(--vk-space-5);
+    z-index: 80;
+    width: var(--vk-tray-w, 376px);
+    max-height: 340px;
+    overflow: auto;
+    background: var(--vk-tool-surface);
+    border: 1px solid var(--vk-border-strong);
+    border-radius: var(--vk-radius-console);
+    box-shadow: var(--vk-shadow);
+  }
+
+  .vk-tray__head {
+    position: sticky;
+    top: 0;
+    display: flex;
+    gap: var(--vk-space-4);
+    align-items: center;
+    height: var(--vk-pane-head-h);
+    padding: 0 var(--vk-space-4);
+    color: var(--vk-tool-meta);
+    white-space: nowrap;
+    background: var(--vk-tool-head);
+    border-bottom: 1px solid var(--vk-border);
+  }
+
+  .vk-tray__empty {
+    padding: var(--vk-space-7) var(--vk-space-5);
+    line-height: var(--vk-lh-body);
+  }
+
+  /* --- one job --- */
+
+  .vk-job {
+    display: grid;
+    grid-template-columns: 16px 1fr auto;
+    gap: 9px;
+    padding: 9px var(--vk-space-4);
+    border-bottom: 1px solid var(--vk-border);
+  }
+
+  .vk-job__icon {
+    padding-top: 1px;
+    color: var(--vk-tool-dim);
+  }
+
+  .vk-job__main {
+    display: grid;
+    gap: var(--vk-space-1);
+    min-width: 0;
+  }
+
+  .vk-job__label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: var(--vk-console-text-sm);
+    white-space: nowrap;
+  }
+
+  .vk-job__meta {
+    font-size: var(--vk-console-mono-sm);
+    color: var(--vk-tool-dim);
+  }
+
+  .vk-job--running .vk-job__icon {
+    color: var(--vk-accent-strong);
+    animation: vk-spin var(--vk-spin-dur) linear infinite;
+  }
+
+  .vk-job--done .vk-job__icon {
+    color: var(--vk-ok);
+  }
+
+  .vk-job--failed .vk-job__icon,
+  .vk-job--failed .vk-job__label {
+    color: var(--vk-danger);
+  }
+
+  .vk-job--cancelled .vk-job__icon,
+  .vk-job--cancelled .vk-job__label {
+    color: var(--vk-tool-dim);
+  }
+  .vk-job__side {
+    display: grid;
+    gap: var(--vk-space-1);
+    align-content: start;
+    justify-items: end;
+    white-space: nowrap;
+  }
+
+  @keyframes vk-spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+}

@@ -1,3 +1,4 @@
+import { Button } from "@viokit/ui";
 import { useState } from "react";
 import type { Client } from "../client.js";
 import { OperationFailure } from "../client.js";
@@ -119,9 +120,9 @@ export const GraphView = ({ client }: { readonly client: Client }) => {
             />
           </label>
         ))}
-        <button disabled={pending} onClick={run} type="button">
+        <Button disabled={pending} onClick={run} tone="ink">
           {pending ? "Querying…" : "Run query"}
-        </button>
+        </Button>
       </div>
 
       {error === null ? null : <p className="error">{error}</p>}

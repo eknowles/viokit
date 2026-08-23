@@ -1,0 +1,39 @@
+/* 44px vertical icon rail. Glyphs only — the label is the tooltip, because at
+   this width any text would be an abbreviation nobody can read. */
+
+@layer vk.components {
+  .vk-rail {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    align-items: center;
+    padding-top: 9px;
+    background: var(--vk-tool-surface);
+    border-right: 1px solid var(--vk-border);
+  }
+
+  .vk-rail__mark {
+    margin-bottom: var(--vk-space-5);
+  }
+
+  .vk-rail__btn {
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    color: var(--vk-tool-dim);
+    background: none;
+    border: 0;
+    border-radius: var(--vk-radius-console);
+  }
+
+  .vk-rail__btn:hover {
+    color: var(--vk-tool-text);
+    background: var(--vk-tool-active);
+  }
+
+  .vk-rail__btn.is-on {
+    color: var(--vk-tool-ink-text);
+    background: var(--vk-tool-ink);
+  }
+}

@@ -23,10 +23,10 @@
     },
     {
       // React components: ultracite's defaults are tuned for the Effect
-      // backend. Inline JSX handlers are idiomatic React and this console has
-      // no perf-sensitive lists; PascalCase component filenames are the
-      // convention every React codebase uses.
-      "includes": ["apps/console/**/*.tsx"],
+      // backend. Inline JSX handlers are idiomatic React and neither the
+      // console nor the design system has perf-sensitive lists; PascalCase
+      // component filenames are the convention every React codebase uses.
+      "includes": ["apps/console/**/*.tsx", "packages/ui/**/*.tsx"],
       "linter": {
         "rules": {
           "performance": {

@@ -1,0 +1,45 @@
+/* Viokit spacing + layout. A loose 4px-derived scale with fluid section
+   padding, plus the console density rail: every fixed height in the tool
+   chrome is a token, because "26px pane header" is a design decision that
+   should be legible and tunable rather than scattered through component CSS. */
+
+@layer vk.tokens {
+  :root {
+    --vk-space-1: 4px;
+    --vk-space-2: 6px;
+    --vk-space-3: 8px;
+    --vk-space-4: 10px;
+    --vk-space-5: 12px;
+    --vk-space-6: 14px;
+    --vk-space-7: 16px;
+    --vk-space-8: 18px;
+    --vk-space-9: 22px;
+    --vk-space-10: 26px;
+    --vk-space-11: 28px;
+    --vk-space-12: 32px;
+    --vk-space-14: 40px;
+
+    --vk-gap-grid: 18px;
+    --vk-gap-steps: 20px;
+    --vk-pad-card: 26px;
+    --vk-pad-step: 28px 26px;
+    --vk-pad-usecase: 22px 24px;
+
+    --vk-section-y: clamp(72px, 9vw, 120px);
+    --vk-container-pad: 24px;
+    --vk-maxw: 1120px;
+    --vk-nav-h: 68px;
+
+    /* console density — see the kit's density table */
+    --vk-rail-w: 44px;
+    --vk-topbar-h: 38px;
+    --vk-pane-head-h: 26px;
+    --vk-toolbar-h: 30px;
+    --vk-row-h: 28px;
+    --vk-row-head-h: 24px;
+    --vk-control-h: 24px;
+    --vk-field-h: 28px;
+    --vk-cell-pad: 12px;
+    --vk-scrubber-h: 28px;
+  }
+}

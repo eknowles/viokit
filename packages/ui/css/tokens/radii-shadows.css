@@ -1,0 +1,28 @@
+/* Viokit radii, elevation and border treatments.
+   The console chrome deliberately uses radius 0 and no elevation — panes share
+   1px hairlines and never gaps. Only the two floating surfaces (dialog, tray)
+   take --vk-shadow. */
+
+@layer vk.tokens {
+  :root {
+    --vk-radius: 16px;
+    --vk-radius-sm: 10px;
+    --vk-radius-lg: 22px;
+    --vk-radius-icon: 12px;
+    --vk-radius-mark: 9px;
+    --vk-radius-pill: 999px;
+    --vk-radius-focus: 4px;
+    --vk-radius-console: 0;
+
+    --vk-shadow: 0 28px 64px -28px rgb(15 21 32 / 0.18);
+    --vk-shadow-accent: 0 12px 32px -12px rgb(255 157 63 / 0.55);
+    --vk-shadow-accent-hover: 0 16px 40px -12px rgb(255 157 63 / 0.7);
+    --vk-glow-ok: 0 0 10px rgb(30 138 77 / 0.45);
+    --vk-glow-accent: 0 0 12px rgb(255 180 84 / 0.35);
+
+    --vk-border-w: 1px;
+    --vk-hairline: 1px solid var(--vk-border);
+    --vk-hairline-strong: 1px solid var(--vk-border-strong);
+    --vk-border-dashed: 1px dashed var(--vk-border);
+  }
+}

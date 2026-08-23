@@ -1,0 +1,64 @@
+/* 38px command bar: case identity on the left, derived status in the middle,
+   actions on the right. The status line is load-bearing, not decoration — it
+   reports what is running, so its dot goes still when nothing is. */
+
+@layer vk.components {
+  .vk-topbar {
+    display: flex;
+    gap: var(--vk-space-4);
+    align-items: center;
+    min-width: 0;
+    padding: 0 var(--vk-space-5);
+    background: var(--vk-tool-surface);
+    border-bottom: 1px solid var(--vk-border);
+  }
+
+  .vk-topbar__title {
+    font-size: var(--vk-console-text-sm);
+    font-weight: var(--vk-weight-medium);
+    letter-spacing: var(--vk-track-tight);
+    white-space: nowrap;
+  }
+
+  .vk-status-line {
+    display: inline-flex;
+    gap: 7px;
+    align-items: center;
+    min-width: 0;
+    font-family: var(--vk-font-mono);
+    font-size: var(--vk-console-mono-sm);
+    color: var(--vk-tool-meta);
+  }
+
+  .vk-status-line__dot {
+    flex: 0 0 auto;
+    width: 5px;
+    height: 5px;
+    background: var(--vk-ok);
+    border-radius: var(--vk-radius-pill);
+    animation: vk-blip var(--vk-blip-dur) ease-in-out infinite;
+  }
+
+  .vk-status-line.is-idle .vk-status-line__dot {
+    background: var(--vk-tool-dim);
+    animation: none;
+  }
+
+  .vk-status-line__text {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  @keyframes vk-blip {
+    0%,
+    100% {
+      opacity: 1;
+    }
+
+    50% {
+      opacity: 0.35;
+    }
+  }
+}

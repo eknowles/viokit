@@ -1,0 +1,39 @@
+/* Investigation log — an ordered list of steps, each with its clock, what was
+   done, and whether anything independently corroborated it. */
+
+@layer vk.components {
+  .vk-log {
+    padding: 0;
+    margin: 0;
+    list-style: none;
+  }
+
+  .vk-log > li {
+    display: grid;
+    grid-template-columns: 46px 1fr;
+    gap: var(--vk-space-4);
+    padding: 9px var(--vk-space-5);
+    border-bottom: 1px solid var(--vk-border);
+  }
+
+  .vk-log__time {
+    color: var(--vk-tool-meta);
+  }
+
+  .vk-log__body {
+    font-size: var(--vk-console-text-sm);
+  }
+
+  .vk-log__meta,
+  .vk-log__ok {
+    display: block;
+    margin-top: 3px;
+    font-family: var(--vk-font-mono);
+    font-size: var(--vk-console-mono-sm);
+    color: var(--vk-tool-dim);
+  }
+
+  .vk-log__ok {
+    color: var(--vk-ok);
+  }
+}

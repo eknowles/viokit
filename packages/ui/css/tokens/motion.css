@@ -1,0 +1,18 @@
+/* Viokit motion. Short, eased, never bouncy. */
+
+@layer vk.tokens {
+  :root {
+    --vk-ease: cubic-bezier(0.16, 1, 0.3, 1);
+    --vk-dur-instant: 0.12s;
+    --vk-dur-fast: 0.18s;
+    --vk-dur: 0.22s;
+    --vk-dur-slow: 0.3s;
+    --vk-dur-rail: 0.6s;
+    --vk-lift: translateY(-1px);
+    --vk-lift-card: translateY(-3px);
+    --vk-pulse-dur: 3.2s;
+    --vk-blip-dur: 2s;
+    --vk-spin-dur: 1.6s;
+    --vk-flash-dur: 1.8s;
+  }
+}

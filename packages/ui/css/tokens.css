@@ -1,0 +1,8 @@
+/* Tokens only — no reset, no component rules. Import this when an app wants the
+   Viokit palette, type scale and density rail but brings its own components. */
+@import "./tokens/colors.css";
+@import "./tokens/typography.css";
+@import "./tokens/spacing.css";
+@import "./tokens/radii-shadows.css";
+@import "./tokens/motion.css";
+@import "./tokens/theme-dark.css";

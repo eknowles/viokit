@@ -1,0 +1,62 @@
+/* The docking frame: icon rail beside a stacked main column, main column split
+   into a work area and an aside. Every track is minmax(0, …) because a grid
+   child's default min-content floor is what makes dense tables blow their
+   container out instead of scrolling. */
+
+@layer vk.components {
+  .vk-app {
+    display: grid;
+    grid-template-columns: var(--vk-rail-w) 1fr;
+    height: 100%;
+  }
+
+  .vk-app--no-rail {
+    grid-template-columns: 1fr;
+  }
+
+  .vk-app__main {
+    position: relative; /* anchors .vk-tray */
+    display: grid;
+    grid-template-rows: var(--vk-topbar-h) 1fr;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  /* Work area + aside. Override --vk-workspace-cols to change the split, or
+     drop the aside entirely with .vk-workspace--wide. */
+  .vk-workspace {
+    display: grid;
+    grid-template-columns: var(--vk-workspace-cols, minmax(0, 1fr) 300px);
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .vk-workspace--wide {
+    --vk-workspace-cols: minmax(0, 1fr);
+  }
+
+  .vk-workspace > * + * {
+    border-left: 1px solid var(--vk-border);
+  }
+
+  /* Vertically stacked panes sharing hairlines — no gaps, no radius. */
+  .vk-pane-stack {
+    display: grid;
+    grid-template-rows: var(--vk-stack-rows, minmax(0, 1.7fr) minmax(0, 1fr));
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .vk-pane-stack > * + * {
+    border-top: 1px solid var(--vk-border);
+  }
+
+  /* Panes inside a dock are ruled by the dock, not by themselves. */
+  .vk-pane-stack > .vk-pane,
+  .vk-workspace > .vk-pane {
+    border: 0;
+  }
+}

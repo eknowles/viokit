@@ -1,3 +1,13 @@
+import {
+  AppShell,
+  type GlyphName,
+  Pane,
+  Rail,
+  StatusLine,
+  ThemeToggle,
+  TopBar,
+  Workspace,
+} from "@viokit/ui";
 import { useEffect, useMemo, useState } from "react";
 import {
   graphSelectionAtom,
@@ -24,12 +34,38 @@ import { GraphCanvasView } from "./views/GraphCanvas.js";
 import { InvestigationBar } from "./views/Investigations.js";
 import { LauncherView } from "./views/Launcher.js";
 
-const VIEWS: readonly { readonly label: string; readonly name: ViewName }[] = [
-  { label: "Catalog", name: "catalog" },
-  { label: "Transform", name: "launcher" },
-  { label: "Evidence", name: "evidence" },
-  { label: "Graph", name: "graph" },
-  { label: "Canvas", name: "canvas" },
+const VIEWS: readonly {
+  readonly icon: GlyphName;
+  readonly label: string;
+  readonly name: ViewName;
+  /** Lower-case pane header, in the design system's console voice. */
+  readonly title: string;
+}[] = [
+  {
+    icon: "library",
+    label: "Catalog",
+    name: "catalog",
+    title: "source catalog",
+  },
+  {
+    icon: "play",
+    label: "Transform",
+    name: "launcher",
+    title: "transform launcher",
+  },
+  {
+    icon: "file-search",
+    label: "Evidence",
+    name: "evidence",
+    title: "evidence · manual acquisition",
+  },
+  { icon: "terminal", label: "Graph", name: "graph", title: "graph queries" },
+  {
+    icon: "git-fork",
+    label: "Canvas",
+    name: "canvas",
+    title: "graph · canvas",
+  },
 ];
 
 /** Operations the console needs; missing ones are reported loudly on load. */
@@ -192,55 +228,69 @@ export const App = () => {
     graphTime,
   ]);
 
+  const active = VIEWS.find((entry) => entry.name === view);
+  // A deployment that is missing operations is not "connected" in any useful
+  // sense, so the status dot reports reachability rather than mere page load.
+  const reachable = available.length > 0 && problem === null;
+
   return (
-    <main>
-      <header>
-        <h1>viokit</h1>
-        <nav>
-          {VIEWS.map((entry) => (
-            <button
-              className={view === entry.name ? "active" : ""}
-              key={entry.name}
-              onClick={() => setView(entry.name)}
-              type="button"
-            >
-              {entry.label}
-            </button>
-          ))}
-        </nav>
+    <AppShell
+      rail={
+        <Rail
+          items={VIEWS.map((entry) => ({
+            icon: entry.icon,
+            id: entry.name,
+            label: entry.label,
+          }))}
+          onChange={(id) => setView(id as ViewName)}
+          value={view}
+        />
+      }
+    >
+      <TopBar actions={<ThemeToggle />} title="viokit">
         <InvestigationBar
           client={client}
           onChange={() => setScope((previous) => previous + 1)}
         />
-        <span className="hint">
+        <StatusLine busy={reachable}>
           {origin} · {available.length} operations
-        </span>
-      </header>
+        </StatusLine>
+      </TopBar>
 
-      {problem === null ? null : <p className="error">{problem}</p>}
-
-      <section>
-        <Body
-          client={client}
-          graphSelection={graphSelection}
-          graphTime={graphTime}
-          key={scope}
-          onGraphSelect={setGraphSelection}
-          onGraphTime={setGraphTime}
-          onLaunch={(id) => {
-            setTransformId(id);
-            setView("launcher");
-          }}
-          onRunnableOnly={setRunnableOnly}
-          runnableOnly={runnableOnly}
-          transformId={transformId}
-          view={view}
-        />
-      </section>
-
-      <footer className="hint">
-        View state is stored server-side, schema-encoded and versioned (I12).
-      </footer>
-    </main>
+      <Workspace wide>
+        <Pane
+          right="view state persisted server-side · I12"
+          title={active?.title ?? "console"}
+        >
+          {problem === null ? null : (
+            <p className="error console-view">{problem}</p>
+          )}
+          <div
+            className={
+              view === "catalog"
+                ? "console-view console-view--flush"
+                : "console-view"
+            }
+          >
+            <Body
+              client={client}
+              graphSelection={graphSelection}
+              graphTime={graphTime}
+              key={scope}
+              onGraphSelect={setGraphSelection}
+              onGraphTime={setGraphTime}
+              onLaunch={(id) => {
+                setTransformId(id);
+                setView("launcher");
+              }}
+              onRunnableOnly={setRunnableOnly}
+              runnableOnly={runnableOnly}
+              transformId={transformId}
+              view={view}
+            />
+          </div>
+        </Pane>
+      </Workspace>
+    </AppShell>
   );
 };

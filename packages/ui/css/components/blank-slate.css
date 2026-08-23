@@ -1,0 +1,23 @@
+/* Empty-pane state. The note says WHY the pane is empty; an empty pane with no
+   explanation is indistinguishable from a broken one. */
+
+@layer vk.components {
+  .vk-blank-slate {
+    display: grid;
+    gap: var(--vk-space-3);
+    place-items: center;
+    height: 100%;
+    padding: var(--vk-space-11);
+    color: var(--vk-tool-dim);
+    text-align: center;
+  }
+
+  .vk-blank-slate__title {
+    font-size: var(--vk-console-text-sm);
+    color: var(--vk-tool-meta);
+  }
+
+  .vk-blank-slate__note {
+    max-width: var(--vk-measure-note);
+  }
+}
