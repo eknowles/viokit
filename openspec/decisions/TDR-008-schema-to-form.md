@@ -1,12 +1,12 @@
 # TDR-008 — Schema→form generation: adopt a JSON-Schema renderer vs build one
 
-- **Status:** in-review
+- **Status:** decided
 - **Owner:** ed
 - **Date:** 2026-08-23
 - **Related:** `openspec/exploration/04-web-ui.md` §4.1; TDR-002 (console stack); TDR-016 (`catalog_describe` publishes JSON Schema); invariants I6
 
 ## Decision summary
-> _Pending review._
+> Build a small renderer in the console over the Draft-2020-12 documents `catalog_describe` already publishes — primitives, enums, required/optional, descriptions — with a raw-JSON fallback for anything unrenderable and per-transform custom components taking precedence. `@rjsf` deferred until published inputs are routinely nested or conditional.
 
 ## Context
 - `04-web-ui.md` §4.1 sets the principle: a transform's input form is **generated from its schema**, with custom components as an escape hatch. "A new transform gets a working form the moment it's registered."

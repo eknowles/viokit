@@ -1,0 +1,184 @@
+:root {
+  --bg: #0f1115;
+  --panel: #161a21;
+  --line: #262c36;
+  --text: #dfe4ec;
+  --dim: #8b95a5;
+  --ok: #6fd08c;
+  --bad: #e2777a;
+  --accent: #7aa2f7;
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font:
+    14px / 1.5 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+  color: var(--text);
+  background: var(--bg);
+}
+
+main {
+  max-width: 1100px;
+  padding: 24px;
+  margin: 0 auto;
+}
+
+header {
+  display: flex;
+  gap: 16px;
+  align-items: baseline;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+h1 {
+  margin: 0;
+  font-size: 16px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+h2 {
+  margin: 16px 0 8px;
+  font-size: 15px;
+}
+h3 {
+  margin: 20px 0 8px;
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--dim);
+}
+
+nav {
+  display: flex;
+  gap: 4px;
+}
+
+button {
+  padding: 6px 12px;
+  font: inherit;
+  color: var(--text);
+  cursor: pointer;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+}
+button:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+button:disabled {
+  color: var(--dim);
+  cursor: default;
+}
+button.active {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+section {
+  padding: 16px 0;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 640px;
+}
+.form label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.form button {
+  align-self: flex-start;
+}
+
+.label {
+  color: var(--dim);
+}
+.required {
+  font-style: normal;
+  color: var(--accent);
+}
+.hint {
+  margin: 4px 0;
+  font-size: 12px;
+  color: var(--dim);
+}
+.error {
+  color: var(--bad);
+  white-space: pre-wrap;
+}
+.ok {
+  color: var(--ok);
+}
+.blocked {
+  color: var(--bad);
+}
+.toggle {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+input,
+select,
+textarea {
+  padding: 6px 8px;
+  font: inherit;
+  color: var(--text);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+}
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+th {
+  padding: 8px;
+  font-weight: 400;
+  color: var(--dim);
+  text-align: left;
+  border-bottom: 1px solid var(--line);
+}
+td {
+  padding: 8px;
+  vertical-align: top;
+  border-bottom: 1px solid var(--line);
+}
+
+pre {
+  max-height: 60vh;
+  padding: 12px;
+  overflow: auto;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+}
+
+code {
+  color: var(--accent);
+}
+
+footer {
+  padding-top: 12px;
+  margin-top: 24px;
+  border-top: 1px solid var(--line);
+}

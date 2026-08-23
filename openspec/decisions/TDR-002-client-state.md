@@ -1,12 +1,12 @@
 # TDR-002 — Console stack and client state
 
-- **Status:** in-review
+- **Status:** decided
 - **Owner:** ed
 - **Date:** 2026-08-23
 - **Related:** `openspec/exploration/04-web-ui.md` §1; TDR-001 (Bun); TDR-017 (the HTTP surface the console consumes); TDR-012 (view-state persistence, `proposed`); invariants I6, I8, I12
 
 ## Decision summary
-> _Pending review._
+> React + Vite in `apps/console`; client state in `effect/unstable/reactivity` atoms with a small in-repo `useAtom` over `useSyncExternalStore`; no routing framework and no router until deep-linking is wanted; view state deliberately ephemeral until TDR-012 decides server-backed persistence.
 
 ## Context
 - `apps/console` is the first browser client. It consumes the local HTTP surface (TDR-017), which is self-describing: `GET /operations` lists what can be called, and `catalog_describe` publishes each transform's contract as JSON Schema.

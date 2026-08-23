@@ -75,8 +75,12 @@ store, and the shared-schema contract. Nothing domain-specific.
 - ~~CLI + MCP server~~ — **done**: both over the shared operation table in `packages/agent`; parity
   and no-privileged-path are tested (I8).
 - REST/GraphQL API + event stream (WebSocket, Arrow IPC for large batches) — **gated on TDR-003**.
-- Web UI: React + Effect client, schema-driven forms/views, results workbench (table/graph/map/
-  timeline, linked selection), docking layout, view-state persistence (I12).
+- Web UI: React + Effect client, schema-driven forms/views — **first slice done** (`apps/console`:
+  catalog, transform launcher with generated forms, evidence submission, graph queries as tables).
+  Results workbench (graph/map/timeline, linked selection), docking layout, and view-state
+  persistence remain.
+- **Outstanding P3 exit criterion:** I12 view-state persistence is *not* met. The console persists
+  nothing by design rather than half-satisfying the invariant client-side; TDR-012 decides it.
 - **TDRs to decide:** TDR-002 client state/routing, TDR-003 transport (WS+Arrow), TDR-004 docking,
   TDR-008 schema→form, TDR-009 Effect↔Arrow mapping, TDR-012 view-state backend.
 - **Exit criteria:** an agent discovers the catalog, runs a transform, and reads the graph through
