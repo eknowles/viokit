@@ -24,7 +24,8 @@ you whether it is an API at all, and how it signals that a credential is missing
 | fullcontact.com | `POST https://api.fullcontact.com/v3/person.enrich` | **401**, `application/json`, `{"status":401,"message":"Unauthorized"}` | `Authorization: Bearer` | not stated in docs read |
 
 All five are **real APIs at real endpoints** requiring credentials — which is already more than any of
-the 38 specs currently in the catalog can say, none of which address an endpoint at all.
+the 38 specs currently in the catalog can say, none of which address an endpoint at all. Two of the
+five are since verified working with a credential; see below.
 
 ## Per source
 
@@ -72,6 +73,27 @@ the 38 specs currently in the catalog can say, none of which address an endpoint
 - **Input:** one of email, phone, or twitter.
 - **Fit:** this is `people-identity`, not `web-dns`, and it is enrichment of a known selector rather
   than discovery.
+
+## Authenticated verification (2026-08-23)
+
+One request per source, with the credential its documentation specifies. This is the check that
+matters: an unauthenticated 401 proves an endpoint exists, and only a 200 proves it is reachable.
+
+| Source | Result | What came back |
+|---|---|---|
+| securitytrails.com | **200 — works** | `{meta, subdomains, endpoint, subdomain_count}` — the real subdomain list |
+| host.io | **200 — works** | `{domain, web, dns, ipinfo, related}` — the full record |
+| whoisxmlapi.com | **401 — account, not key** | `AUTHENTICATE_05: no active subscription`. The key is recognised; the subscription is not active. Key shape matches the documented `at_` prefix. |
+| censys.io | **401 — wrong credential kind** | Platform: "Access credentials are invalid". Legacy v2: "You must authenticate with a valid **API ID and secret**" — the legacy API wants an ID/secret pair over Basic auth, not a Bearer token. The value held has no `censys_` prefix, so it is probably a legacy API secret rather than a Platform personal access token. |
+| fullcontact.com | **401 — key rejected** | "Invalid access token". |
+
+So the endpoint work is settled for two sources and the remaining three are **credential problems, not
+integration problems** — each needs something obtained from the vendor, and none of them is fixable in
+this repo.
+
+> **Handling note:** FullContact's 401 body *echoes the submitted token back in the error message*.
+> Any log, terminal scrollback, or error report that captured that response now contains the
+> credential. Treat a key that has hit this endpoint as disclosed and rotate it.
 
 ## Two gaps this exposed in the engine
 
