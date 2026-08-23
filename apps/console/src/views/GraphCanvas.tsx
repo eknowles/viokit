@@ -383,6 +383,12 @@ export const GraphCanvasView = ({
           })}
           {placed.nodes.map((node) => {
             const chosen = node.entity.id === selected?.id;
+            // Built here rather than as a template literal in the attribute:
+            // the formatter normalises class strings in JSX and was eating the
+            // separator, silently producing "node entityselected".
+            const nodeClass = ["node", node.kind, chosen ? "selected" : null]
+              .filter((part) => part !== null)
+              .join(" ");
             const toggle = () =>
               onSelect(chosen ? null : { id: node.entity.id, kind: node.kind });
             return (
@@ -393,7 +399,7 @@ export const GraphCanvasView = ({
               <g
                 aria-label={`${node.entity.kind} ${node.entity.id}`}
                 aria-pressed={chosen}
-                className={`node ${node.kind}${chosen ? "selected" : ""}`}
+                className={nodeClass}
                 key={node.entity.id}
                 onClick={toggle}
                 onKeyDown={(event) => {

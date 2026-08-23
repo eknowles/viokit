@@ -11,7 +11,7 @@ import {
   reviveDates,
   Step,
 } from "@viokit/schema";
-import { Context, Effect, Layer, Option, Schema } from "effect";
+import { Context, Effect, Layer, Option, Schema, Semaphore } from "effect";
 
 /**
  * DuckDB-backed graph store (TDR-005). The step log is the system of record
@@ -125,6 +125,9 @@ export class DuckDBGraphService extends Context.Service<
         ]);
 
       /** Rebuild the materialized projection from the step log (I3/I11). */
+      /** One permit: the materialized projection has a single writer. */
+      const projectionLock = Semaphore.makeUnsafe(1);
+
       const replay = async (): Promise<GraphState> => {
         await clearProjection();
 
@@ -348,7 +351,14 @@ export class DuckDBGraphService extends Context.Service<
               relationType: row.relation_type as string | null,
             }));
           }),
-        replay: Effect.tryPromise(() => replay()),
+        // Serialized: `replay` clears the projection and rebuilds it, so two
+        // concurrent calls both clear, then both insert, and each returns a
+        // doubled graph. Found from a browser, where React's StrictMode
+        // double-invokes effects — a duplicated replay is an I3 violation, not
+        // a display glitch.
+        replay: projectionLock.withPermits(1)(
+          Effect.tryPromise(() => replay())
+        ),
         spatial: (bbox) =>
           Effect.tryPromise(async () => {
             const [e, ev] = await Promise.all([

@@ -178,3 +178,64 @@ describe("duckdb graph store", () => {
     );
   });
 });
+
+/**
+ * Regression: `replay` clears the projection and rebuilds it, so two concurrent
+ * calls used to both clear, then both insert, and each returned a doubled
+ * graph. Found from a browser, where React's StrictMode double-invokes effects.
+ * A replay that depends on who else is reading is an I3 violation.
+ */
+describe("replay is safe under concurrency (I3)", () => {
+  layer(DuckDBGraphLayer)((it) => {
+    it.effect(
+      "concurrent replays return the same graph as a sequential one",
+      () =>
+        Effect.gen(function* () {
+          const graph = yield* DuckDBGraphService;
+
+          yield* graph.insert(
+            step(AddEntity.make({ entity: entity("a", 10, 20) }), "c1", "ev-c1")
+          );
+          yield* graph.insert(
+            step(AddEntity.make({ entity: entity("b", 11, 21) }), "c2", "ev-c2")
+          );
+
+          const sequential = yield* graph.replay;
+          const concurrent = yield* Effect.all([graph.replay, graph.replay], {
+            concurrency: "unbounded",
+          });
+
+          for (const state of concurrent) {
+            assert.strictEqual(
+              state.entities.length,
+              sequential.entities.length
+            );
+            assert.deepStrictEqual(
+              state.entities.map((e) => e.id).sort(),
+              sequential.entities.map((e) => e.id).sort()
+            );
+          }
+        })
+    );
+
+    it.effect("many concurrent replays do not accumulate", () =>
+      Effect.gen(function* () {
+        const graph = yield* DuckDBGraphService;
+        yield* graph.insert(
+          step(AddEntity.make({ entity: entity("only", 1, 2) }), "c3", "ev-c3")
+        );
+
+        // The store is shared across this block, so the count is whatever the
+        // log folds to — what matters is that it does not grow with readers.
+        const expected = (yield* graph.replay).entities.length;
+        const states = yield* Effect.all(
+          Array.from({ length: 6 }, () => graph.replay),
+          { concurrency: "unbounded" }
+        );
+        for (const state of states) {
+          assert.strictEqual(state.entities.length, expected);
+        }
+      })
+    );
+  });
+});
