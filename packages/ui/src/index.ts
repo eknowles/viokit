@@ -68,6 +68,7 @@ export {
   StateStripe,
   type StateStripeProps,
 } from "./Indicators.js";
+export { Legend, type LegendItem, type LegendProps } from "./Legend.js";
 export {
   LogEntry,
   type LogEntryProps,
@@ -111,4 +112,9 @@ export {
   type TrayEmptyProps,
   type TrayProps,
 } from "./Tray.js";
-export { applyStoredTheme, type Theme, useTheme } from "./theme.js";
+export {
+  applyStoredTheme,
+  type Theme,
+  type ThemeOptions,
+  useTheme,
+} from "./theme.js";

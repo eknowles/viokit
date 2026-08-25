@@ -2,7 +2,7 @@ import type { HTMLAttributes, ReactNode } from "react";
 import { Button } from "./Button.js";
 import { cx } from "./cx.js";
 import { Icon } from "./Icon.js";
-import { useTheme } from "./theme.js";
+import { type ThemeOptions, useTheme } from "./theme.js";
 
 export interface TopBarProps
   extends Omit<HTMLAttributes<HTMLElement>, "title"> {
@@ -64,8 +64,10 @@ export const StatusLine = ({
 );
 
 /** Light/dark toggle wired to <html data-theme> and localStorage. */
-export const ThemeToggle = () => {
-  const { theme, toggle } = useTheme();
+export const ThemeToggle = ({ fallback }: ThemeOptions = {}) => {
+  const { theme, toggle } = useTheme(
+    fallback === undefined ? {} : { fallback }
+  );
   const dark = theme === "dark";
   return (
     <Button

@@ -139,4 +139,73 @@
   .vk-confidence--low {
     color: var(--vk-danger);
   }
+
+  /* --- sortable headers ---
+     The button carries the affordance, not the th: a sortable column header is
+     a control, and wrapping it makes it reachable and announceable without
+     putting a click handler on a table cell. */
+  .vk-grid th:has(.vk-grid__sort) {
+    padding: 0;
+  }
+
+  .vk-grid__sort {
+    display: flex;
+    gap: var(--vk-space-2);
+    align-items: center;
+    width: 100%;
+    height: var(--vk-row-head-h);
+    padding: 0 var(--vk-cell-pad);
+    font: inherit;
+    color: inherit;
+    text-transform: inherit;
+    letter-spacing: inherit;
+    background: none;
+    border: 0;
+  }
+
+  .vk-grid th.vk-num .vk-grid__sort {
+    justify-content: flex-end;
+  }
+
+  .vk-grid__sort:hover {
+    color: var(--vk-tool-text);
+  }
+
+  /* Reserved so the header does not shift when a column becomes sorted. */
+  .vk-grid__sort::after {
+    font-size: 8px;
+    color: var(--vk-tool-dim);
+    content: "\2195";
+    opacity: 0;
+  }
+
+  .vk-grid__sort:hover::after {
+    opacity: 0.5;
+  }
+
+  .vk-grid th[aria-sort] {
+    color: var(--vk-tool-text);
+  }
+
+  .vk-grid th[aria-sort="ascending"] .vk-grid__sort::after {
+    color: var(--vk-accent-strong);
+    content: "\2191";
+    opacity: 1;
+  }
+
+  .vk-grid th[aria-sort="descending"] .vk-grid__sort::after {
+    color: var(--vk-accent-strong);
+    content: "\2193";
+    opacity: 1;
+  }
+
+  /* --- thumbnails in a cell --- */
+  .vk-thumb {
+    display: block;
+    width: 22px;
+    height: 22px;
+    object-fit: cover;
+    background: var(--vk-tool-track);
+    border: 1px solid var(--vk-border);
+  }
 }

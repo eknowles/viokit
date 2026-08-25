@@ -27,4 +27,189 @@
     height: 2px;
     accent-color: var(--vk-accent-strong);
   }
+
+  /* --- nodes and edges ---
+     Drawn in SVG, which has no <button>, so a node carries role/tabindex and
+     is styled through these classes rather than through element defaults. */
+
+  .vk-edge {
+    stroke: var(--vk-graph-edge);
+    stroke-width: 1.5;
+  }
+
+  .vk-edge.is-selected {
+    stroke: var(--vk-accent-strong);
+    stroke-width: 3;
+  }
+
+  /* A transparent fat line over the hairline: 1.5px is not a click target. */
+  .vk-edge--hit {
+    cursor: pointer;
+    stroke: transparent;
+    stroke-width: 10;
+  }
+
+  .vk-edge--hit:hover + .vk-edge,
+  .vk-edge--hit:focus-visible + .vk-edge {
+    stroke: var(--vk-accent-strong);
+  }
+
+  .vk-edge-label {
+    font-family: var(--vk-font-mono);
+    font-size: 8.5px;
+    pointer-events: none;
+    fill: var(--vk-tool-dim);
+  }
+
+  .vk-node {
+    cursor: pointer;
+  }
+
+  .vk-node circle {
+    fill: var(--vk-tool-node);
+    stroke: var(--vk-tool-meta);
+    stroke-width: 1.5;
+    transition: fill var(--vk-dur-fast) ease;
+  }
+
+  .vk-node text {
+    font-family: var(--vk-font-mono);
+    font-size: 10px;
+    pointer-events: none;
+    fill: var(--vk-tool-meta);
+  }
+
+  /* An event is the graph's time dimension, not another entity. */
+  .vk-node--event circle {
+    fill: var(--vk-tool-track);
+    stroke: var(--vk-tool-dim);
+  }
+
+  /*
+   * The seed is what you typed. It is NOT in the graph — nothing has evidenced
+   * it yet — so it is drawn hollow and dashed. The moment a transform asserts
+   * it, it is replaced by the real, evidenced node and the dashes go away.
+   * That difference is the whole provenance model in one visual.
+   */
+  .vk-node--seed circle {
+    fill: none;
+    stroke: var(--vk-accent);
+    stroke-dasharray: 3 3;
+  }
+
+  .vk-node--seed text {
+    fill: var(--vk-accent-text);
+  }
+
+  .vk-node--expanded circle {
+    stroke: var(--vk-ok);
+  }
+
+  .vk-node:hover circle {
+    fill: var(--vk-tool-active);
+  }
+
+  .vk-node.is-selected circle {
+    fill: var(--vk-accent);
+    stroke: var(--vk-accent-strong);
+    stroke-width: 2.5;
+  }
+
+  .vk-node:hover text,
+  .vk-node.is-selected text {
+    fill: var(--vk-tool-text);
+  }
+
+  .vk-node:focus-visible {
+    outline: none;
+  }
+
+  .vk-node:focus-visible circle {
+    stroke: var(--vk-accent-strong);
+    stroke-width: 2.5;
+  }
+
+  /* --- entity kind, as colour ---
+     The slot is set as a custom property by the caller (--vk-node-cat), so a
+     kind's colour is decided once in data and not encoded in a class name per
+     kind the design system could not know about. */
+  .vk-node--cat-1 {
+    --vk-node-cat: var(--vk-cat-1);
+  }
+  .vk-node--cat-2 {
+    --vk-node-cat: var(--vk-cat-2);
+  }
+  .vk-node--cat-3 {
+    --vk-node-cat: var(--vk-cat-3);
+  }
+  .vk-node--cat-4 {
+    --vk-node-cat: var(--vk-cat-4);
+  }
+  .vk-node--cat-5 {
+    --vk-node-cat: var(--vk-cat-5);
+  }
+  .vk-node--cat-6 {
+    --vk-node-cat: var(--vk-cat-6);
+  }
+
+  .vk-node[class*="vk-node--cat-"] circle {
+    fill: var(--vk-node-cat);
+    stroke: var(--vk-node-cat);
+  }
+
+  /* --- curation, as weight ---
+     Kept is solid and ringed; deferred is hollow — a decision to come back to
+     it; discarded fades but does NOT disappear, because the entity is still in
+     the log and pretending otherwise would be a lie about the record. */
+  .vk-node--kept circle {
+    stroke: var(--vk-ok);
+    stroke-width: 2.5;
+  }
+
+  .vk-node--deferred circle {
+    fill: none;
+    stroke-dasharray: 2 2;
+  }
+
+  .vk-node--discarded {
+    opacity: 0.28;
+  }
+
+  .vk-node--discarded circle {
+    fill: none;
+  }
+
+  .vk-node--discarded text {
+    fill: var(--vk-tool-dim);
+  }
+
+  /* Edges into a discarded node fade with it. */
+  .vk-edge--muted {
+    stroke-opacity: 0.25;
+  }
+
+  /* --- legend ---
+     A colour encoding nobody can decode is decoration. */
+  .vk-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--vk-space-3) var(--vk-space-5);
+    align-items: center;
+    padding: var(--vk-space-2) var(--vk-space-5);
+    border-top: 1px solid var(--vk-border);
+  }
+
+  .vk-legend__item {
+    display: inline-flex;
+    gap: var(--vk-space-2);
+    align-items: center;
+    color: var(--vk-tool-meta);
+  }
+
+  .vk-legend__swatch {
+    width: 8px;
+    height: 8px;
+    background: var(--vk-node-cat, var(--vk-tool-dim));
+    border-radius: var(--vk-radius-pill);
+  }
 }

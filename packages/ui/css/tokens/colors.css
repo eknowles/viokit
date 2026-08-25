@@ -81,6 +81,20 @@
     --vk-tool-sel: color-mix(in srgb, var(--vk-accent) 9%, var(--vk-white));
     --vk-tool-scrim: rgb(15 21 32 / 0.35);
 
+    /* --- categorical slots ---
+       For encoding a category that has no inherent meaning: entity kinds on a
+       canvas, series in a chart. Distinct hues rather than a ramp, because
+       these are nominal — nothing is "more" than anything else. Deliberately
+       only six: past that a legend is doing the work, and a seventh hue would
+       only look deceptively like one of the first six. Slot 1 is the accent,
+       so the most common kind reads as the brand colour. */
+    --vk-cat-1: var(--vk-amber-ink);
+    --vk-cat-2: var(--vk-cyan-700);
+    --vk-cat-3: var(--vk-green-700);
+    --vk-cat-4: var(--vk-red-700);
+    --vk-cat-5: #5b4bc4;
+    --vk-cat-6: var(--vk-slate-500);
+
     /* --- graph canvas --- */
     --vk-graph-subject: var(--vk-amber-400);
     --vk-graph-source: var(--vk-cyan-700);

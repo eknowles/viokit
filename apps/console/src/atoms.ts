@@ -1,5 +1,6 @@
 import { Atom, AtomRegistry } from "effect/unstable/reactivity";
 import { useCallback, useSyncExternalStore } from "react";
+import type { Curation } from "./case-table.js";
 import type { Subject } from "./provenance.js";
 
 /**
@@ -35,11 +36,25 @@ export const useAtom = <A>(
   return [value, set] as const;
 };
 
-export type ViewName = "catalog" | "launcher" | "evidence" | "graph" | "canvas";
+export type ViewName =
+  | "case"
+  | "catalog"
+  | "launcher"
+  | "evidence"
+  | "graph"
+  | "canvas";
 
-export const viewAtom = Atom.make<ViewName>("catalog");
+export const viewAtom = Atom.make<ViewName>("case");
 export const selectedTransformAtom = Atom.make<string | null>(null);
 export const runnableOnlyAtom = Atom.make(false);
 /** The graph's current selection — an entity, relation, or event. */
 export const graphSelectionAtom = Atom.make<Subject | null>(null);
+/** The case canvas's selected node. Separate from `graphSelectionAtom`: that
+ * one addresses any subject in the replayed log, this one addresses a node on
+ * the canvas, which may be a seed that is not in the log at all. */
+export const caseSelectionAtom = Atom.make<string | null>(null);
+/** Keep/defer/discard decisions, by entity id. A judgement about what is worth
+ * following, not a fact about the world — so it lives in view state, and
+ * discarding hides a row rather than unsaying an evidence-attributed step. */
+export const curationAtom = Atom.make<Curation>({});
 export const graphTimeAtom = Atom.make<number | null>(null);

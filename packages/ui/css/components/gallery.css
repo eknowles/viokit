@@ -1,0 +1,63 @@
+/* A grid of entities shown as their own imagery.
+   Earns its place only when a column's values really are images: a wall of
+   broken-image icons is worse than the table it replaced. */
+
+@layer vk.components {
+  .vk-gallery {
+    display: grid;
+    grid-template-columns: repeat(
+        auto-fill,
+        minmax(var(--vk-tile-w, 132px), 1fr)
+      );
+    gap: 1px;
+    padding: 1px;
+    background: var(--vk-border);
+  }
+
+  .vk-tile {
+    display: grid;
+    grid-template-rows: auto min-content;
+    padding: 0;
+    text-align: left;
+    background: var(--vk-tool-surface);
+    border: 0;
+    border-radius: var(--vk-radius-console);
+  }
+
+  .vk-tile:hover {
+    background: var(--vk-tool-hover);
+  }
+
+  .vk-tile.is-selected {
+    outline: 1px solid var(--vk-accent-strong);
+    outline-offset: -1px;
+    background: var(--vk-tool-sel);
+  }
+
+  .vk-tile--discarded {
+    opacity: 0.35;
+  }
+
+  .vk-tile__image {
+    display: block;
+    width: 100%;
+    aspect-ratio: 1;
+    object-fit: cover;
+    background: var(--vk-tool-head);
+  }
+
+  .vk-tile__caption {
+    display: grid;
+    gap: 1px;
+    min-width: 0;
+    padding: var(--vk-space-2) var(--vk-space-3);
+  }
+
+  .vk-tile__label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: var(--vk-console-text-sm);
+    color: var(--vk-tool-text);
+    white-space: nowrap;
+  }
+}

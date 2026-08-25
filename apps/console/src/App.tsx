@@ -10,6 +10,8 @@ import {
 } from "@viokit/ui";
 import { useEffect, useMemo, useState } from "react";
 import {
+  caseSelectionAtom,
+  curationAtom,
   graphSelectionAtom,
   graphTimeAtom,
   runnableOnlyAtom,
@@ -18,6 +20,7 @@ import {
   type ViewName,
   viewAtom,
 } from "./atoms.js";
+import type { Curation } from "./case-table.js";
 import type { Client, OperationDeclaration } from "./client.js";
 import { defaultOrigin, makeClient, OperationFailure } from "./client.js";
 import {
@@ -27,6 +30,7 @@ import {
   saveViewState,
 } from "./persistence.js";
 import type { Subject } from "./provenance.js";
+import { CaseView } from "./views/Case.js";
 import { CatalogView } from "./views/Catalog.js";
 import { EvidenceView } from "./views/Evidence.js";
 import { GraphView } from "./views/Graph.js";
@@ -84,6 +88,10 @@ const REQUIRED = [
 const Body = ({
   client,
   view,
+  caseSelection,
+  curation,
+  onCaseSelect,
+  onCurate,
   graphSelection,
   graphTime,
   onGraphSelect,
@@ -93,7 +101,11 @@ const Body = ({
   runnableOnly,
   transformId,
 }: {
+  readonly caseSelection: string | null;
   readonly client: Client;
+  readonly curation: Curation;
+  readonly onCaseSelect: (id: string | null) => void;
+  readonly onCurate: (next: Curation) => void;
   readonly onLaunch: (id: string) => void;
   readonly graphSelection: Subject | null;
   readonly graphTime: number | null;
@@ -104,6 +116,17 @@ const Body = ({
   readonly transformId: string | null;
   readonly view: ViewName;
 }) => {
+  if (view === "case") {
+    return (
+      <CaseView
+        client={client}
+        curation={curation}
+        onCurate={onCurate}
+        onSelect={onCaseSelect}
+        selectedId={caseSelection}
+      />
+    );
+  }
   if (view === "catalog") {
     return (
       <CatalogView
@@ -147,6 +170,8 @@ export const App = () => {
   const [problem, setProblem] = useState<string | null>(null);
   const [runnableOnly, setRunnableOnly] = useAtom(runnableOnlyAtom);
   const [graphSelection, setGraphSelection] = useAtom(graphSelectionAtom);
+  const [caseSelection, setCaseSelection] = useAtom(caseSelectionAtom);
+  const [curation, setCuration] = useAtom(curationAtom);
   const [graphTime, setGraphTime] = useAtom(graphTimeAtom);
   // Restored before anything is saved, so restoring does not immediately
   // overwrite what it just read.
@@ -187,6 +212,8 @@ export const App = () => {
       setRunnableOnly(state.runnableOnly);
       setGraphSelection(state.graphSelection);
       setGraphTime(state.graphTime);
+      setCaseSelection(state.caseSelection);
+      setCuration(state.curation);
       setRestored(true);
     });
     return () => {
@@ -199,6 +226,8 @@ export const App = () => {
     setRunnableOnly,
     setGraphSelection,
     setGraphTime,
+    setCaseSelection,
+    setCuration,
   ]);
 
   const persist = useMemo(
@@ -212,6 +241,8 @@ export const App = () => {
       return;
     }
     persist({
+      caseSelection,
+      curation,
       graphSelection,
       graphTime,
       runnableOnly,
@@ -226,6 +257,8 @@ export const App = () => {
     view,
     graphSelection,
     graphTime,
+    caseSelection,
+    curation,
   ]);
 
   const active = VIEWS.find((entry) => entry.name === view);
@@ -247,7 +280,7 @@ export const App = () => {
         />
       }
     >
-      <TopBar actions={<ThemeToggle />} title="viokit">
+      <TopBar actions={<ThemeToggle fallback="dark" />} title="viokit">
         <InvestigationBar
           client={client}
           onChange={() => setScope((previous) => previous + 1)}
@@ -257,40 +290,67 @@ export const App = () => {
         </StatusLine>
       </TopBar>
 
-      <Workspace wide>
-        <Pane
-          right="view state persisted server-side · I12"
-          title={active?.title ?? "console"}
-        >
-          {problem === null ? null : (
-            <p className="error console-view">{problem}</p>
-          )}
-          <div
-            className={
-              view === "catalog"
-                ? "console-view console-view--flush"
-                : "console-view"
-            }
+      {view === "case" ? (
+        <Body
+          caseSelection={caseSelection}
+          client={client}
+          curation={curation}
+          graphSelection={graphSelection}
+          graphTime={graphTime}
+          key={scope}
+          onCaseSelect={setCaseSelection}
+          onCurate={setCuration}
+          onGraphSelect={setGraphSelection}
+          onGraphTime={setGraphTime}
+          onLaunch={(id) => {
+            setTransformId(id);
+            setView("launcher");
+          }}
+          onRunnableOnly={setRunnableOnly}
+          runnableOnly={runnableOnly}
+          transformId={transformId}
+          view={view}
+        />
+      ) : (
+        <Workspace wide>
+          <Pane
+            right="view state persisted server-side · I12"
+            title={active?.title ?? "console"}
           >
-            <Body
-              client={client}
-              graphSelection={graphSelection}
-              graphTime={graphTime}
-              key={scope}
-              onGraphSelect={setGraphSelection}
-              onGraphTime={setGraphTime}
-              onLaunch={(id) => {
-                setTransformId(id);
-                setView("launcher");
-              }}
-              onRunnableOnly={setRunnableOnly}
-              runnableOnly={runnableOnly}
-              transformId={transformId}
-              view={view}
-            />
-          </div>
-        </Pane>
-      </Workspace>
+            {problem === null ? null : (
+              <p className="error console-view">{problem}</p>
+            )}
+            <div
+              className={
+                view === "catalog"
+                  ? "console-view console-view--flush"
+                  : "console-view"
+              }
+            >
+              <Body
+                caseSelection={caseSelection}
+                client={client}
+                curation={curation}
+                graphSelection={graphSelection}
+                graphTime={graphTime}
+                key={scope}
+                onCaseSelect={setCaseSelection}
+                onCurate={setCuration}
+                onGraphSelect={setGraphSelection}
+                onGraphTime={setGraphTime}
+                onLaunch={(id) => {
+                  setTransformId(id);
+                  setView("launcher");
+                }}
+                onRunnableOnly={setRunnableOnly}
+                runnableOnly={runnableOnly}
+                transformId={transformId}
+                view={view}
+              />
+            </div>
+          </Pane>
+        </Workspace>
+      )}
     </AppShell>
   );
 };

@@ -1,3 +1,4 @@
+import type { Curation, CurationState } from "./case-table.js";
 import type { Client } from "./client.js";
 import type { Subject } from "./provenance.js";
 
@@ -14,9 +15,11 @@ import type { Subject } from "./provenance.js";
 export const SURFACE = "console";
 
 /** Bump when the payload's shape changes; older documents then read as absent. */
-export const VERSION = 3;
+export const VERSION = 5;
 
 export interface ConsoleViewState {
+  readonly caseSelection: string | null;
+  readonly curation: Curation;
   readonly graphSelection: Subject | null;
   readonly graphTime: number | null;
   readonly runnableOnly: boolean;
@@ -25,14 +28,33 @@ export interface ConsoleViewState {
 }
 
 export const defaultViewState: ConsoleViewState = {
+  caseSelection: null,
+  curation: {},
   graphSelection: null,
   graphTime: null,
   runnableOnly: false,
   selectedTransform: null,
-  view: "catalog",
+  view: "case",
 };
 
 const SUBJECT_KINDS = new Set(["entity", "relation", "event"]);
+const CURATION_STATES = new Set<string>([
+  "deferred",
+  "discarded",
+  "kept",
+  "new",
+]);
+
+/** A record of entity id → decision, and nothing else. */
+const isCuration = (value: unknown): value is Curation => {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return false;
+  }
+  return Object.values(value as Record<string, unknown>).every(
+    (state): state is CurationState =>
+      typeof state === "string" && CURATION_STATES.has(state)
+  );
+};
 
 const isSubject = (value: unknown): value is Subject => {
   if (typeof value !== "object" || value === null) {
@@ -53,6 +75,9 @@ const isViewState = (value: unknown): value is ConsoleViewState => {
   const candidate = value as Record<string, unknown>;
   return (
     typeof candidate.view === "string" &&
+    (candidate.caseSelection === null ||
+      typeof candidate.caseSelection === "string") &&
+    isCuration(candidate.curation) &&
     typeof candidate.runnableOnly === "boolean" &&
     (candidate.selectedTransform === null ||
       typeof candidate.selectedTransform === "string") &&

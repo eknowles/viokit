@@ -25,6 +25,8 @@ describe("restoring the console's view state", () => {
         value: {
           key: { investigation: "default", surface: "console", user: "local" },
           payload: {
+            caseSelection: null,
+            curation: { "acme.test": "kept" },
             graphSelection: { id: "acme.test", kind: "entity" },
             graphTime: null,
             runnableOnly: true,
@@ -36,12 +38,37 @@ describe("restoring the console's view state", () => {
       })
     );
     assert.deepStrictEqual(state, {
+      caseSelection: null,
+      curation: { "acme.test": "kept" },
       graphSelection: { id: "acme.test", kind: "entity" },
       graphTime: null,
       runnableOnly: true,
       selectedTransform: "whois",
       view: "launcher",
     });
+  });
+
+  it("falls back to defaults for a payload missing a field this version adds", async () => {
+    // A document written by an older console that claims the current version:
+    // half-applying it would leave the case canvas addressing a node that
+    // payload never described.
+    const state = await loadViewState(
+      clientReturning({
+        value: {
+          key: { investigation: "default", surface: "console", user: "local" },
+          payload: {
+            curation: {},
+            graphSelection: null,
+            graphTime: null,
+            runnableOnly: true,
+            selectedTransform: "whois",
+            view: "launcher",
+          },
+          version: VERSION,
+        },
+      })
+    );
+    assert.deepStrictEqual(state, defaultViewState);
   });
 
   it("falls back to defaults when nothing is stored", async () => {

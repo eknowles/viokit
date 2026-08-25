@@ -333,3 +333,111 @@ line.edge[role="button"]:hover {
   align-items: center;
   margin: var(--vk-space-1) 0;
 }
+
+/* --- case canvas --- */
+
+.seed {
+  display: grid;
+  gap: var(--vk-space-5);
+  align-content: start;
+  max-width: 420px;
+  padding: var(--vk-space-7) 0;
+  margin: 0 auto;
+}
+
+.seed .hint {
+  max-width: var(--vk-measure-note);
+}
+
+/* The expansion list is a picker whose items carry two lines, so the item's
+   own single-line height has to give. */
+.expansion {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.expansion-id {
+  font-family: var(--vk-font-mono);
+  font-size: var(--vk-console-mono);
+}
+
+.vk-picker__item:has(.expansion) {
+  height: auto;
+  padding-block: var(--vk-space-2);
+}
+
+.staged {
+  padding: 0;
+  margin: 0 0 var(--vk-space-5);
+  list-style: none;
+}
+
+.staged li {
+  display: flex;
+  gap: var(--vk-space-3);
+  align-items: baseline;
+  padding: var(--vk-space-2) 0;
+  border-bottom: 1px solid var(--vk-border);
+}
+
+/* --- case overview + table --- */
+
+.overview {
+  padding: var(--vk-space-5);
+}
+
+.overview-heads {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--vk-space-3);
+  margin-bottom: var(--vk-space-5);
+}
+
+.overview-stat {
+  display: grid;
+  gap: 2px;
+}
+
+.overview-stat b {
+  font-size: 17px;
+  font-weight: var(--vk-weight-medium);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: var(--vk-track-tight);
+}
+
+.tally {
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.tally li {
+  display: flex;
+  gap: var(--vk-space-3);
+  align-items: center;
+  padding: var(--vk-space-1) 0;
+  border-bottom: 1px solid var(--vk-border);
+}
+
+/* The swatch is the same encoding the canvas uses, so a colour learnt in one
+   place reads in the other. */
+.kind {
+  display: inline-flex;
+  gap: var(--vk-space-2);
+  align-items: center;
+}
+
+/* An identifier cell: optional thumbnail, the value, and a count of any
+   further values of the same kind that did not fit. */
+.idcell {
+  display: inline-flex;
+  gap: var(--vk-space-2);
+  align-items: center;
+  max-width: 32ch;
+}
+
+/* A relation with a discarded endpoint fades with it. */
+.vk-grid tbody tr.is-muted td {
+  opacity: 0.4;
+}

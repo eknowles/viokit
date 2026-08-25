@@ -23,6 +23,14 @@
     --vk-info: #67d7ec;
     --vk-ok: #7ee29b;
     --vk-danger: #ff7b72;
+    /* Categorical slots go vivid on dark: the -700 values disappear on ink. */
+    --vk-cat-1: #ffb454;
+    --vk-cat-2: #67d7ec;
+    --vk-cat-3: #7ee29b;
+    --vk-cat-4: #ff7b72;
+    --vk-cat-5: #a99bff;
+    --vk-cat-6: #97a4b7;
+
     --vk-graph-source: #67d7ec;
     --vk-graph-evidence: #7ee29b;
     --vk-shadow: 0 28px 64px -28px rgb(0 0 0 / 0.75);
