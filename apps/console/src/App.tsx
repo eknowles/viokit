@@ -23,7 +23,14 @@ import type { Curation } from "./case-table.js";
 import type { Client, OperationDeclaration } from "./client.js";
 import { defaultOrigin, makeClient, OperationFailure } from "./client.js";
 import type { ViewName } from "./navigation.js";
-import { asViewName, DEFAULT_VIEW, VIEWS } from "./navigation.js";
+import {
+  asViewName,
+  DEFAULT_VIEW,
+  isTyping,
+  shortcutOf,
+  VIEWS,
+  viewForShortcut,
+} from "./navigation.js";
 import {
   type ConsoleViewState,
   debounce,
@@ -242,6 +249,29 @@ export const App = () => {
     camera,
   ]);
 
+  /*
+   * Digit shortcuts, matching the rail's order and the hints it shows.
+   * Registered on the window so they work wherever focus is — except in a
+   * field, where the keystroke belongs to whoever is typing.
+   */
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
+        return;
+      }
+      if (isTyping(event.target)) {
+        return;
+      }
+      const next = viewForShortcut(event.key);
+      if (next !== null) {
+        event.preventDefault();
+        setView(next);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [setView]);
+
   const active = VIEWS.find((entry) => entry.name === view);
   // A deployment that is missing operations is not "connected" in any useful
   // sense, so the status dot reports reachability rather than mere page load.
@@ -252,6 +282,7 @@ export const App = () => {
       rail={
         <Rail
           items={VIEWS.map((entry) => ({
+            hint: shortcutOf(entry.name),
             icon: entry.icon,
             id: entry.name,
             label: entry.label,
@@ -261,7 +292,14 @@ export const App = () => {
         />
       }
     >
-      <TopBar actions={<ThemeToggle fallback="dark" />} title="viokit">
+      {/* The current view is named here rather than in a pane header, so the
+          answer to "where am I" is in the same place on every view — the case
+          workbench has its own panes and was the one view that never said. */}
+      <TopBar
+        actions={<ThemeToggle fallback="dark" />}
+        subtitle={active?.title ?? "console"}
+        title="viokit"
+      >
         <InvestigationBar
           client={client}
           onChange={() => setScope((previous) => previous + 1)}

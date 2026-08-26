@@ -17,6 +17,7 @@
   }
 
   .vk-rail__btn {
+    position: relative; /* anchors .vk-rail__tip */
     display: grid;
     place-items: center;
     width: 30px;
@@ -35,5 +36,51 @@
   .vk-rail__btn.is-on {
     color: var(--vk-tool-ink-text);
     background: var(--vk-tool-ink);
+  }
+
+  /* --- tooltip ---
+     Shown on hover AND on keyboard focus. A `title` attribute does neither
+     well: it waits about a second, and it never appears for someone
+     navigating by keyboard, which is who most needs to be told what a
+     glyph means. */
+  .vk-rail__tip {
+    position: absolute;
+    left: calc(100% + 7px);
+    z-index: 20;
+    display: flex;
+    gap: var(--vk-space-3);
+    align-items: center;
+    padding: var(--vk-space-2) var(--vk-space-4);
+    font-size: var(--vk-console-text-sm);
+    color: var(--vk-tool-ink-text);
+    white-space: nowrap;
+    pointer-events: none;
+    background: var(--vk-tool-ink);
+    border-radius: var(--vk-radius-console);
+    opacity: 0;
+    transition: opacity var(--vk-dur-fast) ease;
+  }
+
+  .vk-rail__btn:hover .vk-rail__tip,
+  .vk-rail__btn:focus-visible .vk-rail__tip {
+    opacity: 1;
+  }
+
+  /* Someone who asked for less motion still wants the tooltip, just not the
+     fade. */
+  @media (prefers-reduced-motion: reduce) {
+    .vk-rail__tip {
+      transition: none;
+    }
+  }
+
+  .vk-rail__key {
+    padding: 0 var(--vk-space-2);
+    font-family: var(--vk-font-mono);
+    font-size: var(--vk-console-mono-sm);
+    color: var(--vk-tool-ink-text);
+    border: 1px solid currentcolor;
+    border-radius: 3px;
+    opacity: 0.62;
   }
 }

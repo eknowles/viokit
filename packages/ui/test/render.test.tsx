@@ -65,8 +65,24 @@ describe("chrome", () => {
     expect(html).toContain('class="vk-app"');
     expect(html).toContain('class="vk-app__main"');
     expect(html).toContain('class="vk-rail__btn is-on"');
-    // The rail is glyphs only, so each button needs a name beyond its tooltip.
-    expect(html).toContain('class="vk-sr-only"');
+    // The rail is glyphs only, so each button needs a name beyond its glyph.
+    // Asserted as the name, not as the markup that carries it — this used to
+    // check for a visually-hidden span and broke when the name moved onto the
+    // button itself, which is a better place for it, not a regression.
+    expect(html).toContain('aria-label="Map"');
+    // The tooltip is decoration; the name above is what gets announced.
+    expect(html).toContain('aria-hidden="true" class="vk-rail__tip"');
+  });
+
+  it("teaches a shortcut in the tooltip and in the accessible name", () => {
+    const html = renderToStaticMarkup(
+      <Rail
+        items={[{ hint: "1", icon: "map", id: "a", label: "Map" }]}
+        value="a"
+      />
+    );
+    expect(html).toContain('aria-label="Map (1)"');
+    expect(html).toContain('class="vk-rail__key"');
   });
 
   it("drops the rail column when no rail is given", () => {

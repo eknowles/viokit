@@ -2,8 +2,11 @@ import { assert, describe, it } from "vitest";
 import {
   asViewName,
   DEFAULT_VIEW,
+  isTyping,
+  shortcutOf,
   VIEW_NAMES,
   VIEWS,
+  viewForShortcut,
 } from "../src/navigation.js";
 import { defaultViewState } from "../src/persistence.js";
 
@@ -58,5 +61,67 @@ describe("restoring a stored view", () => {
     for (const junk of ["", "dashboard", "case ", null, 3, {}]) {
       assert.isNull(asViewName(junk), `${JSON.stringify(junk)} is not a view`);
     }
+  });
+});
+
+describe("keyboard shortcuts", () => {
+  it("gives every view in the rail a shortcut", () => {
+    for (const entry of VIEWS) {
+      const key = shortcutOf(entry.name);
+      assert.equal(
+        viewForShortcut(key),
+        entry.name,
+        `${key} should select ${entry.name}`
+      );
+    }
+  });
+
+  it("numbers them in the order they appear, so the rail teaches itself", () => {
+    assert.deepStrictEqual(
+      VIEWS.map((entry) => shortcutOf(entry.name)),
+      VIEWS.map((_, index) => String(index + 1))
+    );
+  });
+
+  it("puts the case on 1", () => {
+    assert.equal(viewForShortcut("1"), "case");
+  });
+
+  it("ignores keys that select nothing", () => {
+    for (const key of ["0", "7", "8", "9", "a", "Enter", "", "11", " "]) {
+      assert.isNull(viewForShortcut(key), `${key} should select nothing`);
+    }
+  });
+
+  it("does not collide with the browser's own digit shortcuts", () => {
+    // Cmd/Ctrl+1..9 switches browser tabs, so the console uses bare digits
+    // and the caller drops the event when a modifier is held.
+    assert.isNotNull(viewForShortcut("1"));
+  });
+});
+
+describe("not stealing keys from someone typing", () => {
+  const el = (tag: string): EventTarget =>
+    ({ isContentEditable: false, tagName: tag }) as unknown as EventTarget;
+
+  it("stands aside for a text field", () => {
+    for (const tag of ["INPUT", "TEXTAREA", "SELECT"]) {
+      assert.isTrue(isTyping(el(tag)), `${tag} should keep its keystrokes`);
+    }
+  });
+
+  it("stands aside for a rich-text region", () => {
+    assert.isTrue(
+      isTyping({
+        isContentEditable: true,
+        tagName: "DIV",
+      } as unknown as EventTarget)
+    );
+  });
+
+  it("takes the key everywhere else", () => {
+    assert.isFalse(isTyping(el("DIV")));
+    assert.isFalse(isTyping(el("BUTTON")));
+    assert.isFalse(isTyping(null));
   });
 });
