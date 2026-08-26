@@ -1,13 +1,20 @@
+import { Legend } from "@viokit/ui";
 import { useEffect, useMemo, useState } from "react";
 import type { Client } from "../client.js";
 import { OperationFailure } from "../client.js";
 import type {
   GraphRelation,
   GraphSnapshot,
+  Layout,
   PlacedEdge,
   PlacedNode,
 } from "../graph-layout.js";
 import { atTime, extentRange, layout } from "../graph-layout.js";
+import type { LayoutName } from "../graph-shape.js";
+import { suggestLayout } from "../graph-shape.js";
+import type { GraphPick, GraphView } from "../graph-view.js";
+import { graphView } from "../graph-view.js";
+import type { StoredCamera } from "../persistence.js";
 import type { EvidenceRecord, StepRecord, Subject } from "../provenance.js";
 import {
   decodeContent,
@@ -17,6 +24,14 @@ import {
   isPreviewable,
   stepsForSubject,
 } from "../provenance.js";
+import type { LegendEntry, ViewSpecs } from "../view-spec.js";
+import {
+  legendFor,
+  presentationFor,
+  slotsForKinds,
+  titleFor,
+} from "../view-spec.js";
+import { GraphSurface } from "./GraphSurface.js";
 
 /**
  * The graph pane (TDR-020): the replayed graph as nodes and edges, filtered to
@@ -28,7 +43,13 @@ import {
  */
 
 const SIZE = 600;
-const NODE_RADIUS = 7;
+
+/*
+ * No pack publishes a view spec yet (`04-web-ui` §4.2 describes the format).
+ * The console is written to consume one and to be correct without one, so this
+ * is empty rather than seeded with guesses about kinds packs have not shipped.
+ */
+const SPECS: ViewSpecs = {};
 
 const iso = (ms: number) => new Date(ms).toISOString().slice(0, 10);
 
@@ -42,6 +63,112 @@ const readRecord = async (
   } catch {
     return null;
   }
+};
+
+/**
+ * The time rail and what it is currently showing.
+ *
+ * Its own component because the pane had grown past what reads in one piece,
+ * and because "how much of the graph is on screen" is a claim the view makes
+ * and should be able to make in one place.
+ */
+const TimeControls = ({
+  entities,
+  omitted,
+  onTime,
+  range,
+  shown,
+  time,
+}: {
+  readonly entities: number;
+  readonly omitted: number;
+  readonly onTime: (at: number | null) => void;
+  readonly range: { readonly from: number; readonly to: number } | null;
+  readonly shown: number;
+  readonly time: number | null;
+}) => (
+  <div className="graph-controls">
+    {range === null ? null : (
+      <label htmlFor="graph-time">
+        <span className="label">
+          at {time === null ? "any time" : iso(time)}
+        </span>
+        <input
+          id="graph-time"
+          max={range.to}
+          min={range.from}
+          onChange={(e) => onTime(Number(e.target.value))}
+          type="range"
+          value={time ?? range.to}
+        />
+      </label>
+    )}
+    <button onClick={() => onTime(null)} type="button">
+      show all time
+    </button>
+    <span className="hint">
+      {shown} of {entities} entities
+      {omitted > 0
+        ? ` — showing a subset, ${omitted} omitted by the render limit`
+        : ""}
+    </span>
+  </div>
+);
+
+/** What the canvas selected, as a subject the rest of the console addresses. */
+const toSubject = (pick: GraphPick | null): Subject | null => {
+  if (pick === null) {
+    return null;
+  }
+  if (pick.type === "edge") {
+    return { id: pick.id, kind: "relation" };
+  }
+  return { id: pick.id, kind: pick.nodeKind === "event" ? "event" : "entity" };
+};
+
+/** The investigator's choice if they made one, otherwise the graph's shape. */
+const chooseLayout = (
+  chosen: LayoutName | null,
+  graph: GraphSnapshot | null,
+  time: number | null
+): LayoutName => {
+  if (chosen !== null) {
+    return chosen;
+  }
+  return graph === null ? "preset" : suggestLayout(atTime(graph, time));
+};
+
+/**
+ * How the pane draws what it has: nodes coloured by kind, and a legend that
+ * decodes the colouring.
+ *
+ * Outside the component because it is a pure function of the layout, and
+ * because the pane had already grown past what reads comfortably in one place.
+ */
+const panePresentation = (
+  placed: Layout | null
+): { readonly legend: readonly LegendEntry[]; readonly view: GraphView } => {
+  if (placed === null) {
+    return { legend: [], view: { edges: [], nodes: [] } };
+  }
+  const kinds = placed.nodes.map((node) => node.entity.kind);
+  const slots = slotsForKinds(kinds);
+  const counts = new Map<string, number>();
+  for (const kind of kinds) {
+    counts.set(kind, (counts.get(kind) ?? 0) + 1);
+  }
+  return {
+    legend: legendFor(kinds, SPECS, slots, counts),
+    view: graphView(placed, {
+      decorateNode: (node) => ({
+        classes: presentationFor(node.entity.kind, SPECS, slots).classes,
+        title: titleFor(
+          { kind: node.entity.kind, label: node.entity.id },
+          SPECS
+        ),
+      }),
+    }),
+  };
 };
 
 const Provenance = ({
@@ -226,13 +353,17 @@ const NodeDetail = ({ node }: { readonly node: PlacedNode }) => (
 );
 
 export const GraphCanvasView = ({
+  camera,
   client,
+  onCamera,
   onSelect,
   onTime,
   selected,
   time,
 }: {
+  readonly camera: StoredCamera | null;
   readonly client: Client;
+  readonly onCamera: (camera: StoredCamera) => void;
   readonly onSelect: (subject: Subject | null) => void;
   readonly onTime: (at: number | null) => void;
   readonly selected: Subject | null;
@@ -240,6 +371,7 @@ export const GraphCanvasView = ({
 }) => {
   const [graph, setGraph] = useState<GraphSnapshot | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [chosenLayout, setChosenLayout] = useState<LayoutName | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -273,6 +405,18 @@ export const GraphCanvasView = ({
     [graph, time]
   );
 
+  // Suggested from what is actually on screen — the time-filtered graph, not
+  // the whole one, since that is what is being laid out.
+  const layoutName = useMemo(
+    () => chooseLayout(chosenLayout, graph, time),
+    [chosenLayout, graph, time]
+  );
+
+  const { legend, view: paneView } = useMemo(
+    () => panePresentation(placed),
+    [placed]
+  );
+
   if (error !== null) {
     return <p className="error">{error}</p>;
   }
@@ -298,32 +442,14 @@ export const GraphCanvasView = ({
 
   return (
     <div>
-      <div className="graph-controls">
-        {range === null ? null : (
-          <label htmlFor="graph-time">
-            <span className="label">
-              at {time === null ? "any time" : iso(time)}
-            </span>
-            <input
-              id="graph-time"
-              max={range.to}
-              min={range.from}
-              onChange={(e) => onTime(Number(e.target.value))}
-              type="range"
-              value={time ?? range.to}
-            />
-          </label>
-        )}
-        <button onClick={() => onTime(null)} type="button">
-          show all time
-        </button>
-        <span className="hint">
-          {placed.nodes.length} of {graph.entities.length} entities
-          {placed.omitted > 0
-            ? ` — showing a subset, ${placed.omitted} omitted by the render limit`
-            : ""}
-        </span>
-      </div>
+      <TimeControls
+        entities={graph.entities.length}
+        omitted={placed.omitted}
+        onTime={onTime}
+        range={range}
+        shown={placed.nodes.length}
+        time={time}
+      />
 
       {placed.omitted > 0 ? (
         <p className="error">
@@ -335,91 +461,18 @@ export const GraphCanvasView = ({
       {placed.nodes.length === 0 ? (
         <p className="hint">Nothing was valid at this time.</p>
       ) : (
-        <svg
-          aria-label="investigation graph"
-          height={SIZE}
-          role="img"
-          viewBox={`0 0 ${SIZE} ${SIZE}`}
-          width="100%"
-        >
-          <title>Investigation graph</title>
-          {placed.edges.map((edge) => {
-            const selectable = edge.relation !== undefined;
-            const chosen = selected?.id === edge.id;
-            return (
-              // biome-ignore lint/a11y/noStaticElementInteractions: role and tabIndex are set below; SVG has no button element
-              <line
-                aria-label={edge.relation?.type ?? "connection"}
-                className={chosen ? "edge selected" : "edge"}
-                key={edge.id}
-                onClick={
-                  selectable
-                    ? () =>
-                        onSelect(
-                          chosen ? null : { id: edge.id, kind: "relation" }
-                        )
-                    : undefined
-                }
-                onKeyDown={
-                  selectable
-                    ? (event) => {
-                        if (event.key === "Enter" || event.key === " ") {
-                          event.preventDefault();
-                          onSelect(
-                            chosen ? null : { id: edge.id, kind: "relation" }
-                          );
-                        }
-                      }
-                    : undefined
-                }
-                role={selectable ? "button" : undefined}
-                tabIndex={selectable ? 0 : undefined}
-                x1={edge.source.x}
-                x2={edge.target.x}
-                y1={edge.source.y}
-                y2={edge.target.y}
-              />
-            );
-          })}
-          {placed.nodes.map((node) => {
-            const chosen = node.entity.id === selected?.id;
-            // Built here rather than as a template literal in the attribute:
-            // the formatter normalises class strings in JSX and was eating the
-            // separator, silently producing "node entityselected".
-            const nodeClass = ["node", node.kind, chosen ? "selected" : null]
-              .filter((part) => part !== null)
-              .join(" ");
-            const toggle = () =>
-              onSelect(chosen ? null : { id: node.entity.id, kind: node.kind });
-            return (
-              // Keyboard-reachable: a node is a control, so it behaves like
-              // one. `<button>` is not valid SVG content, so the role is
-              // carried explicitly rather than by element.
-              // biome-ignore lint/a11y/useSemanticElements: no button element in SVG
-              <g
-                aria-label={`${node.entity.kind} ${node.entity.id}`}
-                aria-pressed={chosen}
-                className={nodeClass}
-                key={node.entity.id}
-                onClick={toggle}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" || event.key === " ") {
-                    event.preventDefault();
-                    toggle();
-                  }
-                }}
-                role="button"
-                tabIndex={0}
-              >
-                <circle cx={node.x} cy={node.y} r={NODE_RADIUS} />
-                <text x={node.x + NODE_RADIUS + 4} y={node.y + 4}>
-                  {node.entity.id}
-                </text>
-              </g>
-            );
-          })}
-        </svg>
+        <GraphSurface
+          camera={camera}
+          label="investigation graph"
+          layoutName={layoutName}
+          onCamera={onCamera}
+          onLayout={setChosenLayout}
+          onSelect={(pick) => onSelect(toSubject(pick))}
+          selectedId={selected === null ? null : selected.id}
+          view={paneView}
+        />
       )}
+      {legend.length === 0 ? null : <Legend items={legend} />}
 
       {selected === null ? null : (
         <div>

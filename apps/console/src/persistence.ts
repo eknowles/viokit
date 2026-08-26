@@ -15,9 +15,20 @@ import type { Subject } from "./provenance.js";
 export const SURFACE = "console";
 
 /** Bump when the payload's shape changes; older documents then read as absent. */
-export const VERSION = 5;
+export const VERSION = 6;
+
+/** Where the investigator was looking. Re-finding your place in a graph is
+ * most of the cost of leaving it, so the camera is worth storing. */
+export interface StoredCamera {
+  readonly x: number;
+  readonly y: number;
+  readonly zoom: number;
+}
 
 export interface ConsoleViewState {
+  /** Absent means: never framed this case — open fitted rather than at an
+   * arbitrary origin. */
+  readonly camera: StoredCamera | null;
   readonly caseSelection: string | null;
   readonly curation: Curation;
   readonly graphSelection: Subject | null;
@@ -28,6 +39,7 @@ export interface ConsoleViewState {
 }
 
 export const defaultViewState: ConsoleViewState = {
+  camera: null,
   caseSelection: null,
   curation: {},
   graphSelection: null,
@@ -53,6 +65,22 @@ const isCuration = (value: unknown): value is Curation => {
   return Object.values(value as Record<string, unknown>).every(
     (state): state is CurationState =>
       typeof state === "string" && CURATION_STATES.has(state)
+  );
+};
+
+/** A camera, or nothing. A partial one would frame the graph somewhere
+ * meaningless, which is worse than framing it afresh. */
+const isCamera = (value: unknown): value is StoredCamera => {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+  const candidate = value as Record<string, unknown>;
+  return (
+    Number.isFinite(candidate.x) &&
+    Number.isFinite(candidate.y) &&
+    typeof candidate.zoom === "number" &&
+    Number.isFinite(candidate.zoom) &&
+    candidate.zoom > 0
   );
 };
 
@@ -83,7 +111,8 @@ const isViewState = (value: unknown): value is ConsoleViewState => {
       typeof candidate.selectedTransform === "string") &&
     (candidate.graphSelection === null ||
       isSubject(candidate.graphSelection)) &&
-    (candidate.graphTime === null || typeof candidate.graphTime === "number")
+    (candidate.graphTime === null || typeof candidate.graphTime === "number") &&
+    (candidate.camera === null || isCamera(candidate.camera))
   );
 };
 

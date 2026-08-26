@@ -1,3 +1,8 @@
+import { readdirSync, readFileSync } from "node:fs";
+
+const TS_FILE = /\.tsx?$/;
+const BROWSER_STORAGE = /\b(localStorage|sessionStorage|indexedDB)\b/;
+
 import { assert, describe, it } from "vitest";
 import { makeClient } from "../src/client.js";
 import {
@@ -25,6 +30,7 @@ describe("restoring the console's view state", () => {
         value: {
           key: { investigation: "default", surface: "console", user: "local" },
           payload: {
+            camera: null,
             caseSelection: null,
             curation: { "acme.test": "kept" },
             graphSelection: { id: "acme.test", kind: "entity" },
@@ -38,6 +44,7 @@ describe("restoring the console's view state", () => {
       })
     );
     assert.deepStrictEqual(state, {
+      camera: null,
       caseSelection: null,
       curation: { "acme.test": "kept" },
       graphSelection: { id: "acme.test", kind: "entity" },
@@ -96,5 +103,103 @@ describe("restoring the console's view state", () => {
       clientReturning({ error: "boom", tag: "ViewStateWriteError" }, 422)
     );
     assert.deepStrictEqual(state, defaultViewState);
+  });
+});
+
+describe("the graph camera as view state", () => {
+  const stored = (camera: unknown) =>
+    clientReturning({
+      value: {
+        payload: {
+          camera,
+          caseSelection: null,
+          curation: {},
+          graphSelection: null,
+          graphTime: null,
+          runnableOnly: false,
+          selectedTransform: null,
+          view: "case",
+        },
+        version: VERSION,
+      },
+    });
+
+  it("restores where the investigator was looking", async () => {
+    const state = await loadViewState(stored({ x: -120.5, y: 44, zoom: 1.8 }));
+    assert.deepStrictEqual(state.camera, { x: -120.5, y: 44, zoom: 1.8 });
+  });
+
+  it("treats a case never framed as absent, not as the origin", async () => {
+    const state = await loadViewState(stored(null));
+    assert.isNull(state.camera);
+  });
+
+  it("rejects a half-written camera rather than framing somewhere meaningless", async () => {
+    const broken = [
+      { x: 1, y: 2 },
+      { x: 1, y: 2, zoom: 0 },
+      { x: 1, y: 2, zoom: -1 },
+      { x: Number.NaN, y: 2, zoom: 1 },
+      { x: 1, y: 2, zoom: "1.5" },
+      "somewhere",
+    ];
+    const loaded = await Promise.all(
+      broken.map((one) => loadViewState(stored(one)))
+    );
+    loaded.forEach((state, index) => {
+      assert.deepStrictEqual(
+        state,
+        defaultViewState,
+        `${JSON.stringify(broken[index])} should not have been applied`
+      );
+    });
+  });
+
+  it("survives a document written before the camera existed", async () => {
+    // Older payloads have no `camera` key at all. Half-applying one would
+    // leave the graph framed by a camera that document never described.
+    const state = await loadViewState(
+      clientReturning({
+        value: {
+          payload: {
+            caseSelection: null,
+            curation: {},
+            graphSelection: null,
+            graphTime: null,
+            runnableOnly: false,
+            selectedTransform: null,
+            view: "case",
+          },
+          version: VERSION,
+        },
+      })
+    );
+    assert.deepStrictEqual(state, defaultViewState);
+  });
+
+  it("is never written to browser-local storage (I12)", () => {
+    // Asserted against the source, not against a description of it: I12 says
+    // view state is server-backed, and the way that gets broken is someone
+    // reaching for localStorage because it is closer to hand.
+    const root = new URL("../src/", import.meta.url);
+    const offenders: string[] = [];
+    const walk = (dir: URL) => {
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        const child = new URL(
+          entry.name + (entry.isDirectory() ? "/" : ""),
+          dir
+        );
+        if (entry.isDirectory()) {
+          walk(child);
+        } else if (TS_FILE.test(entry.name)) {
+          const text = readFileSync(child, "utf8");
+          if (BROWSER_STORAGE.test(text)) {
+            offenders.push(entry.name);
+          }
+        }
+      }
+    };
+    walk(root);
+    assert.deepStrictEqual(offenders, [], "view state must be server-backed");
   });
 });

@@ -1,5 +1,8 @@
-import type { GraphEntity, GraphSnapshot } from "./graph-layout.js";
+import type { GraphEntity, GraphSnapshot, Layout } from "./graph-layout.js";
+import type { GraphView } from "./graph-view.js";
+import { graphView, seedNodeView } from "./graph-view.js";
 import type { StepRecord } from "./provenance.js";
+import { slotsForKinds } from "./view-spec.js";
 
 /**
  * What is actually in the case, and what an investigator has decided about it.
@@ -223,11 +226,61 @@ export const summarise = (
  * legend is doing the work anyway, and inventing more colours would only make
  * two kinds look deceptively similar.
  */
-export const SLOTS = 6;
 
 export const kindSlots = (
   rows: readonly CaseRow[]
-): ReadonlyMap<string, number> => {
-  const order = [...new Set(rows.map((row) => row.kind))].sort();
-  return new Map(order.map((kind, index) => [kind, index % SLOTS]));
+): ReadonlyMap<string, number> =>
+  // The rule lives in `view-spec.ts` with the rest of presentation. Two
+  // implementations of "which colour is this kind" is one too many: they
+  // would agree until the day they didn't, and the legend would be describing
+  // a graph drawn some other way.
+  slotsForKinds(rows.map((row) => row.kind));
+
+/**
+ * The case's view of a laid-out graph.
+ *
+ * Curation and kind-colour are both decided here rather than in the renderer,
+ * because they are judgements about the case, not facts about the drawing. A
+ * discarded entity fades but does not vanish — it is still in the log, and
+ * hiding it would be a lie about the record — so the class is applied to the
+ * node and to the edges that touch it, and the renderer merely obeys.
+ */
+export const caseGraphView = (
+  placed: Layout,
+  options: {
+    readonly byId: ReadonlyMap<string, CaseRow>;
+    readonly seed?: { readonly id: string; readonly label: string } | null;
+    readonly seedPoint?: { readonly x: number; readonly y: number };
+    readonly slots: ReadonlyMap<string, number>;
+  }
+): GraphView => {
+  const { byId, seed = null, seedPoint = { x: 0, y: 0 }, slots } = options;
+  const discarded = (id: string) => byId.get(id)?.state === "discarded";
+
+  return graphView(placed, {
+    decorateEdge: (edge) => ({
+      classes:
+        discarded(edge.source.entity.id) || discarded(edge.target.entity.id)
+          ? ["vk-edge--muted"]
+          : [],
+    }),
+    decorateNode: (node) => {
+      const row = byId.get(node.entity.id);
+      const label = row?.value ?? node.entity.id;
+      return {
+        classes: [
+          ...(row === undefined
+            ? []
+            : [`vk-node--cat-${(slots.get(row.kind) ?? 0) + 1}`]),
+          ...(row === undefined || row.state === "new"
+            ? []
+            : [`vk-node--${row.state}`]),
+        ],
+        label,
+        title: `${node.entity.kind} ${label}`,
+      };
+    },
+    extraNodes:
+      seed === null ? [] : [seedNodeView(seed.id, seed.label, seedPoint)],
+  });
 };

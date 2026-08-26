@@ -2,7 +2,6 @@ import {
   BlankSlate,
   Button,
   Canvas,
-  cx,
   Legend,
   Pane,
   PaneStack,
@@ -12,13 +11,9 @@ import {
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { CaseNode, TransformContract } from "../case.js";
 import { entityNode, isRealised, seedNode } from "../case.js";
-import type {
-  CaseFilter,
-  CaseRow,
-  Curation,
-  CurationState,
-} from "../case-table.js";
+import type { CaseFilter, Curation, CurationState } from "../case-table.js";
 import {
+  caseGraphView,
   caseRows,
   curate,
   kindSlots,
@@ -28,13 +23,17 @@ import {
 import type { Client } from "../client.js";
 import { OperationFailure } from "../client.js";
 import { formShapeOf } from "../form.js";
-import type { GraphSnapshot, PlacedEdge, PlacedNode } from "../graph-layout.js";
+import type { GraphSnapshot } from "../graph-layout.js";
 import { layout } from "../graph-layout.js";
+import type { LayoutName } from "../graph-shape.js";
+import { suggestLayout } from "../graph-shape.js";
+import type { StoredCamera } from "../persistence.js";
 import type { StepRecord } from "../provenance.js";
 import { CaseOverview } from "./CaseOverview.js";
 import { CaseTable } from "./CaseTable.js";
 import type { CatalogEntry } from "./Expand.js";
 import { ExpandPane, expansionCount, NodeFacts } from "./Expand.js";
+import { GraphSurface } from "./GraphSurface.js";
 
 /**
  * Working a case: seed something, expand it, and see what you have.
@@ -48,7 +47,6 @@ import { ExpandPane, expansionCount, NodeFacts } from "./Expand.js";
  */
 
 const SIZE = 600;
-const NODE_RADIUS = 7;
 
 /** Centred on an empty canvas; out of the way once there is a graph. */
 const seedAt = (empty: boolean) =>
@@ -137,124 +135,6 @@ const SeedPrompt = ({
   );
 };
 
-/** One node. SVG has no <button>, so the role is carried explicitly. */
-const NodeShape = ({
-  chosen,
-  extra,
-  label,
-  onToggle,
-  title,
-  x,
-  y,
-}: {
-  readonly chosen: boolean;
-  readonly extra: string;
-  readonly label: string;
-  readonly onToggle: () => void;
-  readonly title: string;
-  readonly x: number;
-  readonly y: number;
-}) => (
-  // biome-ignore lint/a11y/useSemanticElements: no button element in SVG
-  <g
-    aria-label={title}
-    aria-pressed={chosen}
-    className={cx("vk-node", extra, chosen && "is-selected")}
-    onClick={onToggle}
-    onKeyDown={(event) => {
-      if (event.key === "Enter" || event.key === " ") {
-        event.preventDefault();
-        onToggle();
-      }
-    }}
-    role="button"
-    tabIndex={0}
-  >
-    <circle cx={x} cy={y} r={NODE_RADIUS} />
-    <text x={x + NODE_RADIUS + 4} y={y + 4}>
-      {label}
-    </text>
-  </g>
-);
-
-const CaseCanvas = ({
-  byId,
-  edges,
-  nodes,
-  onSelect,
-  seed,
-  seedPoint,
-  selectedId,
-  slots,
-}: {
-  readonly byId: ReadonlyMap<string, CaseRow>;
-  readonly edges: readonly PlacedEdge[];
-  readonly nodes: readonly PlacedNode[];
-  readonly onSelect: (id: string | null) => void;
-  readonly seed: CaseNode | null;
-  readonly seedPoint: { readonly x: number; readonly y: number };
-  readonly selectedId: string | null;
-  readonly slots: ReadonlyMap<string, number>;
-}) => {
-  const toggle = (id: string) => onSelect(selectedId === id ? null : id);
-  const muted = (id: string) => byId.get(id)?.state === "discarded";
-  return (
-    <Canvas>
-      <svg aria-label="case graph" role="img" viewBox={`0 0 ${SIZE} ${SIZE}`}>
-        <title>Case graph</title>
-        {edges.map((edge) => (
-          <line
-            className={cx(
-              "vk-edge",
-              (muted(edge.source.entity.id) || muted(edge.target.entity.id)) &&
-                "vk-edge--muted"
-            )}
-            key={edge.id}
-            x1={edge.source.x}
-            x2={edge.target.x}
-            y1={edge.source.y}
-            y2={edge.target.y}
-          />
-        ))}
-        {nodes.map((node) => {
-          const row = byId.get(node.entity.id);
-          return (
-            <NodeShape
-              chosen={node.entity.id === selectedId}
-              extra={cx(
-                `vk-node--${node.kind}`,
-                row === undefined
-                  ? null
-                  : `vk-node--cat-${(slots.get(row.kind) ?? 0) + 1}`,
-                row === undefined || row.state === "new"
-                  ? null
-                  : `vk-node--${row.state}`
-              )}
-              key={node.entity.id}
-              label={row?.value ?? node.entity.id}
-              onToggle={() => toggle(node.entity.id)}
-              title={`${node.entity.kind} ${row?.value ?? node.entity.id}`}
-              x={node.x}
-              y={node.y}
-            />
-          );
-        })}
-        {seed === null ? null : (
-          <NodeShape
-            chosen={selectedId === seed.id}
-            extra="vk-node--seed"
-            label={seed.label}
-            onToggle={() => toggle(seed.id)}
-            title={`seed ${seed.label}`}
-            x={seedPoint.x}
-            y={seedPoint.y}
-          />
-        )}
-      </svg>
-    </Canvas>
-  );
-};
-
 interface CaseData {
   readonly contracts: readonly TransformContract[];
   readonly entries: ReadonlyMap<string, CatalogEntry>;
@@ -326,14 +206,18 @@ const useCaseData = (client: Client): CaseData => {
 };
 
 export const CaseView = ({
+  camera,
   client,
   curation,
+  onCamera,
   onCurate,
   onSelect,
   selectedId,
 }: {
+  readonly camera: StoredCamera | null;
   readonly client: Client;
   readonly curation: Curation;
+  readonly onCamera: (camera: StoredCamera) => void;
   readonly onCurate: (next: Curation) => void;
   readonly onSelect: (id: string | null) => void;
   readonly selectedId: string | null;
@@ -342,6 +226,7 @@ export const CaseView = ({
     useCaseData(client);
   const [seed, setSeed] = useState<CaseNode | null>(null);
   const [filter, setFilter] = useState<CaseFilter>("all");
+  const [chosenLayout, setChosenLayout] = useState<LayoutName | null>(null);
 
   // The seed stands in only until something real asserts it, which is what a
   // transform does the first time it runs against the value.
@@ -363,6 +248,24 @@ export const CaseView = ({
     () => (graph === null ? null : layout(graph, { size: SIZE })),
     [graph]
   );
+
+  const canvasView = useMemo(
+    () =>
+      placed === null
+        ? { edges: [], nodes: [] }
+        : caseGraphView(placed, {
+            byId,
+            seed: liveSeed,
+            seedPoint: seedAt(graph?.entities.length === 0),
+            slots,
+          }),
+    [byId, graph, liveSeed, placed, slots]
+  );
+
+  // Automatic is the default, not the behaviour: the investigator's choice
+  // wins once made, so the graph does not rearrange under them.
+  const layoutName =
+    chosenLayout ?? (graph === null ? "preset" : suggestLayout(graph));
 
   const selected = useMemo((): CaseNode | null => {
     if (selectedId === null) {
@@ -440,16 +343,18 @@ export const CaseView = ({
               shown.
             </p>
           ) : null}
-          <CaseCanvas
-            byId={byId}
-            edges={placed.edges}
-            nodes={placed.nodes}
-            onSelect={onSelect}
-            seed={liveSeed}
-            seedPoint={seedAt(empty)}
-            selectedId={selectedId}
-            slots={slots}
-          />
+          <Canvas>
+            <GraphSurface
+              camera={camera}
+              label="case graph"
+              layoutName={layoutName}
+              onCamera={onCamera}
+              onLayout={setChosenLayout}
+              onSelect={(pick) => onSelect(pick === null ? null : pick.id)}
+              selectedId={selectedId}
+              view={canvasView}
+            />
+          </Canvas>
           {legend.length === 0 ? null : <Legend items={legend} />}
         </Pane>
 

@@ -251,57 +251,9 @@ svg[aria-label="investigation graph"] {
   border: 1px solid var(--vk-border);
 }
 
-.edge {
-  stroke: var(--vk-graph-edge);
-  stroke-width: 1.5;
-}
-
-.edge.selected {
-  stroke: var(--vk-accent-strong);
-  stroke-width: 3;
-}
-
-line.edge[role="button"] {
-  cursor: pointer;
-  stroke-opacity: 0.35;
-  stroke-width: 6;
-}
-
-line.edge[role="button"]:hover {
-  stroke: var(--vk-accent-strong);
-}
-
-.node {
-  cursor: pointer;
-}
-
-.node circle {
-  fill: var(--vk-tool-node);
-  stroke: var(--vk-tool-meta);
-  stroke-width: 1.5;
-}
-
-.node text {
-  font-family: var(--vk-font-mono);
-  font-size: 10px;
-  pointer-events: none;
-  fill: var(--vk-tool-meta);
-}
-
-.node:hover circle,
-.node.selected circle {
-  fill: var(--vk-accent);
-  stroke: var(--vk-accent-strong);
-}
-
-.node:hover text,
-.node.selected text {
-  fill: var(--vk-tool-text);
-}
-
-.node.event circle {
-  fill: var(--vk-tool-track);
-}
+/* Nodes and edges are drawn by the shared graph surface and styled by
+   @viokit/ui's .vk-node / .vk-edge. The duplicates that used to live here
+   were the second copy every fix had to be remembered in. */
 
 /* --- detail + evidence trail --- */
 

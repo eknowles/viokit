@@ -1,6 +1,7 @@
 import { Atom, AtomRegistry } from "effect/unstable/reactivity";
 import { useCallback, useSyncExternalStore } from "react";
 import type { Curation } from "./case-table.js";
+import type { StoredCamera } from "./persistence.js";
 import type { Subject } from "./provenance.js";
 
 /**
@@ -58,3 +59,7 @@ export const caseSelectionAtom = Atom.make<string | null>(null);
  * discarding hides a row rather than unsaying an evidence-attributed step. */
 export const curationAtom = Atom.make<Curation>({});
 export const graphTimeAtom = Atom.make<number | null>(null);
+/** Where the investigator was looking. Null means never framed: the graph opens
+ * fitted rather than at an arbitrary origin. Scoped per investigation by the
+ * view-state store, so switching case changes what you see *and* where from. */
+export const cameraAtom = Atom.make<StoredCamera | null>(null);

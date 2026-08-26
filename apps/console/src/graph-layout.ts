@@ -1,5 +1,6 @@
 import {
   forceCenter,
+  forceCollide,
   forceLink,
   forceManyBody,
   forceSimulation,
@@ -71,8 +72,25 @@ export interface Layout {
   readonly omitted: number;
 }
 
-/** Beyond this, SVG stops being the right renderer (TDR-020). */
-export const DEFAULT_NODE_CAP = 200;
+/**
+ * How many entities the graph will draw before it starts leaving some out.
+ *
+ * This is a *readability* bound, not a rendering one. Cytoscape carries around
+ * ten thousand nodes; a person does not, and a three-thousand-node hairball is
+ * unreadable however fast it paints. So the cap survives a renderer that no
+ * longer needs it, and it encodes the lower of the two limits.
+ *
+ * Measured 2026-08-26 (TDR-027 task 0.3): a real `crt-sh-certificate-search`
+ * against `stripe.com` returned 2,347 certificate rows projecting to **188
+ * entities and 187 relations** — just under the old bound of 200 at one hop.
+ * A second hop (each subdomain resolving to addresses) at least doubles it.
+ * A thousand therefore clears a two-hop expansion with room, while staying
+ * well inside what can actually be read.
+ *
+ * Named rather than inlined so the truncation tests can assert against *this*
+ * value: moving the number must not be able to quietly disarm the report.
+ */
+export const DEFAULT_NODE_CAP = 1000;
 
 const within = (
   extent: { validFrom: string; validTo: string },
@@ -163,6 +181,40 @@ interface SimNode extends SimulationNodeDatum {
 
 const ITERATIONS = 200;
 
+/**
+ * How much room a node needs.
+ *
+ * The label runs to the right of the marker, so the space a node occupies is
+ * wider than the marker is. `forceCollide` takes a radius rather than a box,
+ * so this approximates: half the label's width, plus the marker and a margin.
+ * Half, because a symmetric radius wide enough for a right-hand label would
+ * push the graph apart vertically for room nothing occupies.
+ *
+ * The label is approximated from the entity id. The rendered label can differ
+ * (the case workbench shows an identifier value), but they are the same order
+ * of length, and a layout that is slightly generous reads far better than one
+ * that is slightly tight.
+ */
+const NODE_RADIUS = 7;
+const LABEL_MARGIN = 6;
+/** Mono at 10px runs about 0.6em per character. */
+const CHAR_WIDTH = 6;
+/**
+ * Beyond this a label is long enough that spacing for it would distort the
+ * whole graph for one outlier. 210px is about 35 mono characters, which covers
+ * most identifiers outright; measured across 21-, 49- and 99-node graphs it
+ * takes label collisions to roughly zero, and raising it further changes
+ * nothing because nothing is wider.
+ */
+const LABEL_WIDTH_CAP = 210;
+const LINK_DISTANCE = 150;
+const CHARGE = -700;
+
+const footprint = (label: string): number =>
+  NODE_RADIUS +
+  LABEL_MARGIN +
+  Math.min(label.length * CHAR_WIDTH, LABEL_WIDTH_CAP) / 2;
+
 export const layout = (
   input: GraphSnapshot,
   options: { readonly cap?: number; readonly size?: number } = {}
@@ -212,10 +264,17 @@ export const layout = (
       "link",
       forceLink(links)
         .id((node) => (node as SimNode).id)
-        .distance(90)
+        .distance(LINK_DISTANCE)
     )
-    .force("charge", forceManyBody().strength(-260))
+    .force("charge", forceManyBody().strength(CHARGE))
     .force("center", forceCenter(size / 2, size / 2))
+    // A node's footprint is the marker *and its label*. Without this the
+    // simulation packs nodes to the marker's radius and the labels — which are
+    // most of what an investigator actually reads — sit on top of each other.
+    .force(
+      "collide",
+      forceCollide<SimNode>((node) => footprint(node.id))
+    )
     .stop();
 
   // Stepped to a settled state rather than animated: deterministic, and

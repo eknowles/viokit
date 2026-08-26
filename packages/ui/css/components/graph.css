@@ -28,111 +28,107 @@
     accent-color: var(--vk-accent-strong);
   }
 
-  /* --- nodes and edges ---
-     Drawn in SVG, which has no <button>, so a node carries role/tabindex and
-     is styled through these classes rather than through element defaults. */
+  /* --- the graph surface ---
+     Cytoscape draws to a canvas, so node and edge appearance is no longer
+     expressible here: a canvas has no DOM to cascade over. Those rules now
+     live in the console's `graph-style.ts`, in Cytoscape's selector
+     vocabulary, built from these same design tokens so the two cannot drift.
+     What remains below is what is still DOM. */
 
-  .vk-edge {
-    stroke: var(--vk-graph-edge);
-    stroke-width: 1.5;
+  .vk-graph {
+    position: relative;
+    display: grid;
+    height: 100%;
+    min-height: 0;
   }
 
-  .vk-edge.is-selected {
-    stroke: var(--vk-accent-strong);
-    stroke-width: 3;
+  .vk-graph__canvas {
+    width: 100%;
+    height: 100%;
+    min-height: 0;
   }
 
-  /* A transparent fat line over the hairline: 1.5px is not a click target. */
-  .vk-edge--hit {
-    cursor: pointer;
-    stroke: transparent;
-    stroke-width: 10;
+  .vk-graph__controls {
+    position: absolute;
+    top: var(--vk-space-3);
+    right: var(--vk-space-3);
+    display: flex;
+    gap: var(--vk-space-2);
   }
 
-  .vk-edge--hit:hover + .vk-edge,
-  .vk-edge--hit:focus-visible + .vk-edge {
-    stroke: var(--vk-accent-strong);
-  }
-
-  .vk-edge-label {
+  .vk-graph__control {
+    padding: var(--vk-space-1) var(--vk-space-3);
     font-family: var(--vk-font-mono);
-    font-size: 8.5px;
-    pointer-events: none;
-    fill: var(--vk-tool-dim);
-  }
-
-  .vk-node {
+    font-size: var(--vk-text-micro, 10px);
+    color: var(--vk-tool-meta);
     cursor: pointer;
+    background: var(--vk-tool-surface);
+    border: 1px solid var(--vk-border);
   }
 
-  .vk-node circle {
-    fill: var(--vk-tool-node);
-    stroke: var(--vk-tool-meta);
-    stroke-width: 1.5;
-    transition: fill var(--vk-dur-fast) ease;
+  .vk-graph__control:hover {
+    color: var(--vk-tool-text);
+    background: var(--vk-tool-hover);
   }
 
-  .vk-node text {
-    font-family: var(--vk-font-mono);
-    font-size: 10px;
-    pointer-events: none;
-    fill: var(--vk-tool-meta);
+  /* The keyboard and screen-reader view of the canvas.
+     Visually hidden but focusable — `display: none` would remove it from the
+     tab order, which is the whole reason it exists. Focus brings the item's
+     button into view so a sighted keyboard user can see where they are. */
+  .vk-graph__mirror {
+    position: absolute;
+    inset: 0;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    list-style: none;
+    clip-path: inset(50%);
   }
 
-  /* An event is the graph's time dimension, not another entity. */
-  .vk-node--event circle {
-    fill: var(--vk-tool-track);
-    stroke: var(--vk-tool-dim);
+  .vk-graph__item {
+    font: inherit;
+    color: inherit;
+    cursor: pointer;
+    background: none;
+    border: 0;
   }
 
-  /*
-   * The seed is what you typed. It is NOT in the graph — nothing has evidenced
-   * it yet — so it is drawn hollow and dashed. The moment a transform asserts
-   * it, it is replaced by the real, evidenced node and the dashes go away.
-   * That difference is the whole provenance model in one visual.
-   */
-  .vk-node--seed circle {
-    fill: none;
-    stroke: var(--vk-accent);
-    stroke-dasharray: 3 3;
+  .vk-graph__mirror:focus-within {
+    z-index: 1;
+    width: auto;
+    height: auto;
+    clip-path: none;
   }
 
-  .vk-node--seed text {
-    fill: var(--vk-accent-text);
+  .vk-graph__mirror:focus-within .vk-graph__item:focus-visible {
+    padding: var(--vk-space-1) var(--vk-space-3);
+    color: var(--vk-tool-text);
+    outline: 2px solid var(--vk-accent-strong);
+    background: var(--vk-tool-surface);
   }
 
-  .vk-node--expanded circle {
-    stroke: var(--vk-ok);
-  }
-
-  .vk-node:hover circle {
-    fill: var(--vk-tool-active);
-  }
-
-  .vk-node.is-selected circle {
-    fill: var(--vk-accent);
-    stroke: var(--vk-accent-strong);
-    stroke-width: 2.5;
-  }
-
-  .vk-node:hover text,
-  .vk-node.is-selected text {
-    fill: var(--vk-tool-text);
-  }
-
-  .vk-node:focus-visible {
-    outline: none;
-  }
-
-  .vk-node:focus-visible circle {
-    stroke: var(--vk-accent-strong);
-    stroke-width: 2.5;
+  /* A focused item that is not the one being read stays out of the way. */
+  .vk-graph__mirror:focus-within .vk-graph__item:not(:focus-visible) {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
   }
 
   /* --- entity kind, as colour ---
      The slot is set as a custom property by the caller (--vk-node-cat), so a
      kind's colour is decided once in data and not encoded in a class name per
-     kind the design system could not know about. */
+     kind the design system could not know about.
+
+     These stay in CSS even though nodes are drawn on a canvas: the legend is
+     still DOM and reads the same slot, so removing them would have left every
+     swatch the same grey — a colour encoding nobody can decode, which is the
+     one thing the legend exists to prevent. The canvas reads the same
+     --vk-cat-N tokens directly. */
   .vk-node--cat-1 {
     --vk-node-cat: var(--vk-cat-1);
   }
@@ -150,42 +146,6 @@
   }
   .vk-node--cat-6 {
     --vk-node-cat: var(--vk-cat-6);
-  }
-
-  .vk-node[class*="vk-node--cat-"] circle {
-    fill: var(--vk-node-cat);
-    stroke: var(--vk-node-cat);
-  }
-
-  /* --- curation, as weight ---
-     Kept is solid and ringed; deferred is hollow — a decision to come back to
-     it; discarded fades but does NOT disappear, because the entity is still in
-     the log and pretending otherwise would be a lie about the record. */
-  .vk-node--kept circle {
-    stroke: var(--vk-ok);
-    stroke-width: 2.5;
-  }
-
-  .vk-node--deferred circle {
-    fill: none;
-    stroke-dasharray: 2 2;
-  }
-
-  .vk-node--discarded {
-    opacity: 0.28;
-  }
-
-  .vk-node--discarded circle {
-    fill: none;
-  }
-
-  .vk-node--discarded text {
-    fill: var(--vk-tool-dim);
-  }
-
-  /* Edges into a discarded node fade with it. */
-  .vk-edge--muted {
-    stroke-opacity: 0.25;
   }
 
   /* --- legend ---

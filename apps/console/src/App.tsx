@@ -10,6 +10,7 @@ import {
 } from "@viokit/ui";
 import { useEffect, useMemo, useState } from "react";
 import {
+  cameraAtom,
   caseSelectionAtom,
   curationAtom,
   graphSelectionAtom,
@@ -27,6 +28,7 @@ import {
   type ConsoleViewState,
   debounce,
   loadViewState,
+  type StoredCamera,
   saveViewState,
 } from "./persistence.js";
 import type { Subject } from "./provenance.js";
@@ -86,7 +88,9 @@ const REQUIRED = [
 ];
 
 const Body = ({
+  camera,
   client,
+  onCamera,
   view,
   caseSelection,
   curation,
@@ -101,8 +105,10 @@ const Body = ({
   runnableOnly,
   transformId,
 }: {
+  readonly camera: StoredCamera | null;
   readonly caseSelection: string | null;
   readonly client: Client;
+  readonly onCamera: (camera: StoredCamera) => void;
   readonly curation: Curation;
   readonly onCaseSelect: (id: string | null) => void;
   readonly onCurate: (next: Curation) => void;
@@ -119,8 +125,10 @@ const Body = ({
   if (view === "case") {
     return (
       <CaseView
+        camera={camera}
         client={client}
         curation={curation}
+        onCamera={onCamera}
         onCurate={onCurate}
         onSelect={onCaseSelect}
         selectedId={caseSelection}
@@ -146,7 +154,9 @@ const Body = ({
   if (view === "canvas") {
     return (
       <GraphCanvasView
+        camera={camera}
         client={client}
+        onCamera={onCamera}
         onSelect={onGraphSelect}
         onTime={onGraphTime}
         selected={graphSelection}
@@ -173,6 +183,7 @@ export const App = () => {
   const [caseSelection, setCaseSelection] = useAtom(caseSelectionAtom);
   const [curation, setCuration] = useAtom(curationAtom);
   const [graphTime, setGraphTime] = useAtom(graphTimeAtom);
+  const [camera, setCamera] = useAtom(cameraAtom);
   // Restored before anything is saved, so restoring does not immediately
   // overwrite what it just read.
   const [restored, setRestored] = useState(false);
@@ -214,6 +225,7 @@ export const App = () => {
       setGraphTime(state.graphTime);
       setCaseSelection(state.caseSelection);
       setCuration(state.curation);
+      setCamera(state.camera);
       setRestored(true);
     });
     return () => {
@@ -228,6 +240,7 @@ export const App = () => {
     setGraphTime,
     setCaseSelection,
     setCuration,
+    setCamera,
   ]);
 
   const persist = useMemo(
@@ -241,6 +254,7 @@ export const App = () => {
       return;
     }
     persist({
+      camera,
       caseSelection,
       curation,
       graphSelection,
@@ -259,6 +273,7 @@ export const App = () => {
     graphTime,
     caseSelection,
     curation,
+    camera,
   ]);
 
   const active = VIEWS.find((entry) => entry.name === view);
@@ -292,12 +307,14 @@ export const App = () => {
 
       {view === "case" ? (
         <Body
+          camera={camera}
           caseSelection={caseSelection}
           client={client}
           curation={curation}
           graphSelection={graphSelection}
           graphTime={graphTime}
           key={scope}
+          onCamera={setCamera}
           onCaseSelect={setCaseSelection}
           onCurate={setCuration}
           onGraphSelect={setGraphSelection}
@@ -328,12 +345,14 @@ export const App = () => {
               }
             >
               <Body
+                camera={camera}
                 caseSelection={caseSelection}
                 client={client}
                 curation={curation}
                 graphSelection={graphSelection}
                 graphTime={graphTime}
                 key={scope}
+                onCamera={setCamera}
                 onCaseSelect={setCaseSelection}
                 onCurate={setCuration}
                 onGraphSelect={setGraphSelection}
