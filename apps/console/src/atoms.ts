@@ -1,6 +1,8 @@
 import { Atom, AtomRegistry } from "effect/unstable/reactivity";
 import { useCallback, useSyncExternalStore } from "react";
 import type { Curation } from "./case-table.js";
+import type { ViewName } from "./navigation.js";
+import { DEFAULT_VIEW } from "./navigation.js";
 import type { StoredCamera } from "./persistence.js";
 import type { Subject } from "./provenance.js";
 
@@ -37,15 +39,7 @@ export const useAtom = <A>(
   return [value, set] as const;
 };
 
-export type ViewName =
-  | "case"
-  | "catalog"
-  | "launcher"
-  | "evidence"
-  | "graph"
-  | "canvas";
-
-export const viewAtom = Atom.make<ViewName>("case");
+export const viewAtom = Atom.make<ViewName>(DEFAULT_VIEW);
 export const selectedTransformAtom = Atom.make<string | null>(null);
 export const runnableOnlyAtom = Atom.make(false);
 /** The graph's current selection — an entity, relation, or event. */

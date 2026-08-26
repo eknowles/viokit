@@ -1,6 +1,5 @@
 import {
   AppShell,
-  type GlyphName,
   Pane,
   Rail,
   StatusLine,
@@ -18,12 +17,13 @@ import {
   runnableOnlyAtom,
   selectedTransformAtom,
   useAtom,
-  type ViewName,
   viewAtom,
 } from "./atoms.js";
 import type { Curation } from "./case-table.js";
 import type { Client, OperationDeclaration } from "./client.js";
 import { defaultOrigin, makeClient, OperationFailure } from "./client.js";
+import type { ViewName } from "./navigation.js";
+import { asViewName, DEFAULT_VIEW, VIEWS } from "./navigation.js";
 import {
   type ConsoleViewState,
   debounce,
@@ -39,40 +39,6 @@ import { GraphView } from "./views/Graph.js";
 import { GraphCanvasView } from "./views/GraphCanvas.js";
 import { InvestigationBar } from "./views/Investigations.js";
 import { LauncherView } from "./views/Launcher.js";
-
-const VIEWS: readonly {
-  readonly icon: GlyphName;
-  readonly label: string;
-  readonly name: ViewName;
-  /** Lower-case pane header, in the design system's console voice. */
-  readonly title: string;
-}[] = [
-  {
-    icon: "library",
-    label: "Catalog",
-    name: "catalog",
-    title: "source catalog",
-  },
-  {
-    icon: "play",
-    label: "Transform",
-    name: "launcher",
-    title: "transform launcher",
-  },
-  {
-    icon: "file-search",
-    label: "Evidence",
-    name: "evidence",
-    title: "evidence · manual acquisition",
-  },
-  { icon: "terminal", label: "Graph", name: "graph", title: "graph queries" },
-  {
-    icon: "git-fork",
-    label: "Canvas",
-    name: "canvas",
-    title: "graph · canvas",
-  },
-];
 
 /** Operations the console needs; missing ones are reported loudly on load. */
 const REQUIRED = [
@@ -218,7 +184,7 @@ export const App = () => {
       if (cancelled) {
         return;
       }
-      setView(state.view as ViewName);
+      setView(asViewName(state.view) ?? DEFAULT_VIEW);
       setTransformId(state.selectedTransform);
       setRunnableOnly(state.runnableOnly);
       setGraphSelection(state.graphSelection);
@@ -306,28 +272,33 @@ export const App = () => {
       </TopBar>
 
       {view === "case" ? (
-        <Body
-          camera={camera}
-          caseSelection={caseSelection}
-          client={client}
-          curation={curation}
-          graphSelection={graphSelection}
-          graphTime={graphTime}
-          key={scope}
-          onCamera={setCamera}
-          onCaseSelect={setCaseSelection}
-          onCurate={setCuration}
-          onGraphSelect={setGraphSelection}
-          onGraphTime={setGraphTime}
-          onLaunch={(id) => {
-            setTransformId(id);
-            setView("launcher");
-          }}
-          onRunnableOnly={setRunnableOnly}
-          runnableOnly={runnableOnly}
-          transformId={transformId}
-          view={view}
-        />
+        <>
+          {problem === null ? null : (
+            <p className="error console-view">{problem}</p>
+          )}
+          <Body
+            camera={camera}
+            caseSelection={caseSelection}
+            client={client}
+            curation={curation}
+            graphSelection={graphSelection}
+            graphTime={graphTime}
+            key={scope}
+            onCamera={setCamera}
+            onCaseSelect={setCaseSelection}
+            onCurate={setCuration}
+            onGraphSelect={setGraphSelection}
+            onGraphTime={setGraphTime}
+            onLaunch={(id) => {
+              setTransformId(id);
+              setView("launcher");
+            }}
+            onRunnableOnly={setRunnableOnly}
+            runnableOnly={runnableOnly}
+            transformId={transformId}
+            view={view}
+          />
+        </>
       ) : (
         <Workspace wide>
           <Pane
