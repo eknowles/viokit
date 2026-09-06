@@ -4,7 +4,13 @@ import type {
   GraphRelation,
   GraphSnapshot,
 } from "../src/graph-layout.js";
-import { atTime, capped, extentRange, layout } from "../src/graph-layout.js";
+import {
+  atTime,
+  capped,
+  DEFAULT_NODE_CAP,
+  extentRange,
+  layout,
+} from "../src/graph-layout.js";
 
 const extent = (from: string, to: string) => ({ validFrom: from, validTo: to });
 
@@ -263,5 +269,121 @@ describe("events in the graph", () => {
     );
     assert.strictEqual(result.nodes.length, 2);
     assert.isTrue(result.nodes.every((n) => n.kind === "entity"));
+  });
+});
+
+describe("the render bound", () => {
+  const many = (count: number) =>
+    snapshot(Array.from({ length: count }, (_, i) => entity(`e${i}`)));
+
+  it("draws a graph that fits without reporting truncation", () => {
+    const { omitted } = layout(many(DEFAULT_NODE_CAP), { size: 600 });
+    assert.equal(omitted, 0);
+  });
+
+  it("still reports truncation at the configured bound, whatever it is", () => {
+    // Written against DEFAULT_NODE_CAP rather than a literal: raising the
+    // number must not be able to quietly disarm the report.
+    const { omitted } = layout(many(DEFAULT_NODE_CAP + 25), { size: 600 });
+    assert.equal(omitted, 25);
+  });
+
+  it("reports at the old bound too, so raising it did not disable anything", () => {
+    const { omitted } = layout(many(250), { cap: 200, size: 600 });
+    assert.equal(omitted, 50);
+  });
+
+  it("was actually raised — a real one-hop expansion now fits", () => {
+    // Measured 2026-08-26: crt.sh on stripe.com projects to 188 entities.
+    const { omitted } = layout(many(188), { size: 600 });
+    assert.equal(omitted, 0, "a real expansion should no longer be truncated");
+  });
+
+  it("keeps the most connected when it does truncate", () => {
+    const entities = Array.from({ length: 5 }, (_, i) => entity(`e${i}`));
+    const relations = [
+      relation("r1", "e0", "e1"),
+      relation("r2", "e0", "e2"),
+      relation("r3", "e0", "e3"),
+    ];
+    const { snapshot: bounded } = capped(snapshot(entities, relations), 2);
+    assert.include(
+      bounded.entities.map((one) => one.id),
+      "e0"
+    );
+  });
+});
+
+describe("room for labels", () => {
+  /** A label runs to the right of its marker; this is roughly its box. */
+  const labelBox = (node: {
+    entity: { id: string };
+    x: number;
+    y: number;
+  }) => ({
+    x1: node.x + 7 + 8,
+    x2: node.x + 7 + 8 + node.entity.id.length * 6,
+    y1: node.y - 6,
+    y2: node.y + 6,
+  });
+
+  const clash = (
+    a: ReturnType<typeof labelBox>,
+    b: ReturnType<typeof labelBox>
+  ) => a.x1 < b.x2 && b.x1 < a.x2 && a.y1 < b.y2 && b.y1 < a.y2;
+
+  const fanOut = (count: number) => {
+    const leaves = Array.from(
+      { length: count },
+      (_, n) => `service-${n}.acme-intel.example`
+    );
+    return snapshot(
+      [entity("acme-intel.example"), ...leaves.map((id) => entity(id))],
+      leaves.map((id, n) => relation(`r${n}`, "acme-intel.example", id))
+    );
+  };
+
+  it("separates nodes by more than their markers", () => {
+    // The node marker is 14px across. Packing to that leaves the labels —
+    // which are most of what is actually read — on top of one another.
+    const placed = layout(fanOut(40), { size: 600 });
+    let nearest = Number.POSITIVE_INFINITY;
+    for (const [i, a] of placed.nodes.entries()) {
+      for (const b of placed.nodes.slice(i + 1)) {
+        nearest = Math.min(nearest, Math.hypot(a.x - b.x, a.y - b.y));
+      }
+    }
+    assert.isAbove(nearest, 60, "nodes are packed too tightly to read");
+  });
+
+  it("leaves labels legible on a graph the size of a real expansion", () => {
+    const placed = layout(fanOut(90), { size: 600 });
+    const boxes = placed.nodes.map(labelBox);
+    const clashes = boxes.reduce(
+      (total, a, i) =>
+        total + boxes.slice(i + 1).filter((b) => clash(a, b)).length,
+      0
+    );
+    // Measured at 120 before labels were part of the layout's footprint.
+    assert.isBelow(clashes, 6, `${clashes} labels overlap each other`);
+  });
+
+  it("does not let one long label blow the graph apart", () => {
+    const long = `${"x".repeat(200)}.example`;
+    const placed = layout(
+      snapshot(
+        [entity("root.example"), entity(long)],
+        [relation("r", "root.example", long)]
+      ),
+      { size: 600 }
+    );
+    const [a, b] = placed.nodes;
+    assert.isDefined(a);
+    assert.isDefined(b);
+    assert.isBelow(
+      Math.hypot(a.x - b.x, a.y - b.y),
+      600,
+      "one outlier label should be capped, not spaced for in full"
+    );
   });
 });

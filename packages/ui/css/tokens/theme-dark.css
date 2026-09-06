@@ -1,0 +1,58 @@
+/* Dark theme. Apply with <html data-theme="dark"> or the .vk-theme-dark class
+   on any subtree — the tokens are inherited, so a single dark pane inside a
+   light app is just a nested .vk-theme-dark. */
+
+@layer vk.tokens {
+  [data-theme="dark"],
+  .vk-theme-dark {
+    --vk-bg: #070a10;
+    --vk-bg-soft: #0b1018;
+    --vk-panel: #0f1520;
+    --vk-panel-strong: #131b2a;
+    --vk-surface-card: #0f1520;
+    --vk-surface-sunken: #0b1018;
+    --vk-border: color-mix(in srgb, #7d8ea6 20%, transparent);
+    --vk-border-strong: color-mix(in srgb, #7d8ea6 34%, transparent);
+    --vk-text: #e9eef6;
+    --vk-muted: #97a4b7;
+    --vk-faint: #616e81;
+    --vk-accent: #ffb454;
+    --vk-accent-strong: #ff9d3f;
+    --vk-accent-soft: color-mix(in srgb, var(--vk-accent) 14%, transparent);
+    --vk-accent-text: #ffb454;
+    --vk-info: #67d7ec;
+    --vk-ok: #7ee29b;
+    --vk-danger: #ff7b72;
+    /* Categorical slots go vivid on dark: the -700 values disappear on ink. */
+    --vk-cat-1: #ffb454;
+    --vk-cat-2: #67d7ec;
+    --vk-cat-3: #7ee29b;
+    --vk-cat-4: #ff7b72;
+    --vk-cat-5: #a99bff;
+    --vk-cat-6: #97a4b7;
+
+    --vk-graph-source: #67d7ec;
+    --vk-graph-evidence: #7ee29b;
+    --vk-shadow: 0 28px 64px -28px rgb(0 0 0 / 0.75);
+
+    /* tool surfaces — the filled button inverts to light-on-dark */
+    --vk-tool-bg: #070a10;
+    --vk-tool-surface: #0f1520;
+    --vk-tool-head: #0b1018;
+    --vk-tool-hover: #141d2c;
+    --vk-tool-active: #1a2436;
+    --vk-tool-text: #e9eef6;
+    --vk-tool-meta: #97a4b7;
+    --vk-tool-dim: #616e81;
+    --vk-tool-ink: #e9eef6;
+    --vk-tool-ink-text: #070a10;
+    --vk-tool-ink-hover: #ffffff;
+    --vk-tool-track: #223047;
+    --vk-tool-fill: #97a4b7;
+    --vk-tool-node: #0f1520;
+    --vk-tool-sel: color-mix(in srgb, var(--vk-accent) 16%, #0f1520);
+    --vk-tool-scrim: rgb(3 6 11 / 0.62);
+
+    color-scheme: dark;
+  }
+}

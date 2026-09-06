@@ -1,0 +1,86 @@
+/* Modal over an ink scrim — square, hairline, 32px mono header. One of only
+   two surfaces in the console that take elevation; everything else is flat. */
+
+@layer vk.components {
+  .vk-scrim {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    display: grid;
+    place-items: center;
+    background: var(--vk-tool-scrim);
+  }
+
+  /* Full-bleed click-away target, stacked under the dialog. A button rather
+     than a click handler on the scrim, so dismissing is a real control. */
+  .vk-scrim__dismiss {
+    position: absolute;
+    inset: 0;
+    cursor: default;
+    background: none;
+    border: 0;
+  }
+
+  .vk-dialog {
+    position: relative;
+    width: var(--vk-dialog-w, 600px);
+    max-width: 92vw;
+    background: var(--vk-tool-surface);
+    border: 1px solid var(--vk-border-strong);
+    border-radius: var(--vk-radius-console);
+    box-shadow: var(--vk-shadow);
+  }
+
+  .vk-dialog__head {
+    display: flex;
+    gap: var(--vk-space-4);
+    align-items: center;
+    height: 32px;
+    padding: 0 var(--vk-space-5);
+    border-bottom: 1px solid var(--vk-border);
+  }
+
+  .vk-dialog__body {
+    display: grid;
+    grid-template-columns: var(--vk-dialog-cols, 1fr 1fr);
+    align-items: start;
+  }
+
+  .vk-dialog__form {
+    display: grid;
+    gap: var(--vk-space-5);
+    align-content: start;
+    padding: var(--vk-space-6) var(--vk-space-5);
+  }
+
+  /* Vertical list of things to pick one of — transforms, sources, presets. */
+  .vk-picker {
+    display: grid;
+    align-content: start;
+    border-right: 1px solid var(--vk-border);
+  }
+
+  .vk-picker__item {
+    display: flex;
+    gap: var(--vk-space-3);
+    align-items: center;
+    height: 34px;
+    padding: 0 var(--vk-space-5);
+    font-size: var(--vk-console-text-sm);
+    color: var(--vk-tool-meta);
+    text-align: left;
+    background: transparent;
+    border: 0;
+    border-bottom: 1px solid var(--vk-border);
+  }
+
+  .vk-picker__item:hover {
+    color: var(--vk-tool-text);
+    background: var(--vk-tool-hover);
+  }
+
+  .vk-picker__item.is-on {
+    color: var(--vk-tool-text);
+    background: var(--vk-tool-active);
+  }
+}

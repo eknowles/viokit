@@ -1,0 +1,41 @@
+/* Framed pane: 26px mono header, scrolling body. Radius 0 and no elevation —
+   panes are separated by shared hairlines, never by gaps. */
+
+@layer vk.components {
+  .vk-pane {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+    background: var(--vk-tool-surface);
+    border: 1px solid var(--vk-border);
+    border-radius: var(--vk-radius-console);
+  }
+
+  .vk-pane--flush {
+    border: 0;
+  }
+
+  .vk-pane__head {
+    display: flex;
+    gap: var(--vk-space-4);
+    align-items: center;
+    height: var(--vk-pane-head-h);
+    padding: 0 var(--vk-space-5);
+    color: var(--vk-tool-meta);
+    background: var(--vk-tool-head);
+    border-bottom: 1px solid var(--vk-border);
+  }
+
+  .vk-pane__head-right {
+    margin-left: auto;
+    letter-spacing: var(--vk-track-mono-label);
+  }
+
+  .vk-pane__body {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+  }
+}

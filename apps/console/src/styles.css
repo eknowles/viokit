@@ -1,305 +1,395 @@
-:root {
-  --bg: #0f1115;
-  --panel: #161a21;
-  --line: #262c36;
-  --text: #dfe4ec;
-  --dim: #8b95a5;
-  --ok: #6fd08c;
-  --bad: #e2777a;
-  --accent: #7aa2f7;
-  color-scheme: dark;
+/* Console app styles.
+ *
+ * The design system is the stylesheet below; everything after the import is
+ * app-level glue, not design. Two things live here and nowhere else:
+ *
+ *   1. mounting — giving the shell a viewport to fill;
+ *   2. element defaults for the raw <input>/<select>/<table>/<pre> the older
+ *      views still use, expressed in design-system tokens so they match.
+ *
+ * Those defaults are guarded with :not([class*="vk-"]) so they never reach a
+ * design-system component. Without the guard an unlayered `button {}` rule
+ * would outrank .vk-btn — unlayered styles beat layered ones regardless of
+ * specificity — and quietly undo the system inside its own chrome.
+ */
+
+@import "@viokit/ui/css";
+
+#root {
+  height: 100%;
 }
 
-* {
-  box-sizing: border-box;
+/* --- headings inside a pane --- */
+
+.console-view h2 {
+  margin: 0 0 var(--vk-space-3);
+  font-size: var(--vk-console-text);
+  font-weight: var(--vk-weight-medium);
+  letter-spacing: var(--vk-track-tight);
 }
 
-body {
-  margin: 0;
-  font:
-    14px / 1.5 ui-monospace,
-    SFMono-Regular,
-    Menlo,
-    monospace;
-  color: var(--text);
-  background: var(--bg);
-}
-
-main {
-  max-width: 1100px;
-  padding: 24px;
-  margin: 0 auto;
-}
-
-header {
-  display: flex;
-  gap: 16px;
-  align-items: baseline;
-  padding-bottom: 12px;
-  border-bottom: 1px solid var(--line);
-}
-
-h1 {
-  margin: 0;
-  font-size: 16px;
+.console-view h3 {
+  margin: var(--vk-space-7) 0 var(--vk-space-3);
+  font-family: var(--vk-font-mono);
+  font-size: var(--vk-console-micro);
+  font-weight: var(--vk-weight-body);
+  color: var(--vk-tool-dim);
   text-transform: uppercase;
-  letter-spacing: 0.12em;
-}
-h2 {
-  margin: 16px 0 8px;
-  font-size: 15px;
-}
-h3 {
-  margin: 20px 0 8px;
-  font-size: 13px;
-  font-weight: 400;
-  color: var(--dim);
+  letter-spacing: var(--vk-track-micro);
 }
 
-nav {
-  display: flex;
-  gap: 4px;
+.console-view {
+  padding: var(--vk-space-5);
 }
 
-button {
-  padding: 6px 12px;
-  font: inherit;
-  color: var(--text);
-  cursor: pointer;
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 4px;
-}
-button:hover:not(:disabled) {
-  border-color: var(--accent);
-}
-button:disabled {
-  color: var(--dim);
-  cursor: default;
-}
-button.active {
-  color: var(--accent);
-  border-color: var(--accent);
+.console-view--flush {
+  padding: 0;
 }
 
-section {
-  padding: 16px 0;
+/* --- text tiers the views already speak in --- */
+
+.hint {
+  margin: var(--vk-space-1) 0;
+  font-size: var(--vk-console-text-sm);
+  color: var(--vk-tool-dim);
 }
+
+.error {
+  color: var(--vk-danger);
+  white-space: pre-wrap;
+}
+
+.ok {
+  color: var(--vk-ok);
+}
+
+.blocked {
+  color: var(--vk-danger);
+}
+
+.label {
+  font-family: var(--vk-font-mono);
+  font-size: var(--vk-console-micro);
+  color: var(--vk-tool-dim);
+  text-transform: uppercase;
+  letter-spacing: var(--vk-track-micro);
+}
+
+.required {
+  font-style: normal;
+  color: var(--vk-accent-text);
+}
+
+/* --- forms --- */
 
 .form {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--vk-space-5);
   max-width: 640px;
 }
+
 .form label {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--vk-space-1);
 }
+
 .form button {
   align-self: flex-start;
 }
 
-.label {
-  color: var(--dim);
-}
-.required {
-  font-style: normal;
-  color: var(--accent);
-}
-.hint {
-  margin: 4px 0;
-  font-size: 12px;
-  color: var(--dim);
-}
-.error {
-  color: var(--bad);
-  white-space: pre-wrap;
-}
-.ok {
-  color: var(--ok);
-}
-.blocked {
-  color: var(--bad);
-}
 .toggle {
   display: flex;
-  gap: 6px;
+  gap: var(--vk-space-2);
   align-items: center;
-  margin-bottom: 12px;
+  font-family: var(--vk-font-mono);
+  font-size: var(--vk-console-mono-sm);
+  color: var(--vk-tool-meta);
 }
 
-input,
-select,
-textarea {
-  padding: 6px 8px;
+/* --- element defaults for views not yet using components --- */
+
+input:not([class*="vk-"]),
+select:not([class*="vk-"]),
+textarea:not([class*="vk-"]) {
+  padding: 0 var(--vk-space-3);
   font: inherit;
-  color: var(--text);
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 4px;
-}
-input:focus,
-select:focus,
-textarea:focus {
+  font-size: var(--vk-console-text-sm);
+  color: var(--vk-tool-text);
   outline: none;
-  border-color: var(--accent);
+  background: var(--vk-tool-bg);
+  border: 1px solid var(--vk-border-strong);
+  border-radius: var(--vk-radius-console);
+  transition: border-color var(--vk-dur-fast) ease;
 }
 
-table {
+input:not([class*="vk-"], [type="checkbox"], [type="range"]),
+select:not([class*="vk-"]) {
+  height: var(--vk-field-h);
+}
+
+textarea:not([class*="vk-"]) {
+  padding: var(--vk-space-2) var(--vk-space-3);
+}
+
+input:not([class*="vk-"]):focus,
+select:not([class*="vk-"]):focus,
+textarea:not([class*="vk-"]):focus {
+  border-color: var(--vk-accent);
+}
+
+input[type="checkbox"] {
+  accent-color: var(--vk-accent-strong);
+}
+
+button:not([class*="vk-"]) {
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: var(--vk-space-2);
+  align-items: center;
+  height: var(--vk-control-h);
+  padding: 0 var(--vk-space-4);
+  font-family: var(--vk-font-mono);
+  font-size: var(--vk-console-btn);
+  color: var(--vk-tool-text);
+  text-transform: uppercase;
+  letter-spacing: var(--vk-track-btn);
+  white-space: nowrap;
+  background: transparent;
+  border: 1px solid var(--vk-border-strong);
+  border-radius: var(--vk-radius-console);
+}
+
+button:not([class*="vk-"]):hover:not(:disabled) {
+  border-color: var(--vk-tool-text);
+}
+
+button:not([class*="vk-"]):disabled {
+  color: var(--vk-tool-dim);
+  cursor: default;
+  border-color: var(--vk-border);
+}
+
+table:not([class*="vk-"]) {
   width: 100%;
+  font-variant-numeric: tabular-nums;
   border-collapse: collapse;
 }
-th {
-  padding: 8px;
-  font-weight: 400;
-  color: var(--dim);
+
+table:not([class*="vk-"]) th {
+  padding: 0 var(--vk-cell-pad);
+  font-family: var(--vk-font-mono);
+  font-size: var(--vk-console-micro);
+  font-weight: var(--vk-weight-body);
+  color: var(--vk-tool-dim);
   text-align: left;
-  border-bottom: 1px solid var(--line);
+  text-transform: uppercase;
+  letter-spacing: var(--vk-track-th);
+  border-bottom: 1px solid var(--vk-border-strong);
 }
-td {
-  padding: 8px;
+
+table:not([class*="vk-"]) td {
+  padding: var(--vk-space-2) var(--vk-cell-pad);
   vertical-align: top;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid var(--vk-border);
 }
 
 pre {
   max-height: 60vh;
-  padding: 12px;
+  padding: var(--vk-space-5);
   overflow: auto;
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 4px;
+  font-family: var(--vk-font-mono);
+  font-size: var(--vk-console-mono);
+  background: var(--vk-tool-head);
+  border: 1px solid var(--vk-border);
 }
 
 code {
-  color: var(--accent);
+  font-family: var(--vk-font-mono);
+  color: var(--vk-accent-text);
 }
 
-footer {
-  padding-top: 12px;
-  margin-top: 24px;
-  border-top: 1px solid var(--line);
+/* --- the case bar, in the top bar --- */
+
+.investigations {
+  display: flex;
+  gap: var(--vk-space-2);
+  align-items: center;
+  min-width: 0;
 }
 
-/* Graph canvas */
+.investigations select,
+.investigations input {
+  max-width: 16rem;
+}
+
+/* --- graph canvas --- */
+
 .graph-controls {
   display: flex;
   flex-wrap: wrap;
-  gap: 16px;
+  gap: var(--vk-space-7);
   align-items: center;
-  margin-bottom: 12px;
+  margin-bottom: var(--vk-space-5);
 }
+
 .graph-controls label {
   display: flex;
-  gap: 8px;
+  gap: var(--vk-space-3);
   align-items: center;
 }
+
 .graph-controls input[type="range"] {
   width: 260px;
+  height: 2px;
+  accent-color: var(--vk-accent-strong);
 }
 
 svg[aria-label="investigation graph"] {
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 4px;
+  background: var(--vk-tool-surface);
+  border: 1px solid var(--vk-border);
 }
 
-.edge {
-  stroke: var(--line);
-  stroke-width: 1.5;
-}
-.node {
-  cursor: pointer;
-}
-.node circle {
-  fill: var(--accent);
-  stroke: var(--bg);
-  stroke-width: 2;
-}
-.node text {
-  font-size: 11px;
-  pointer-events: none;
-  fill: var(--dim);
-}
-.node:hover circle {
-  fill: var(--ok);
-}
-.node:hover text {
-  fill: var(--text);
-}
-.node.selected circle {
-  fill: var(--ok);
-  r: 10;
-}
-.node.selected text {
-  fill: var(--text);
-}
+/* Nodes and edges are drawn by the shared graph surface and styled by
+   @viokit/ui's .vk-node / .vk-edge. The duplicates that used to live here
+   were the second copy every fix had to be remembered in. */
+
+/* --- detail + evidence trail --- */
 
 .detail {
-  padding: 12px;
-  margin-top: 12px;
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 4px;
+  padding: var(--vk-space-5);
+  margin-top: var(--vk-space-5);
+  background: var(--vk-tool-head);
+  border: 1px solid var(--vk-border);
 }
+
 .detail h3 {
   margin-top: 0;
-  color: var(--text);
 }
+
 .detail td:first-child {
   width: 120px;
-  color: var(--dim);
+  color: var(--vk-tool-dim);
 }
 
-/* Evidence trail */
 .trail-step {
-  padding-left: 12px;
-  margin: 8px 0;
-  border-left: 2px solid var(--line);
+  padding-left: var(--vk-space-5);
+  margin: var(--vk-space-3) 0;
+  border-left: 2px solid var(--vk-tool-track);
 }
+
 .trail-evidence {
-  margin: 4px 0;
-}
-.trail-evidence button {
-  padding: 2px 8px;
-  margin-left: 8px;
-}
-
-.node.event circle {
-  fill: var(--dim);
-}
-.node.event:hover circle {
-  fill: var(--text);
-}
-.edge.selected {
-  stroke: var(--ok);
-  stroke-width: 3;
-}
-line.edge[role="button"] {
-  cursor: pointer;
-  stroke-opacity: 0.35;
-  stroke-width: 6;
-}
-line.edge[role="button"]:hover {
-  stroke: var(--ok);
-}
-
-/* The open investigation, in the header: it is the scope everything else
-   answers under, so it belongs where it is always visible. */
-.investigations {
   display: flex;
-  gap: 0.4rem;
+  gap: var(--vk-space-3);
+  align-items: center;
+  margin: var(--vk-space-1) 0;
+}
+
+/* --- case canvas --- */
+
+.seed {
+  display: grid;
+  gap: var(--vk-space-5);
+  align-content: start;
+  max-width: 420px;
+  padding: var(--vk-space-7) 0;
+  margin: 0 auto;
+}
+
+.seed .hint {
+  max-width: var(--vk-measure-note);
+}
+
+/* The expansion list is a picker whose items carry two lines, so the item's
+   own single-line height has to give. */
+.expansion {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.expansion-id {
+  font-family: var(--vk-font-mono);
+  font-size: var(--vk-console-mono);
+}
+
+.vk-picker__item:has(.expansion) {
+  height: auto;
+  padding-block: var(--vk-space-2);
+}
+
+.staged {
+  padding: 0;
+  margin: 0 0 var(--vk-space-5);
+  list-style: none;
+}
+
+.staged li {
+  display: flex;
+  gap: var(--vk-space-3);
+  align-items: baseline;
+  padding: var(--vk-space-2) 0;
+  border-bottom: 1px solid var(--vk-border);
+}
+
+/* --- case overview + table --- */
+
+.overview {
+  padding: var(--vk-space-5);
+}
+
+.overview-heads {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--vk-space-3);
+  margin-bottom: var(--vk-space-5);
+}
+
+.overview-stat {
+  display: grid;
+  gap: 2px;
+}
+
+.overview-stat b {
+  font-size: 17px;
+  font-weight: var(--vk-weight-medium);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: var(--vk-track-tight);
+}
+
+.tally {
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.tally li {
+  display: flex;
+  gap: var(--vk-space-3);
+  align-items: center;
+  padding: var(--vk-space-1) 0;
+  border-bottom: 1px solid var(--vk-border);
+}
+
+/* The swatch is the same encoding the canvas uses, so a colour learnt in one
+   place reads in the other. */
+.kind {
+  display: inline-flex;
+  gap: var(--vk-space-2);
   align-items: center;
 }
 
-.investigations label {
-  font-size: 0.8rem;
-  color: var(--muted, #888);
-  text-transform: uppercase;
+/* An identifier cell: optional thumbnail, the value, and a count of any
+   further values of the same kind that did not fit. */
+.idcell {
+  display: inline-flex;
+  gap: var(--vk-space-2);
+  align-items: center;
+  max-width: 32ch;
 }
 
-.investigations select {
-  max-width: 16rem;
+/* A relation with a discarded endpoint fades with it. */
+.vk-grid tbody tr.is-muted td {
+  opacity: 0.4;
 }

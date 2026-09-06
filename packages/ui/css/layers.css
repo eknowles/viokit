@@ -1,0 +1,7 @@
+/* Layer order, declared once and up front.
+
+   Later layers win, so: tokens < base < components < utilities, and ANYTHING a
+   consuming app writes outside a layer beats all four. That is the point — an
+   app should never have to reach for `!important` or a doubled selector to
+   override a library rule. */
+@layer vk.tokens, vk.base, vk.components, vk.utilities;

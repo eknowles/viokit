@@ -1,3 +1,4 @@
+import { Button } from "@viokit/ui";
 import { useEffect, useState } from "react";
 import type { Client } from "../client.js";
 import { OperationFailure } from "../client.js";
@@ -115,9 +116,9 @@ export const LauncherView = ({
               ))}
             </tbody>
           </table>
-          <button disabled={pending} onClick={commit} type="button">
+          <Button disabled={pending} onClick={commit} tone="ink">
             {pending ? "Committing…" : "Commit to graph"}
-          </button>
+          </Button>
           {committed.length === 0 ? null : (
             <p className="ok">Committed {committed.length}.</p>
           )}

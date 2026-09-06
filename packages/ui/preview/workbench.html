@@ -1,0 +1,585 @@
+<!doctype html>
+<html class="vk-viewport" lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta content="width=device-width, initial-scale=1" name="viewport">
+    <title>Viokit design system — investigation workbench</title>
+    <!--
+      The same surface as the Claude Design kit's investigation workbench,
+      rendered with nothing but @viokit/ui's stylesheet and hand-written HTML.
+
+      This file is the proof the system is really CSS: no React, no build step,
+      no bundler. If a component only looks right when its React wrapper renders
+      it, the styling had leaked into JavaScript. Open this file directly.
+    -->
+    <link href="../css/index.css" rel="stylesheet">
+    <script>
+    "use strict";
+    // Apply the remembered theme before first paint, so a dark reload does
+    // not flash light. Mirrors applyStoredTheme() in ../src/theme.ts.
+    try {
+      const forced = new URLSearchParams(location.search).get("theme");
+      const stored = forced || localStorage.getItem("vk-theme");
+      if (stored === "dark") {
+        document.documentElement.dataset.theme = "dark";
+      }
+    } catch {
+      // unreadable storage or URL: fall through to the light default
+    }
+    </script>
+  </head>
+  <body>
+    <div class="vk-app vk-fill">
+      <nav class="vk-rail">
+        <button class="vk-rail__btn is-on" title="Workbench" type="button">
+          <svg
+            aria-hidden="true"
+            fill="none"
+            height="15"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+            width="15"
+          >
+            <path
+              d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2V9M9 21H5a2 2 0 0 1-2-2V9m0 0h18"
+            />
+          </svg>
+          <span class="vk-sr-only">Workbench</span>
+        </button>
+        <button class="vk-rail__btn" title="Graph" type="button">
+          <svg
+            aria-hidden="true"
+            fill="none"
+            height="15"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+            width="15"
+          >
+            <circle cx="12" cy="18" r="3" />
+            <circle cx="6" cy="6" r="3" />
+            <circle cx="18" cy="6" r="3" />
+            <path d="M18 9v2c0 .6-.4 1-1 1H7c-.6 0-1-.4-1-1V9" />
+            <path d="M12 12v3" />
+          </svg>
+          <span class="vk-sr-only">Graph</span>
+        </button>
+        <button class="vk-rail__btn" title="Timeline" type="button">
+          <svg
+            aria-hidden="true"
+            fill="none"
+            height="15"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+            width="15"
+          >
+            <circle cx="12" cy="12" r="10" />
+            <polyline points="12 6 12 12 16 14" />
+          </svg>
+          <span class="vk-sr-only">Timeline</span>
+        </button>
+        <button class="vk-rail__btn" title="Sources" type="button">
+          <svg
+            aria-hidden="true"
+            fill="none"
+            height="15"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+            width="15"
+          >
+            <path d="m16 6 4 14" />
+            <path d="M12 6v14" />
+            <path d="M8 8v12" />
+            <path d="M4 4v16" />
+          </svg>
+          <span class="vk-sr-only">Sources</span>
+        </button>
+      </nav>
+
+      <div class="vk-app__main">
+        <header class="vk-topbar">
+          <span class="vk-topbar__title">Acme Intelligence Ltd</span>
+          <span class="vk-micro vk-dim vk-nowrap">case-2026-0814</span>
+          <span class="vk-status-line">
+            <i class="vk-status-line__dot"></i>
+            <span class="vk-status-line__text"
+              >2 transforms running · 14 rows in</span
+            >
+          </span>
+          <span class="vk-spacer"></span>
+          <button class="vk-btn vk-btn--quiet is-on" type="button">
+            <span class="vk-btn__dot is-busy"></span>2 running · 1 queued
+          </button>
+          <button class="vk-btn vk-btn--quiet" id="theme" type="button">
+            Dark
+          </button>
+          <button class="vk-btn vk-btn--line" type="button">Replay</button>
+          <button class="vk-btn vk-btn--ink" type="button">
+            Run transform
+          </button>
+        </header>
+
+        <div class="vk-tray">
+          <div class="vk-tray__head">
+            <span class="vk-micro">jobs</span>
+            <span class="vk-micro vk-dim">3 active · 1 finished</span>
+            <span class="vk-spacer"></span>
+            <button class="vk-link-btn vk-micro" type="button">clear</button>
+          </div>
+          <div class="vk-job vk-job--running">
+            <span class="vk-job__icon">
+              <svg
+                aria-hidden="true"
+                fill="none"
+                height="12"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-width="2"
+                viewBox="0 0 24 24"
+                width="12"
+              >
+                <path d="M12 2v4" />
+                <path d="m16.2 7.8 2.9-2.9" />
+                <path d="M18 12h4" />
+                <path d="m16.2 16.2 2.9 2.9" />
+                <path d="M12 18v4" />
+                <path d="m4.9 19.1 2.9-2.9" />
+                <path d="M2 12h4" />
+                <path d="m4.9 4.9 2.9 2.9" />
+              </svg>
+            </span>
+            <span class="vk-job__main">
+              <span class="vk-job__label">Company → officers</span>
+              <span class="vk-job__meta vk-mono"
+                >Companies House · 3/8 rows</span
+              >
+              <span class="vk-progress"
+                ><span
+                  class="vk-progress__fill"
+                  style="width: 37.5%"
+                ></span></span
+              >
+            </span>
+            <span class="vk-job__side">
+              <span class="vk-micro vk-dim">07:57</span>
+              <button class="vk-link-btn vk-micro" type="button">cancel</button>
+            </span>
+          </div>
+          <div class="vk-job vk-job--queued">
+            <span class="vk-job__icon">
+              <svg
+                aria-hidden="true"
+                fill="none"
+                height="12"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-width="2"
+                viewBox="0 0 24 24"
+                width="12"
+              >
+                <circle cx="12" cy="12" r="10" />
+                <polyline points="12 6 12 12 16 14" />
+              </svg>
+            </span>
+            <span class="vk-job__main">
+              <span class="vk-job__label">Domain → certificates</span>
+              <span class="vk-job__meta vk-mono"
+                >crt.sh · waiting for a slot</span
+              >
+              <span class="vk-progress"
+                ><span class="vk-progress__fill" style="width: 0%"></span></span
+              >
+            </span>
+            <span class="vk-job__side">
+              <span class="vk-micro vk-dim">07:58</span>
+              <button class="vk-link-btn vk-micro" type="button">cancel</button>
+            </span>
+          </div>
+          <div class="vk-job vk-job--done">
+            <span class="vk-job__icon">
+              <svg
+                aria-hidden="true"
+                fill="none"
+                height="12"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-width="2"
+                viewBox="0 0 24 24"
+                width="12"
+              >
+                <path d="M20 6 9 17l-5-5" />
+              </svg>
+            </span>
+            <span class="vk-job__main">
+              <span class="vk-job__label">Person → filings</span>
+              <span class="vk-job__meta vk-mono"
+                >Companies House · 6/6 rows</span
+              >
+              <span class="vk-progress vk-progress--done"
+                ><span
+                  class="vk-progress__fill"
+                  style="width: 100%"
+                ></span></span
+              >
+            </span>
+            <span class="vk-job__side">
+              <span class="vk-micro vk-dim">07:52</span>
+              <span class="vk-micro vk-dim">done</span>
+            </span>
+          </div>
+        </div>
+
+        <div class="vk-workspace">
+          <div class="vk-pane-stack">
+            <section class="vk-pane">
+              <div class="vk-pane__head">
+                <span class="vk-micro">results workbench · table</span>
+                <span class="vk-pane__head-right vk-micro vk-dim"
+                  >2 kept · 1 discarded</span
+                >
+              </div>
+              <div class="vk-pane__body">
+                <div class="vk-toolbar">
+                  <button class="vk-chip is-on" type="button">all</button>
+                  <button class="vk-chip" type="button">new</button>
+                  <button class="vk-chip" type="button">kept</button>
+                  <button class="vk-chip" type="button">deferred</button>
+                  <button class="vk-chip" type="button">discarded</button>
+                  <span class="vk-spacer"></span>
+                  <span class="vk-micro vk-dim"
+                    >5 candidates · sorted by relatedness</span
+                  >
+                </div>
+                <table class="vk-grid">
+                  <thead>
+                    <tr>
+                      <th class="vk-grid__col-state"></th>
+                      <th>type</th>
+                      <th>value</th>
+                      <th>source</th>
+                      <th class="vk-num">rel</th>
+                      <th>conf</th>
+                      <th class="vk-num">first seen</th>
+                      <th class="vk-grid__col-actions"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr class="is-selected">
+                      <td class="vk-grid__col-state">
+                        <i class="vk-state vk-state--kept" title="kept"></i>
+                      </td>
+                      <td class="vk-mono vk-dim">company</td>
+                      <td class="vk-val">
+                        Acme Intelligence Ltd<span
+                          class="vk-corroboration"
+                          title="Companies House · OpenCorporates"
+                          >×2</span
+                        >
+                      </td>
+                      <td class="vk-dim">
+                        Companies House<span class="vk-overflow-count">+1</span>
+                      </td>
+                      <td class="vk-num">
+                        <span class="vk-meter"
+                          ><span class="vk-meter__track"
+                            ><span
+                              class="vk-meter__fill"
+                              style="width: 96%"
+                            ></span></span
+                          ><span class="vk-mono">0.96</span></span
+                        >
+                      </td>
+                      <td class="vk-mono vk-confidence--high">high</td>
+                      <td class="vk-num vk-mono vk-dim">2019-04-02</td>
+                      <td class="vk-grid__col-actions">
+                        <span class="vk-grid__actions">
+                          <button aria-label="keep" title="keep" type="button">
+                            <svg
+                              aria-hidden="true"
+                              fill="none"
+                              height="12"
+                              stroke="currentColor"
+                              stroke-linecap="round"
+                              stroke-width="2"
+                              viewBox="0 0 24 24"
+                              width="12"
+                            >
+                              <path d="M20 6 9 17l-5-5" />
+                            </svg>
+                          </button>
+                          <button
+                            aria-label="defer"
+                            title="defer"
+                            type="button"
+                          >
+                            <svg
+                              aria-hidden="true"
+                              fill="none"
+                              height="12"
+                              stroke="currentColor"
+                              stroke-linecap="round"
+                              stroke-width="2"
+                              viewBox="0 0 24 24"
+                              width="12"
+                            >
+                              <circle cx="12" cy="12" r="10" />
+                              <polyline points="12 6 12 12 16 14" />
+                            </svg>
+                          </button>
+                          <button
+                            aria-label="discard"
+                            title="discard"
+                            type="button"
+                          >
+                            <svg
+                              aria-hidden="true"
+                              fill="none"
+                              height="12"
+                              stroke="currentColor"
+                              stroke-linecap="round"
+                              stroke-width="2"
+                              viewBox="0 0 24 24"
+                              width="12"
+                            >
+                              <path d="M18 6 6 18" />
+                              <path d="m6 6 12 12" />
+                            </svg>
+                          </button>
+                        </span>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td class="vk-grid__col-state">
+                        <i class="vk-state vk-state--kept" title="kept"></i>
+                      </td>
+                      <td class="vk-mono vk-dim">person</td>
+                      <td class="vk-val">R. T. Calloway</td>
+                      <td class="vk-dim">Companies House</td>
+                      <td class="vk-num">
+                        <span class="vk-meter"
+                          ><span class="vk-meter__track"
+                            ><span
+                              class="vk-meter__fill"
+                              style="width: 81%"
+                            ></span></span
+                          ><span class="vk-mono">0.81</span></span
+                        >
+                      </td>
+                      <td class="vk-mono vk-confidence--high">high</td>
+                      <td class="vk-num vk-mono vk-dim">2019-04-02</td>
+                      <td class="vk-grid__col-actions">
+                        <span class="vk-grid__actions"></span>
+                      </td>
+                    </tr>
+                    <tr class="is-fresh">
+                      <td class="vk-grid__col-state">
+                        <i class="vk-state vk-state--new" title="new"></i>
+                      </td>
+                      <td class="vk-mono vk-dim">address</td>
+                      <td class="vk-val">12 Bell Yard, London</td>
+                      <td class="vk-dim">OpenCorporates</td>
+                      <td class="vk-num">
+                        <span class="vk-meter"
+                          ><span class="vk-meter__track"
+                            ><span
+                              class="vk-meter__fill"
+                              style="width: 62%"
+                            ></span></span
+                          ><span class="vk-mono">0.62</span></span
+                        >
+                      </td>
+                      <td class="vk-mono vk-confidence--medium">medium</td>
+                      <td class="vk-num vk-mono vk-dim">2021-11-30</td>
+                      <td class="vk-grid__col-actions">
+                        <span class="vk-grid__actions"></span>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td class="vk-grid__col-state">
+                        <i
+                          class="vk-state vk-state--deferred"
+                          title="deferred"
+                        ></i>
+                      </td>
+                      <td class="vk-mono vk-dim">domain</td>
+                      <td class="vk-val">acme-intel.example</td>
+                      <td class="vk-dim">crt.sh</td>
+                      <td class="vk-num">
+                        <span class="vk-meter"
+                          ><span class="vk-meter__track"
+                            ><span
+                              class="vk-meter__fill"
+                              style="width: 44%"
+                            ></span></span
+                          ><span class="vk-mono">0.44</span></span
+                        >
+                      </td>
+                      <td class="vk-mono vk-confidence--medium">medium</td>
+                      <td class="vk-num vk-mono vk-dim">2023-02-14</td>
+                      <td class="vk-grid__col-actions">
+                        <span class="vk-grid__actions"></span>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td class="vk-grid__col-state">
+                        <i
+                          class="vk-state vk-state--discarded"
+                          title="discarded"
+                        ></i>
+                      </td>
+                      <td class="vk-mono vk-dim">company</td>
+                      <td class="vk-val">Acme Holdings (dissolved)</td>
+                      <td class="vk-dim">OpenCorporates</td>
+                      <td class="vk-num">
+                        <span class="vk-meter"
+                          ><span class="vk-meter__track"
+                            ><span
+                              class="vk-meter__fill"
+                              style="width: 18%"
+                            ></span></span
+                          ><span class="vk-mono">0.18</span></span
+                        >
+                      </td>
+                      <td class="vk-mono vk-confidence--low">low</td>
+                      <td class="vk-num vk-mono vk-dim">2016-08-21</td>
+                      <td class="vk-grid__col-actions">
+                        <span class="vk-grid__actions"></span>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </section>
+
+            <section class="vk-pane">
+              <div class="vk-pane__head">
+                <span class="vk-micro">entity detail · evidence</span>
+              </div>
+              <div class="vk-pane__body">
+                <div class="vk-record">
+                  <div class="vk-record__head">
+                    <span class="vk-record__title">Acme Intelligence Ltd</span>
+                    <span class="vk-micro vk-dim">company</span>
+                    <span class="vk-spacer"></span>
+                    <button class="vk-btn vk-btn--line" type="button">
+                      Keep
+                    </button>
+                    <button class="vk-btn vk-btn--line" type="button">
+                      Discard
+                    </button>
+                  </div>
+                  <dl class="vk-fields">
+                    <div class="vk-fields__pair">
+                      <dt class="vk-micro vk-dim">source</dt>
+                      <dd>Companies House · OpenCorporates</dd>
+                    </div>
+                    <div class="vk-fields__pair">
+                      <dt class="vk-micro vk-dim">corroboration</dt>
+                      <dd>×2 independent returns</dd>
+                    </div>
+                    <div class="vk-fields__pair">
+                      <dt class="vk-micro vk-dim">relatedness</dt>
+                      <dd>0.96</dd>
+                    </div>
+                    <div class="vk-fields__pair">
+                      <dt class="vk-micro vk-dim">confidence</dt>
+                      <dd>high</dd>
+                    </div>
+                    <div class="vk-fields__pair">
+                      <dt class="vk-micro vk-dim">first seen</dt>
+                      <dd>2019-04-02</dd>
+                    </div>
+                  </dl>
+                  <div class="vk-evidence">
+                    <span class="vk-micro vk-dim">evidence chain</span>
+                    <p class="vk-evidence__body">
+                      Registered company number 11928845, incorporated
+                      2019-04-02. Returned independently by Companies House and
+                      OpenCorporates against the same registration number.
+                    </p>
+                    <span class="vk-evidence__seal vk-micro"
+                      >artifact stored · hash 8812f0…c4a1</span
+                    >
+                  </div>
+                </div>
+              </div>
+            </section>
+          </div>
+
+          <section class="vk-pane">
+            <div class="vk-pane__head">
+              <span class="vk-micro">investigation log</span>
+              <span class="vk-pane__head-right vk-micro vk-dim">4 steps</span>
+            </div>
+            <div class="vk-pane__body">
+              <ol class="vk-log">
+                <li>
+                  <span class="vk-mono vk-log__time">07:52</span>
+                  <span class="vk-log__body"
+                    >Opened case from a single company name.
+                    <span class="vk-log__meta">seed · manual</span>
+                  </span>
+                </li>
+                <li>
+                  <span class="vk-mono vk-log__time">07:54</span>
+                  <span class="vk-log__body"
+                    >Ran Company → officers.
+                    <span class="vk-log__meta">Companies House · 6 rows</span>
+                    <span class="vk-log__ok">✓ independently corroborated</span>
+                  </span>
+                </li>
+                <li>
+                  <span class="vk-mono vk-log__time">07:57</span>
+                  <span class="vk-log__body"
+                    >Ran Company → registered addresses.
+                    <span class="vk-log__meta">OpenCorporates · 3 rows</span>
+                  </span>
+                </li>
+                <li>
+                  <span class="vk-mono vk-log__time">07:58</span>
+                  <span class="vk-log__body"
+                    >Queued Domain → certificates.
+                    <span class="vk-log__meta"
+                      >crt.sh · waiting for a slot</span
+                    >
+                  </span>
+                </li>
+              </ol>
+            </div>
+          </section>
+        </div>
+      </div>
+    </div>
+
+    <script>
+    "use strict";
+    // The toggle is this short because the theming is entirely CSS custom
+    // properties: flipping one attribute on <html> re-themes every component.
+    document.getElementById("theme").addEventListener("click", function () {
+      const dark = document.documentElement.dataset.theme === "dark";
+      if (dark) {
+        document.documentElement.removeAttribute("data-theme");
+      } else {
+        document.documentElement.dataset.theme = "dark";
+      }
+      this.textContent = dark ? "Dark" : "Light";
+      try {
+        localStorage.setItem("vk-theme", dark ? "light" : "dark");
+      } catch {
+        // no persistence available; the in-page toggle still works
+      }
+    });
+    </script>
+  </body>
+</html>

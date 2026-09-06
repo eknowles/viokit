@@ -1,3 +1,4 @@
+import { Button, TextField } from "@viokit/ui";
 import { useState } from "react";
 import type { Client } from "../client.js";
 import { OperationFailure } from "../client.js";
@@ -51,36 +52,29 @@ export const EvidenceView = ({ client }: { readonly client: Client }) => {
         For sources the engine cannot fetch. Retrieve the artifact yourself and
         submit it here; it is stored as manually acquired, attributed to you.
       </p>
-      <label htmlFor="by">
-        <span className="label">
-          retrieved by<em className="required"> required</em>
-        </span>
-        <input
-          id="by"
-          onChange={(e) => setBy(e.target.value)}
-          type="text"
-          value={by}
-        />
-      </label>
-      <label htmlFor="ref">
-        <span className="label">origin</span>
-        <input
-          id="ref"
-          onChange={(e) => setRef(e.target.value)}
-          placeholder="https://…"
-          type="text"
-          value={ref}
-        />
-      </label>
-      <label htmlFor="content-type">
-        <span className="label">content type</span>
-        <input
-          id="content-type"
-          onChange={(e) => setContentType(e.target.value)}
-          type="text"
-          value={contentType}
-        />
-      </label>
+      <TextField
+        density="compact"
+        hint="required — the person who fetched it"
+        id="by"
+        label="retrieved by"
+        onChange={(e) => setBy(e.target.value)}
+        value={by}
+      />
+      <TextField
+        density="compact"
+        id="ref"
+        label="origin"
+        onChange={(e) => setRef(e.target.value)}
+        placeholder="https://…"
+        value={ref}
+      />
+      <TextField
+        density="compact"
+        id="content-type"
+        label="content type"
+        onChange={(e) => setContentType(e.target.value)}
+        value={contentType}
+      />
       <label htmlFor="content">
         <span className="label">content</span>
         <textarea
@@ -90,9 +84,13 @@ export const EvidenceView = ({ client }: { readonly client: Client }) => {
           value={content}
         />
       </label>
-      <button disabled={pending} onClick={submit} type="button">
+      <Button
+        disabled={pending || by === "" || content === ""}
+        onClick={submit}
+        tone="ink"
+      >
         {pending ? "Submitting…" : "Submit as evidence"}
-      </button>
+      </Button>
       {error === null ? null : <p className="error">{error}</p>}
       {stored === null ? null : (
         <p className="ok">

@@ -1,0 +1,68 @@
+/* Viokit typography. No webfonts ship — the platform UI stack for prose and the
+   platform mono stack for every label, metric, timestamp and tag.
+
+   The `--vk-console-*` steps are the dense tool scale: they are the numbers the
+   investigation workbench is drawn on, hoisted out of hard-coded px so a
+   consuming app can tune density in one place. */
+
+@layer vk.tokens {
+  :root {
+    --vk-font-sans:
+      ui-sans-serif, system-ui, -apple-system, "Segoe UI", roboto,
+      "Helvetica Neue", arial, sans-serif;
+    --vk-font-mono:
+      ui-monospace, "SF Mono", "SFMono-Regular", menlo, consolas, monospace;
+
+    /* fluid display sizes */
+    --vk-text-hero: clamp(2.5rem, 6vw, 4.05rem);
+    --vk-text-h1: clamp(2rem, 4vw, 2.8rem);
+    --vk-text-h2: clamp(1.9rem, 4vw, 2.7rem);
+    --vk-text-h3: clamp(1.4rem, 3vw, 1.9rem);
+    --vk-text-lead: clamp(1.02rem, 1.4vw, 1.12rem);
+    --vk-text-hero-sub: clamp(1.05rem, 1.5vw, 1.18rem);
+
+    /* fixed steps */
+    --vk-text-card-title: 1.12rem;
+    --vk-text-body: 0.95rem;
+    --vk-text-sm: 0.92rem;
+    --vk-text-xs: 0.86rem;
+    --vk-text-mono-label: 0.8rem;
+    --vk-text-mono-tag: 0.74rem;
+
+    /* console scale — dense data UI */
+    --vk-console-text: 13px;
+    --vk-console-text-sm: 12.5px;
+    --vk-console-mono: 11.5px;
+    --vk-console-mono-sm: 10.5px;
+    --vk-console-btn: 10px;
+    --vk-console-micro: 9.5px;
+    --vk-console-lh: 1.45;
+
+    /* line heights + tracking */
+    --vk-lh-body: 1.6;
+    --vk-lh-tight: 1.15;
+    --vk-lh-hero: 1.04;
+    --vk-lh-display: 1.12;
+    --vk-track-hero: -0.028em;
+    --vk-track-display: -0.02em;
+    --vk-track-tight: -0.01em;
+    --vk-track-eyebrow: 0.14em;
+    --vk-track-micro: 0.14em;
+    --vk-track-mono-label: 0.08em;
+    --vk-track-btn: 0.1em;
+    --vk-track-th: 0.12em;
+
+    --vk-weight-body: 400;
+    --vk-weight-medium: 550;
+    --vk-weight-semibold: 600;
+    --vk-weight-brand: 650;
+    --vk-weight-bold: 700;
+
+    /* measure */
+    --vk-measure-hero: 16ch;
+    --vk-measure-heading: 22ch;
+    --vk-measure-lead: 62ch;
+    --vk-measure-prose: 72ch;
+    --vk-measure-note: 52ch;
+  }
+}

@@ -1,0 +1,120 @@
+/* Console buttons: 24px tall, square, mono uppercase. Three tones only —
+   `ink` for the one action a bar is for, `line` for the rest, `quiet` for
+   toggles that spend most of their life off. No gradients; the accent is
+   reserved for state, not for chrome. */
+
+@layer vk.components {
+  .vk-btn {
+    display: inline-flex;
+    flex: 0 0 auto;
+    gap: var(--vk-space-2);
+    align-items: center;
+    height: var(--vk-control-h);
+    padding: 0 var(--vk-space-4);
+    font-family: var(--vk-font-mono);
+    font-size: var(--vk-console-btn);
+    text-transform: uppercase;
+    letter-spacing: var(--vk-track-btn);
+    white-space: nowrap;
+    border: 1px solid transparent;
+    border-radius: var(--vk-radius-console);
+  }
+
+  .vk-btn--ink {
+    color: var(--vk-tool-ink-text);
+    background: var(--vk-tool-ink);
+    border-color: var(--vk-tool-ink);
+  }
+
+  .vk-btn--ink:hover:not(:disabled) {
+    background: var(--vk-tool-ink-hover);
+    border-color: var(--vk-tool-ink-hover);
+  }
+
+  .vk-btn--line {
+    color: var(--vk-tool-text);
+    background: transparent;
+    border-color: var(--vk-border-strong);
+  }
+
+  .vk-btn--line:hover:not(:disabled) {
+    border-color: var(--vk-tool-text);
+  }
+
+  .vk-btn--quiet {
+    color: var(--vk-tool-meta);
+    background: transparent;
+    border-color: var(--vk-border);
+  }
+
+  .vk-btn--quiet:hover:not(:disabled) {
+    color: var(--vk-tool-text);
+    border-color: var(--vk-border-strong);
+  }
+
+  .vk-btn--quiet.is-on {
+    color: var(--vk-tool-ink-text);
+    background: var(--vk-tool-ink);
+    border-color: var(--vk-tool-ink);
+  }
+
+  .vk-btn--block {
+    justify-content: center;
+    width: 100%;
+    height: var(--vk-field-h);
+  }
+
+  .vk-btn:disabled {
+    color: var(--vk-tool-dim);
+    cursor: default;
+    background: transparent;
+    border-color: var(--vk-border);
+  }
+
+  /* Square glyph-only control — close, dismiss, per-row curation. */
+  .vk-icon-btn {
+    display: grid;
+    place-items: center;
+    width: 22px;
+    height: 22px;
+    color: var(--vk-tool-meta);
+    background: none;
+    border: 1px solid var(--vk-border);
+    border-radius: var(--vk-radius-console);
+  }
+
+  .vk-icon-btn:hover:not(:disabled) {
+    color: var(--vk-tool-text);
+    border-color: var(--vk-tool-text);
+  }
+
+  .vk-icon-btn:disabled {
+    color: var(--vk-tool-dim);
+    cursor: default;
+  }
+
+  /* Text link inside dense chrome (tray "clear", "cancel"). */
+  .vk-link-btn {
+    padding: 0;
+    color: var(--vk-tool-meta);
+    background: none;
+    border: 0;
+  }
+
+  .vk-link-btn:hover:not(:disabled) {
+    color: var(--vk-tool-text);
+  }
+
+  /* A dot the toggle carries when it reports live state (jobs idle/running). */
+  .vk-btn__dot {
+    width: 5px;
+    height: 5px;
+    background: var(--vk-tool-dim);
+    border-radius: var(--vk-radius-pill);
+  }
+
+  .vk-btn__dot.is-busy {
+    background: var(--vk-accent-strong);
+    animation: vk-blip 1.1s ease-in-out infinite;
+  }
+}

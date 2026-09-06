@@ -1,9 +1,17 @@
 # TDR-020 — Graph rendering: layout library plus own renderer vs a graph toolkit
 
-- **Status:** decided
+- **Status:** superseded (by TDR-027, 2026-08-25)
 - **Owner:** ed
 - **Date:** 2026-08-23
 - **Related:** `openspec/exploration/04-web-ui.md` §5 (4D visualization); TDR-002 (console stack); TDR-008 (the same build-small-over-adopt-heavy reasoning); TDR-012 (view state, which now exists); TDR-003 (streaming, `proposed` — not required here); invariants I6, I8, I12
+
+> **Superseded by TDR-027 — Graph camera, scale, and per-kind node rendering (2026-08-25).**
+> Two of this decision's own revisit conditions were met: hierarchical layout became necessary (the
+> packs produce forests, not meshes) and the displayed graph outgrew the 200-node cap. A third
+> requirement it did not anticipate — per-entity-kind node rendering with images and text, the §4.2
+> view specs left open below — decided the replacement, and decided it *against* WebGL rather than
+> for it. The layout/render split this document introduced is what made the change cheap, and it
+> survives intact.
 
 ## Decision summary
 > Use **`d3-force` for layout and render to SVG ourselves**, in a read-only canvas with a time filter. A graph toolkit (Cytoscape, sigma) is deferred until the displayed graph outgrows SVG, at which point the renderer is the only piece that changes.

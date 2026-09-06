@@ -1,0 +1,38 @@
+/* 30px control strip under a pane header: filter chips left, a mono count
+   right. The count is what stops a filtered table from lying about how much
+   data there is. */
+
+@layer vk.components {
+  .vk-toolbar {
+    display: flex;
+    gap: var(--vk-space-1);
+    align-items: center;
+    height: var(--vk-toolbar-h);
+    padding: 0 var(--vk-space-5);
+    border-bottom: 1px solid var(--vk-border);
+  }
+
+  .vk-chip {
+    height: 19px;
+    padding: 0 var(--vk-space-3);
+    font-family: var(--vk-font-mono);
+    font-size: var(--vk-console-micro);
+    color: var(--vk-tool-meta);
+    text-transform: uppercase;
+    letter-spacing: var(--vk-track-btn);
+    background: transparent;
+    border: 1px solid var(--vk-border);
+    border-radius: var(--vk-radius-console);
+  }
+
+  .vk-chip:hover {
+    color: var(--vk-tool-text);
+    border-color: var(--vk-border-strong);
+  }
+
+  .vk-chip.is-on {
+    color: var(--vk-tool-ink-text);
+    background: var(--vk-tool-ink);
+    border-color: var(--vk-tool-ink);
+  }
+}

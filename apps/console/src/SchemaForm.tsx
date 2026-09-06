@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { Field, FormShape } from "./form.js";
 import { valuesToArgs } from "./form.js";
 
@@ -60,19 +60,33 @@ const FieldInput = ({
 };
 
 export const SchemaForm = ({
+  initial,
   onSubmit,
   pending,
   shape,
   transformId,
 }: {
+  /**
+   * Values to start from, keyed by field name — how the case canvas pre-fills
+   * a transform from the node it is expanding. Editable: a prefill is a
+   * suggestion, and the investigator has the last word on what gets run.
+   */
+  readonly initial?: Readonly<Record<string, string>>;
   readonly onSubmit: (args: Record<string, unknown>) => void;
   readonly pending: boolean;
   readonly shape: FormShape;
   readonly transformId: string;
 }) => {
-  const [values, setValues] = useState<Record<string, string>>({});
+  const [values, setValues] = useState<Record<string, string>>(initial ?? {});
   const [raw, setRaw] = useState("{}");
   const [rawError, setRawError] = useState<string | null>(null);
+
+  // Picking a different node or transform must re-seed the fields; without
+  // this the first prefill would stick for the rest of the session and the
+  // form would quietly run the previous node's value.
+  useEffect(() => {
+    setValues(initial ?? {});
+  }, [initial]);
 
   const custom = customForms.get(transformId);
   if (custom !== undefined) {

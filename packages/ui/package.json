@@ -1,0 +1,30 @@
+{
+  "name": "@viokit/ui",
+  "version": "0.0.0",
+  "private": true,
+  "sideEffects": [
+    "*.css"
+  ],
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./css": "./css/index.css",
+    "./css/tokens": "./css/tokens.css",
+    "./css/*": "./css/*"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "typescript": "7.0.2",
+    "vitest": "^4.1.0"
+  },
+  "peerDependencies": {
+    "react": ">=18"
+  }
+}

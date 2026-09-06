@@ -1,0 +1,106 @@
+/* Viokit colour system. Ported verbatim from the Claude Design project
+   "Viokit Design System" (tokens/colors.css). The DEFAULT theme is LIGHT; the
+   dark values live in theme-dark.css under [data-theme="dark"].
+
+   Everything sits in the `vk.tokens` cascade layer, so an unlayered override in
+   a consuming app always wins without needing higher specificity. */
+
+@layer vk.tokens {
+  :root {
+    /* --- brand ramps --- */
+    --vk-amber-400: #ffb454;
+    --vk-amber-500: #ff9d3f;
+    --vk-amber-ink: #8a4f04;
+    --vk-cyan-300: #67d7ec;
+    --vk-cyan-700: #0e7d97;
+    --vk-green-300: #7ee29b;
+    --vk-green-700: #1e8a4d;
+    --vk-red-300: #ff7b72;
+    --vk-red-700: #c4392e;
+
+    /* --- neutral ramp (hue #7d8ea6 — the border colour) --- */
+    --vk-ink-900: #070a10;
+    --vk-ink-800: #0b1018;
+    --vk-ink-700: #0f1520;
+    --vk-ink-600: #131b2a;
+    --vk-slate-500: #55637a;
+    --vk-slate-400: #7d8ea6;
+    --vk-slate-200: #dfe4ec;
+    --vk-slate-100: #eef1f5;
+    --vk-slate-050: #f7f8fa;
+    --vk-white: #ffffff;
+
+    /* --- semantic surfaces (light default) --- */
+    --vk-bg: var(--vk-slate-050);
+    --vk-bg-soft: var(--vk-slate-100);
+    --vk-panel: var(--vk-white);
+    --vk-panel-strong: var(--vk-slate-100);
+    --vk-surface-card: var(--vk-white);
+    --vk-surface-sunken: var(--vk-slate-100);
+
+    /* --- borders --- */
+    --vk-border: color-mix(in srgb, #7d8ea6 32%, transparent);
+    --vk-border-strong: color-mix(in srgb, #7d8ea6 55%, transparent);
+
+    /* --- text --- */
+    --vk-text: var(--vk-ink-700);
+    --vk-muted: var(--vk-slate-500);
+    --vk-faint: var(--vk-slate-400);
+    --vk-text-on-accent: #241503;
+
+    /* --- accent + semantics --- */
+    --vk-accent: var(--vk-amber-400);
+    --vk-accent-strong: var(--vk-amber-500);
+    --vk-accent-soft: color-mix(in srgb, var(--vk-accent) 18%, transparent);
+    --vk-accent-text: var(--vk-amber-ink);
+    --vk-info: var(--vk-cyan-700);
+    --vk-info-vivid: var(--vk-cyan-300);
+    --vk-ok: var(--vk-green-700);
+    --vk-ok-vivid: var(--vk-green-300);
+    --vk-danger: var(--vk-red-700);
+
+    /* --- tool surfaces (dense data UI: workbench, tables, panes) ---
+       Separate from the marketing surfaces because the tool chrome inverts
+       differently: in dark mode the filled button becomes light-on-dark, not
+       dark-on-light. Console components read ONLY these, never the raw ramps,
+       because the raw ramps do not flip. */
+    --vk-tool-bg: var(--vk-slate-050);
+    --vk-tool-surface: var(--vk-white);
+    --vk-tool-head: var(--vk-slate-050);
+    --vk-tool-hover: var(--vk-slate-050);
+    --vk-tool-active: var(--vk-slate-100);
+    --vk-tool-text: var(--vk-ink-900);
+    --vk-tool-meta: var(--vk-slate-500);
+    --vk-tool-dim: var(--vk-slate-400);
+    --vk-tool-ink: var(--vk-ink-900);
+    --vk-tool-ink-text: var(--vk-white);
+    --vk-tool-ink-hover: var(--vk-ink-700);
+    --vk-tool-track: var(--vk-slate-200);
+    --vk-tool-fill: var(--vk-ink-700);
+    --vk-tool-node: var(--vk-white);
+    --vk-tool-sel: color-mix(in srgb, var(--vk-accent) 9%, var(--vk-white));
+    --vk-tool-scrim: rgb(15 21 32 / 0.35);
+
+    /* --- categorical slots ---
+       For encoding a category that has no inherent meaning: entity kinds on a
+       canvas, series in a chart. Distinct hues rather than a ramp, because
+       these are nominal — nothing is "more" than anything else. Deliberately
+       only six: past that a legend is doing the work, and a seventh hue would
+       only look deceptively like one of the first six. Slot 1 is the accent,
+       so the most common kind reads as the brand colour. */
+    --vk-cat-1: var(--vk-amber-ink);
+    --vk-cat-2: var(--vk-cyan-700);
+    --vk-cat-3: var(--vk-green-700);
+    --vk-cat-4: var(--vk-red-700);
+    --vk-cat-5: #5b4bc4;
+    --vk-cat-6: var(--vk-slate-500);
+
+    /* --- graph canvas --- */
+    --vk-graph-subject: var(--vk-amber-400);
+    --vk-graph-source: var(--vk-cyan-700);
+    --vk-graph-edge: color-mix(in srgb, #7d8ea6 55%, transparent);
+    --vk-graph-evidence: var(--vk-green-700);
+
+    color-scheme: light;
+  }
+}

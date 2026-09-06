@@ -14,7 +14,7 @@
     "prepare": "./scripts/prepare-effect.sh; git rev-parse --is-inside-work-tree >/dev/null 2>&1 && lefthook install || echo 'not a git repo; skipping lefthook install' && effect-tsgo patch --typescript --no-oxlint",
     "preview": "bun run --filter @viokit/site preview",
     "test": "bun run --filter './packages/*' test",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit && bun run --filter @viokit/ui typecheck"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.6",

@@ -1,0 +1,86 @@
+/* 44px vertical icon rail. Glyphs only — the label is the tooltip, because at
+   this width any text would be an abbreviation nobody can read. */
+
+@layer vk.components {
+  .vk-rail {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    align-items: center;
+    padding-top: 9px;
+    background: var(--vk-tool-surface);
+    border-right: 1px solid var(--vk-border);
+  }
+
+  .vk-rail__mark {
+    margin-bottom: var(--vk-space-5);
+  }
+
+  .vk-rail__btn {
+    position: relative; /* anchors .vk-rail__tip */
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    color: var(--vk-tool-dim);
+    background: none;
+    border: 0;
+    border-radius: var(--vk-radius-console);
+  }
+
+  .vk-rail__btn:hover {
+    color: var(--vk-tool-text);
+    background: var(--vk-tool-active);
+  }
+
+  .vk-rail__btn.is-on {
+    color: var(--vk-tool-ink-text);
+    background: var(--vk-tool-ink);
+  }
+
+  /* --- tooltip ---
+     Shown on hover AND on keyboard focus. A `title` attribute does neither
+     well: it waits about a second, and it never appears for someone
+     navigating by keyboard, which is who most needs to be told what a
+     glyph means. */
+  .vk-rail__tip {
+    position: absolute;
+    left: calc(100% + 7px);
+    z-index: 20;
+    display: flex;
+    gap: var(--vk-space-3);
+    align-items: center;
+    padding: var(--vk-space-2) var(--vk-space-4);
+    font-size: var(--vk-console-text-sm);
+    color: var(--vk-tool-ink-text);
+    white-space: nowrap;
+    pointer-events: none;
+    background: var(--vk-tool-ink);
+    border-radius: var(--vk-radius-console);
+    opacity: 0;
+    transition: opacity var(--vk-dur-fast) ease;
+  }
+
+  .vk-rail__btn:hover .vk-rail__tip,
+  .vk-rail__btn:focus-visible .vk-rail__tip {
+    opacity: 1;
+  }
+
+  /* Someone who asked for less motion still wants the tooltip, just not the
+     fade. */
+  @media (prefers-reduced-motion: reduce) {
+    .vk-rail__tip {
+      transition: none;
+    }
+  }
+
+  .vk-rail__key {
+    padding: 0 var(--vk-space-2);
+    font-family: var(--vk-font-mono);
+    font-size: var(--vk-console-mono-sm);
+    color: var(--vk-tool-ink-text);
+    border: 1px solid currentcolor;
+    border-radius: 3px;
+    opacity: 0.62;
+  }
+}

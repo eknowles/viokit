@@ -1,0 +1,211 @@
+/* The console table: 24px sticky header, 28px rows, tabular numerals, hairline
+   rules, no zebra. Row actions stay hidden until the row is hovered, selected
+   or focused — the last of those is what keeps them reachable from a keyboard,
+   which a hover-only reveal quietly does not. */
+
+@layer vk.components {
+  .vk-grid {
+    width: 100%;
+    font-variant-numeric: tabular-nums;
+    border-collapse: collapse;
+  }
+
+  .vk-grid th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    height: var(--vk-row-head-h);
+    padding: 0 var(--vk-cell-pad);
+    font-family: var(--vk-font-mono);
+    font-size: var(--vk-console-micro);
+    font-weight: var(--vk-weight-body);
+    color: var(--vk-tool-dim);
+    text-align: left;
+    text-transform: uppercase;
+    letter-spacing: var(--vk-track-th);
+    white-space: nowrap;
+    background: var(--vk-tool-surface);
+    border-bottom: 1px solid var(--vk-border-strong);
+  }
+
+  .vk-grid td {
+    height: var(--vk-row-h);
+    padding: 0 var(--vk-cell-pad);
+    color: var(--vk-tool-text);
+    white-space: nowrap;
+    border-bottom: 1px solid var(--vk-border);
+  }
+
+  .vk-grid tbody tr:hover td {
+    background: var(--vk-tool-hover);
+  }
+
+  .vk-grid tbody tr.is-selected td {
+    background: var(--vk-tool-sel);
+  }
+
+  /* One-off arrival flash for a row that just streamed in. */
+  .vk-grid tbody tr.is-fresh td {
+    animation: vk-fresh var(--vk-flash-dur) ease-out;
+  }
+
+  @keyframes vk-fresh {
+    0% {
+      background: var(--vk-accent-soft);
+    }
+
+    100% {
+      background: transparent;
+    }
+  }
+
+  /* --- cell tiers --- */
+
+  .vk-grid .vk-num,
+  .vk-grid th.vk-num {
+    text-align: right;
+  }
+
+  .vk-grid .vk-val {
+    font-weight: 500;
+  }
+
+  /* --- structural columns --- */
+
+  .vk-grid .vk-grid__col-state {
+    width: 6px;
+    padding: 0;
+  }
+
+  .vk-grid .vk-grid__col-actions {
+    width: 84px;
+    text-align: right;
+  }
+
+  .vk-grid__actions {
+    display: inline-flex;
+    gap: 2px;
+    opacity: 0;
+    transition: opacity var(--vk-dur-instant) ease;
+  }
+
+  .vk-grid tbody tr:hover .vk-grid__actions,
+  .vk-grid tbody tr.is-selected .vk-grid__actions,
+  .vk-grid__actions:focus-within {
+    opacity: 1;
+  }
+
+  .vk-grid__actions button {
+    display: grid;
+    place-items: center;
+    width: 20px;
+    height: 20px;
+    color: var(--vk-tool-meta);
+    background: transparent;
+    border: 1px solid var(--vk-border);
+    border-radius: var(--vk-radius-console);
+  }
+
+  .vk-grid__actions button:hover {
+    color: var(--vk-tool-text);
+    border-color: var(--vk-tool-text);
+  }
+
+  /* --- inline annotations --- */
+
+  .vk-corroboration {
+    margin-left: var(--vk-space-3);
+    font-family: var(--vk-font-mono);
+    font-size: var(--vk-console-mono-sm);
+    font-weight: var(--vk-weight-body);
+    color: var(--vk-ok);
+  }
+
+  .vk-overflow-count {
+    margin-left: var(--vk-space-2);
+    font-family: var(--vk-font-mono);
+    font-size: var(--vk-console-mono-sm);
+    color: var(--vk-tool-dim);
+  }
+
+  .vk-confidence--high {
+    color: var(--vk-tool-text);
+  }
+
+  .vk-confidence--medium {
+    color: var(--vk-tool-meta);
+  }
+
+  .vk-confidence--low {
+    color: var(--vk-danger);
+  }
+
+  /* --- sortable headers ---
+     The button carries the affordance, not the th: a sortable column header is
+     a control, and wrapping it makes it reachable and announceable without
+     putting a click handler on a table cell. */
+  .vk-grid th:has(.vk-grid__sort) {
+    padding: 0;
+  }
+
+  .vk-grid__sort {
+    display: flex;
+    gap: var(--vk-space-2);
+    align-items: center;
+    width: 100%;
+    height: var(--vk-row-head-h);
+    padding: 0 var(--vk-cell-pad);
+    font: inherit;
+    color: inherit;
+    text-transform: inherit;
+    letter-spacing: inherit;
+    background: none;
+    border: 0;
+  }
+
+  .vk-grid th.vk-num .vk-grid__sort {
+    justify-content: flex-end;
+  }
+
+  .vk-grid__sort:hover {
+    color: var(--vk-tool-text);
+  }
+
+  /* Reserved so the header does not shift when a column becomes sorted. */
+  .vk-grid__sort::after {
+    font-size: 8px;
+    color: var(--vk-tool-dim);
+    content: "\2195";
+    opacity: 0;
+  }
+
+  .vk-grid__sort:hover::after {
+    opacity: 0.5;
+  }
+
+  .vk-grid th[aria-sort] {
+    color: var(--vk-tool-text);
+  }
+
+  .vk-grid th[aria-sort="ascending"] .vk-grid__sort::after {
+    color: var(--vk-accent-strong);
+    content: "\2191";
+    opacity: 1;
+  }
+
+  .vk-grid th[aria-sort="descending"] .vk-grid__sort::after {
+    color: var(--vk-accent-strong);
+    content: "\2193";
+    opacity: 1;
+  }
+
+  /* --- thumbnails in a cell --- */
+  .vk-thumb {
+    display: block;
+    width: 22px;
+    height: 22px;
+    object-fit: cover;
+    background: var(--vk-tool-track);
+    border: 1px solid var(--vk-border);
+  }
+}

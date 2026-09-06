@@ -1,36 +1,51 @@
+import {
+  AppShell,
+  Pane,
+  Rail,
+  StatusLine,
+  ThemeToggle,
+  TopBar,
+  Workspace,
+} from "@viokit/ui";
 import { useEffect, useMemo, useState } from "react";
 import {
+  cameraAtom,
+  caseSelectionAtom,
+  curationAtom,
   graphSelectionAtom,
   graphTimeAtom,
   runnableOnlyAtom,
   selectedTransformAtom,
   useAtom,
-  type ViewName,
   viewAtom,
 } from "./atoms.js";
+import type { Curation } from "./case-table.js";
 import type { Client, OperationDeclaration } from "./client.js";
 import { defaultOrigin, makeClient, OperationFailure } from "./client.js";
+import type { ViewName } from "./navigation.js";
+import {
+  asViewName,
+  DEFAULT_VIEW,
+  isTyping,
+  shortcutOf,
+  VIEWS,
+  viewForShortcut,
+} from "./navigation.js";
 import {
   type ConsoleViewState,
   debounce,
   loadViewState,
+  type StoredCamera,
   saveViewState,
 } from "./persistence.js";
 import type { Subject } from "./provenance.js";
+import { CaseView } from "./views/Case.js";
 import { CatalogView } from "./views/Catalog.js";
 import { EvidenceView } from "./views/Evidence.js";
 import { GraphView } from "./views/Graph.js";
 import { GraphCanvasView } from "./views/GraphCanvas.js";
 import { InvestigationBar } from "./views/Investigations.js";
 import { LauncherView } from "./views/Launcher.js";
-
-const VIEWS: readonly { readonly label: string; readonly name: ViewName }[] = [
-  { label: "Catalog", name: "catalog" },
-  { label: "Transform", name: "launcher" },
-  { label: "Evidence", name: "evidence" },
-  { label: "Graph", name: "graph" },
-  { label: "Canvas", name: "canvas" },
-];
 
 /** Operations the console needs; missing ones are reported loudly on load. */
 const REQUIRED = [
@@ -46,8 +61,14 @@ const REQUIRED = [
 ];
 
 const Body = ({
+  camera,
   client,
+  onCamera,
   view,
+  caseSelection,
+  curation,
+  onCaseSelect,
+  onCurate,
   graphSelection,
   graphTime,
   onGraphSelect,
@@ -57,7 +78,13 @@ const Body = ({
   runnableOnly,
   transformId,
 }: {
+  readonly camera: StoredCamera | null;
+  readonly caseSelection: string | null;
   readonly client: Client;
+  readonly onCamera: (camera: StoredCamera) => void;
+  readonly curation: Curation;
+  readonly onCaseSelect: (id: string | null) => void;
+  readonly onCurate: (next: Curation) => void;
   readonly onLaunch: (id: string) => void;
   readonly graphSelection: Subject | null;
   readonly graphTime: number | null;
@@ -68,6 +95,19 @@ const Body = ({
   readonly transformId: string | null;
   readonly view: ViewName;
 }) => {
+  if (view === "case") {
+    return (
+      <CaseView
+        camera={camera}
+        client={client}
+        curation={curation}
+        onCamera={onCamera}
+        onCurate={onCurate}
+        onSelect={onCaseSelect}
+        selectedId={caseSelection}
+      />
+    );
+  }
   if (view === "catalog") {
     return (
       <CatalogView
@@ -87,7 +127,9 @@ const Body = ({
   if (view === "canvas") {
     return (
       <GraphCanvasView
+        camera={camera}
         client={client}
+        onCamera={onCamera}
         onSelect={onGraphSelect}
         onTime={onGraphTime}
         selected={graphSelection}
@@ -111,7 +153,10 @@ export const App = () => {
   const [problem, setProblem] = useState<string | null>(null);
   const [runnableOnly, setRunnableOnly] = useAtom(runnableOnlyAtom);
   const [graphSelection, setGraphSelection] = useAtom(graphSelectionAtom);
+  const [caseSelection, setCaseSelection] = useAtom(caseSelectionAtom);
+  const [curation, setCuration] = useAtom(curationAtom);
   const [graphTime, setGraphTime] = useAtom(graphTimeAtom);
+  const [camera, setCamera] = useAtom(cameraAtom);
   // Restored before anything is saved, so restoring does not immediately
   // overwrite what it just read.
   const [restored, setRestored] = useState(false);
@@ -146,11 +191,14 @@ export const App = () => {
       if (cancelled) {
         return;
       }
-      setView(state.view as ViewName);
+      setView(asViewName(state.view) ?? DEFAULT_VIEW);
       setTransformId(state.selectedTransform);
       setRunnableOnly(state.runnableOnly);
       setGraphSelection(state.graphSelection);
       setGraphTime(state.graphTime);
+      setCaseSelection(state.caseSelection);
+      setCuration(state.curation);
+      setCamera(state.camera);
       setRestored(true);
     });
     return () => {
@@ -163,6 +211,9 @@ export const App = () => {
     setRunnableOnly,
     setGraphSelection,
     setGraphTime,
+    setCaseSelection,
+    setCuration,
+    setCamera,
   ]);
 
   const persist = useMemo(
@@ -176,6 +227,9 @@ export const App = () => {
       return;
     }
     persist({
+      camera,
+      caseSelection,
+      curation,
       graphSelection,
       graphTime,
       runnableOnly,
@@ -190,57 +244,141 @@ export const App = () => {
     view,
     graphSelection,
     graphTime,
+    caseSelection,
+    curation,
+    camera,
   ]);
 
+  /*
+   * Digit shortcuts, matching the rail's order and the hints it shows.
+   * Registered on the window so they work wherever focus is — except in a
+   * field, where the keystroke belongs to whoever is typing.
+   */
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
+        return;
+      }
+      if (isTyping(event.target)) {
+        return;
+      }
+      const next = viewForShortcut(event.key);
+      if (next !== null) {
+        event.preventDefault();
+        setView(next);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [setView]);
+
+  const active = VIEWS.find((entry) => entry.name === view);
+  // A deployment that is missing operations is not "connected" in any useful
+  // sense, so the status dot reports reachability rather than mere page load.
+  const reachable = available.length > 0 && problem === null;
+
   return (
-    <main>
-      <header>
-        <h1>viokit</h1>
-        <nav>
-          {VIEWS.map((entry) => (
-            <button
-              className={view === entry.name ? "active" : ""}
-              key={entry.name}
-              onClick={() => setView(entry.name)}
-              type="button"
-            >
-              {entry.label}
-            </button>
-          ))}
-        </nav>
+    <AppShell
+      rail={
+        <Rail
+          items={VIEWS.map((entry) => ({
+            hint: shortcutOf(entry.name),
+            icon: entry.icon,
+            id: entry.name,
+            label: entry.label,
+          }))}
+          onChange={(id) => setView(id as ViewName)}
+          value={view}
+        />
+      }
+    >
+      {/* The current view is named here rather than in a pane header, so the
+          answer to "where am I" is in the same place on every view — the case
+          workbench has its own panes and was the one view that never said. */}
+      <TopBar
+        actions={<ThemeToggle fallback="dark" />}
+        subtitle={active?.title ?? "console"}
+        title="viokit"
+      >
         <InvestigationBar
           client={client}
           onChange={() => setScope((previous) => previous + 1)}
         />
-        <span className="hint">
+        <StatusLine busy={reachable}>
           {origin} · {available.length} operations
-        </span>
-      </header>
+        </StatusLine>
+      </TopBar>
 
-      {problem === null ? null : <p className="error">{problem}</p>}
-
-      <section>
-        <Body
-          client={client}
-          graphSelection={graphSelection}
-          graphTime={graphTime}
-          key={scope}
-          onGraphSelect={setGraphSelection}
-          onGraphTime={setGraphTime}
-          onLaunch={(id) => {
-            setTransformId(id);
-            setView("launcher");
-          }}
-          onRunnableOnly={setRunnableOnly}
-          runnableOnly={runnableOnly}
-          transformId={transformId}
-          view={view}
-        />
-      </section>
-
-      <footer className="hint">
-        View state is stored server-side, schema-encoded and versioned (I12).
-      </footer>
-    </main>
+      {view === "case" ? (
+        <>
+          {problem === null ? null : (
+            <p className="error console-view">{problem}</p>
+          )}
+          <Body
+            camera={camera}
+            caseSelection={caseSelection}
+            client={client}
+            curation={curation}
+            graphSelection={graphSelection}
+            graphTime={graphTime}
+            key={scope}
+            onCamera={setCamera}
+            onCaseSelect={setCaseSelection}
+            onCurate={setCuration}
+            onGraphSelect={setGraphSelection}
+            onGraphTime={setGraphTime}
+            onLaunch={(id) => {
+              setTransformId(id);
+              setView("launcher");
+            }}
+            onRunnableOnly={setRunnableOnly}
+            runnableOnly={runnableOnly}
+            transformId={transformId}
+            view={view}
+          />
+        </>
+      ) : (
+        <Workspace wide>
+          <Pane
+            right="view state persisted server-side · I12"
+            title={active?.title ?? "console"}
+          >
+            {problem === null ? null : (
+              <p className="error console-view">{problem}</p>
+            )}
+            <div
+              className={
+                view === "catalog"
+                  ? "console-view console-view--flush"
+                  : "console-view"
+              }
+            >
+              <Body
+                camera={camera}
+                caseSelection={caseSelection}
+                client={client}
+                curation={curation}
+                graphSelection={graphSelection}
+                graphTime={graphTime}
+                key={scope}
+                onCamera={setCamera}
+                onCaseSelect={setCaseSelection}
+                onCurate={setCuration}
+                onGraphSelect={setGraphSelection}
+                onGraphTime={setGraphTime}
+                onLaunch={(id) => {
+                  setTransformId(id);
+                  setView("launcher");
+                }}
+                onRunnableOnly={setRunnableOnly}
+                runnableOnly={runnableOnly}
+                transformId={transformId}
+                view={view}
+              />
+            </div>
+          </Pane>
+        </Workspace>
+      )}
+    </AppShell>
   );
 };
