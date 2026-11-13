@@ -14,10 +14,10 @@
 
 ## 3. Runtime and wiring
 
-- [ ] 3.1 Include the bound `exec.args` in the cache fingerprint; verify two inputs to one source produce two cache entries and credentials remain stripped
-- [ ] 3.2 Route `exec` in the dispatch transport, present only where the deployment provides it; verify a deployment without it reports exec sources as not runnable with the reason
-- [ ] 3.3 Fail before running when the command cannot be found, naming it; verify with a source whose command does not exist
-- [ ] 3.4 Declare `exec` and the chosen runner in the agent deployment and show `kind` in the runtime catalog; verify the catalog lists an exec source with its kind and runnable state
+- [x] 3.1 Include the bound `exec.args` in the cache fingerprint; verify two inputs to one source produce two cache entries and credentials remain stripped
+- [x] 3.2 Route `exec` in the dispatch transport, present only where the deployment provides it; verify a deployment without it reports exec sources as not runnable with the reason
+- [x] 3.3 Fail before running when the command cannot be found, naming it; verify with a source whose command does not exist
+- [x] 3.4 Declare `exec` and the chosen runner in the agent deployment and show `kind` in the runtime catalog; verify the catalog lists an exec source with its kind and runnable state
 
 ## 4. First tool: dig
 

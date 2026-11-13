@@ -7,6 +7,13 @@ import {
   makeBrowserTransport,
 } from "./browser.js";
 import { DatasetTransportLayer } from "./dataset.js";
+import {
+  defaultExecConcurrency,
+  ExecConcurrency,
+  ExecRunnerService,
+  makeExecPermit,
+  makeExecTransport,
+} from "./exec.js";
 import { HttpTransportLayer } from "./http.js";
 
 /**
@@ -52,9 +59,36 @@ export const DispatchTransportLayer: Layer.Layer<
               profileRoot: defaultBrowserProfileRoot,
             })
           );
+    // Same shape as the browser: present only where a deployment chose a
+    // runner, so exec sources are reported as blocked rather than failing at
+    // acquisition. The permit is built here, once per deployment, which is what
+    // makes the concurrency limit deployment-wide.
+    const runner = Option.getOrUndefined(
+      yield* Effect.serviceOption(ExecRunnerService)
+    );
+    const exec =
+      runner === undefined
+        ? undefined
+        : makeExecTransport(
+            runner,
+            yield* makeExecPermit(
+              Option.getOrElse(
+                yield* Effect.serviceOption(ExecConcurrency),
+                () => defaultExecConcurrency
+              )
+            )
+          );
 
     return {
       fetch: (source, context) => {
+        if (source.transport === "exec") {
+          if (exec === undefined) {
+            return SourceError.make({
+              message: `source '${source.id}' needs an exec transport, which this deployment does not provide`,
+            });
+          }
+          return exec.fetch(source, context);
+        }
         if (source.transport === "browser") {
           if (browser === undefined) {
             return SourceError.make({

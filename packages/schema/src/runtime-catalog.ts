@@ -1,5 +1,6 @@
 import { Schema } from "effect";
 import {
+  ExecKind,
   SourceAccess,
   SourceSpec,
   TransformArchetype,
@@ -42,6 +43,11 @@ export class CatalogEntry extends Schema.Class<CatalogEntry>("CatalogEntry")({
   accessVerified: Schema.optionalKey(Schema.Boolean),
   archetype: Schema.optionalKey(TransformArchetype),
   description: Schema.optionalKey(Schema.String),
+  /**
+   * Whether an exec source's tool is passive or active. Metadata only: nothing
+   * is refused on the basis of it. Absent for every other entry.
+   */
+  execKind: Schema.optionalKey(ExecKind),
   /**
    * Whether this source's url addresses a site's front door rather than
    * something within it. Absent for transforms and types.

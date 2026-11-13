@@ -25,7 +25,12 @@ import {
   TransportCapabilities,
   type Unauthorized,
 } from "@viokit/schema";
-import { BunWebViewEngineLayer, DispatchTransportLayer } from "@viokit/sources";
+import {
+  BunWebViewEngineLayer,
+  containerExecRunnerLayer,
+  DispatchTransportLayer,
+  HostExecRunnerLayer,
+} from "@viokit/sources";
 import { Layer } from "effect";
 
 /**
@@ -90,9 +95,9 @@ const viewStateLayer = makeViewStateLayer(
 );
 
 /**
- * What this deployment can actually perform. The browser engine is wired into
- * the dispatch transport below, so `browser` is claimed and browser sources
- * become runnable.
+ * What this deployment can actually perform. The browser engine and the exec
+ * runner are wired into the dispatch transport below, so `browser` and `exec`
+ * are claimed and those sources become runnable.
  *
  * This list and that wiring have to move together: a deployment that stops
  * providing the engine must stop claiming the transport, or the catalog will
@@ -102,7 +107,22 @@ const transportCapabilities = Layer.succeed(TransportCapabilities, [
   "http",
   "dataset",
   "browser",
+  "exec",
 ]);
+
+/** Names the running container exec sources run in (the intended default). */
+export const EXEC_CONTAINER_ENV = "VIOKIT_EXEC_CONTAINER";
+
+/**
+ * Which runner exec sources use. A named container is the intended deployment;
+ * with none named the host runner covers development and tools installed
+ * locally. Chosen here, never by a source, so a pack cannot pick where its
+ * command runs.
+ */
+export const execRunnerLayerFor = (container: string | undefined) =>
+  container === undefined || container.trim() === ""
+    ? HostExecRunnerLayer
+    : containerExecRunnerLayer({ container: container.trim() });
 
 const deployment = Layer.mergeAll(
   // Provided *to* dispatch, not merged beside it: dispatch reads the browser
@@ -110,7 +130,13 @@ const deployment = Layer.mergeAll(
   // to it. Merged, this deployment claimed `browser` in its capabilities and
   // then refused every browser acquisition — the exact dishonesty
   // `TransportCapabilities` exists to prevent.
-  Layer.provide(DispatchTransportLayer, BunWebViewEngineLayer),
+  Layer.provide(
+    DispatchTransportLayer,
+    Layer.merge(
+      BunWebViewEngineLayer,
+      execRunnerLayerFor(process.env[EXEC_CONTAINER_ENV])
+    )
+  ),
   transportCapabilities,
   evidenceBackend,
   OntologyRegistryLayer,
