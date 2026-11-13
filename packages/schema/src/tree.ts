@@ -1,4 +1,4 @@
-import { Schema } from "effect";
+import { Context, type Effect, Schema } from "effect";
 
 /**
  * The investigation tree's records. A run is one transform applied to one
@@ -9,9 +9,15 @@ import { Schema } from "effect";
 export const RunOutcome = Schema.Literals(["ok", "empty", "failed"]);
 export type RunOutcome = typeof RunOutcome.Type;
 
+/** An entity a run discovered for the tree. */
+export class AddedEntity extends Schema.Class<AddedEntity>("AddedEntity")({
+  id: Schema.String,
+  kind: Schema.String,
+}) {}
+
 export class RunRecord extends Schema.Class<RunRecord>("RunRecord")({
   /** Entities this run discovered for the tree (new to it), not every touched. */
-  addedEntityIds: Schema.Array(Schema.String),
+  addedEntities: Schema.Array(AddedEntity),
   addedRelationCount: Schema.Number,
   /** Distance from the seed of the entity this run was applied to. */
   depth: Schema.Number,
@@ -78,3 +84,41 @@ export const TREE_DEFAULTS = {
   maxMs: 600_000,
   maxRuns: 100,
 } as const;
+
+/**
+ * An append-only record of runs, scoped to one investigation. Behind a seam so
+ * a backend can be swapped without touching the expander, the shape the
+ * redaction and view-state stores already take.
+ */
+export interface RunLog {
+  readonly append: (
+    investigation: string,
+    record: RunRecord
+  ) => Effect.Effect<void>;
+  readonly list: (investigation: string) => Effect.Effect<readonly RunRecord[]>;
+}
+
+export class RunLogService extends Context.Service<RunLogService, RunLog>()(
+  "RunLogService"
+) {}
+
+/** A tree operation that could not start (an unsupported seed, for instance). */
+export class TreeError extends Schema.TaggedErrorClass<TreeError>()(
+  "TreeError",
+  { message: Schema.String }
+) {}
+
+export interface RunNode {
+  readonly children: readonly TreeNode[];
+  readonly durationMs: number;
+  readonly message?: string | undefined;
+  readonly outcome: RunOutcome;
+  readonly runId: string;
+  readonly transformId: string;
+}
+
+export interface TreeNode {
+  readonly entityId: string;
+  readonly kind: string;
+  readonly runs: readonly RunNode[];
+}

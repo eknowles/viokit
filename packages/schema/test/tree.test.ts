@@ -9,7 +9,7 @@ import {
 } from "../src/index.js";
 
 const record = {
-  addedEntityIds: ["a"],
+  addedEntities: [{ id: "a", kind: "domain" }],
   addedRelationCount: 1,
   depth: 0,
   durationMs: 12,

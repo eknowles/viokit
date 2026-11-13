@@ -9,19 +9,19 @@
 
 ## 3. Run log
 
-- [ ] 3.1 Add a run-log seam with an in-memory and a filesystem JSON-lines backend, scoped per investigation; verify append and read-back, ordering, and that two investigations do not see each other's records
+- [x] 3.1 Add a run-log seam with an in-memory and a filesystem JSON-lines backend, scoped per investigation; verify append and read-back, ordering, and that two investigations do not see each other's records
 
 ## 4. The expander
 
-- [ ] 4.1 Implement seeding through the evidence path; verify the seed entity exists with its evidence and that no entity is present without it
-- [ ] 4.2 Implement the breadth-first loop with once-per-pair dedup and depth counting, using stub transports; verify a discovered entity is expanded, a pair is never repeated, and a doubly-reached entity keeps the shorter depth
-- [ ] 4.3 Implement the four caps and the stop reason; verify each cap stops the expansion with its own reason, and that exhaustion is reported
-- [ ] 4.4 Skip unrunnable sources once with the reason, record failures and continue, and apply the kinds policy; verify an unrunnable transform is skipped once not per entity, a failing run does not stop the others, and passive-only skips an active transform
-- [ ] 4.5 Write a run record per run, including failures; verify the record names the transform, input entity, duration, outcome and additions
+- [x] 4.1 Implement seeding through the evidence path; verify the seed entity exists with its evidence and that no entity is present without it
+- [x] 4.2 Implement the breadth-first loop with once-per-pair dedup and depth counting, using stub transports; verify a discovered entity is expanded, a pair is never repeated, and a doubly-reached entity keeps the shorter depth
+- [x] 4.3 Implement the four caps and the stop reason; verify each cap stops the expansion with its own reason, and that exhaustion is reported
+- [x] 4.4 Skip unrunnable sources once with the reason, record failures and continue, and apply the kinds policy; verify an unrunnable transform is skipped once not per entity, a failing run does not stop the others, and passive-only skips an active transform
+- [x] 4.5 Write a run record per run, including failures; verify the record names the transform, input entity, duration, outcome and additions
 
 ## 5. Reading the tree and the operations
 
-- [ ] 5.1 Implement reading the tree from the records, nested by the entity that caused each run; verify an entity traces to its run and the nesting matches the expansion
+- [x] 5.1 Implement reading the tree from the records, nested by the entity that caused each run; verify an entity traces to its run and the nesting matches the expansion
 - [ ] 5.2 Add `tree_expand` and `tree_show` to the shared operation table; verify the CLI, MCP and HTTP listings all include them and a call returns the same result on each (I8)
 
 ## 6. Acceptance
