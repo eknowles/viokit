@@ -127,3 +127,58 @@ export const dig: SourceSpec = {
   transport: "exec",
   url: "exec:dig",
 };
+
+/**
+ * `whois` as a source: the registry's record for a domain, as text. Passive:
+ * it asks the registry's whois server, not the domain. `{domain}` is validated
+ * as a domain, so a value that could be read as a `whois` option never reaches
+ * the command.
+ */
+export const whois: SourceSpec = {
+  exec: {
+    args: ["{domain}"],
+    command: "whois",
+    kind: "passive",
+    maxOutputBytes: 131_072,
+    params: [{ name: "domain", type: "domain" }],
+    timeoutMs: 30_000,
+  },
+  id: "whois",
+  transport: "exec",
+  url: "exec:whois",
+};
+
+/**
+ * `nmap` as a source: a TCP connect scan of the 100 most common ports with
+ * light service detection, as XML on standard output. Active: it contacts the
+ * target. `-sT` needs no raw socket, so it runs in the default sidecar; `-Pn`
+ * skips host discovery so a host that drops pings is still scanned. `{ip}` is
+ * validated as an address. The scan is bounded by `--top-ports`, a retry limit
+ * and the timeout.
+ */
+export const nmap: SourceSpec = {
+  exec: {
+    args: [
+      "-sT",
+      "-Pn",
+      "-sV",
+      "--version-light",
+      "-T4",
+      "--max-retries",
+      "1",
+      "--top-ports",
+      "100",
+      "-oX",
+      "-",
+      "{ip}",
+    ],
+    command: "nmap",
+    kind: "active",
+    maxOutputBytes: 262_144,
+    params: [{ name: "ip", type: "ip" }],
+    timeoutMs: 120_000,
+  },
+  id: "nmap",
+  transport: "exec",
+  url: "exec:nmap",
+};

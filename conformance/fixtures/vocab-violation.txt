@@ -1,4 +1,5 @@
 // A deliberate violation: names that are not in the vocabulary. The scanner
-// MUST flag both lines. Kept as .txt so nothing treats it as real source.
+// MUST flag all three lines. Kept as .txt so nothing treats it as real source.
 const entity = { kind: "hostname" };
+const helper = entityOfKind("registrar", key, value);
 const edge = linked(a, b, "pointing-at");

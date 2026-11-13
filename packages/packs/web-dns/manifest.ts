@@ -1,20 +1,18 @@
 import type { EvidenceInput } from "@viokit/schema";
 import {
   AddEntity,
-  AddRelation,
+  type AddRelation,
   Entity,
   entityId,
   Identifier,
   PackManifest,
   RegisteredTransform,
-  Relation,
-  relationId,
   type SourceSpec,
-  SpatialExtent,
-  TemporalExtent,
   TransformSpec,
 } from "@viokit/schema";
 import { Schema } from "effect";
+import { domainEntity, linked, unbounded, unlocated } from "./graph.js";
+import { projectNmap } from "./nmap.js";
 import {
   archive_org,
   bgpview_io,
@@ -24,10 +22,13 @@ import {
   domaintools_com,
   host_io,
   lookup_icann_org,
+  nmap,
   robtex_com,
   securitytrails_com,
   urlscan_io,
+  whois,
 } from "./sources.js";
+import { projectWhois } from "./whois.js";
 
 /**
  * The `web-dns` pack's contribution to the runtime catalog. Registration is
@@ -51,6 +52,8 @@ const sources: readonly SourceSpec[] = [
   robtex_com,
   securitytrails_com,
   urlscan_io,
+  whois,
+  nmap,
 ];
 
 /** What a caller passes to the transform. Published to agents as JSON Schema. */
@@ -63,13 +66,6 @@ const CertificateSearchOutput = Schema.Struct({
   certificateCount: Schema.Number,
   domain: Schema.String,
 });
-
-const unbounded = TemporalExtent.make({
-  validFrom: new Date(0),
-  validTo: new Date("9999-12-31T00:00:00.000Z"),
-});
-
-const unlocated = SpatialExtent.make({ lat: 0, lon: 0 });
 
 /**
  * Projects a crt.sh acquisition into graph operations: the queried domain as an
@@ -151,28 +147,6 @@ const jsonBody = (evidence: EvidenceInput): Record<string, unknown> | null => {
     return null;
   }
 };
-
-const domainEntity = (name: string) =>
-  AddEntity.make({
-    entity: Entity.make({
-      id: entityId(name),
-      identifiers: [Identifier.make({ kind: "domain", value: name })],
-      kind: "domain",
-      spatialExtent: unlocated,
-      temporalExtent: unbounded,
-    }),
-  });
-
-const linked = (from: string, to: string, type: string) =>
-  AddRelation.make({
-    relation: Relation.make({
-      id: relationId(`${from}->${to}:${type}`),
-      sourceId: entityId(from),
-      targetId: entityId(to),
-      temporalExtent: unbounded,
-      type,
-    }),
-  });
 
 const SubdomainInput = Schema.Struct({ hostname: Schema.String });
 const SubdomainOutput = Schema.Struct({
@@ -342,6 +316,36 @@ const digLookup = TransformSpec.make({
   sourceId: dig.id,
 });
 
+const WhoisInput = Schema.Struct({ domain: Schema.String });
+const WhoisOutput = Schema.Struct({
+  domain: Schema.String,
+  nameServers: Schema.Array(Schema.String),
+});
+
+const whoisRegistration = TransformSpec.make({
+  archetype: "lookup",
+  id: "whois-registration",
+  input: WhoisInput,
+  output: WhoisOutput,
+  projection: "steps",
+  sourceId: whois.id,
+});
+
+const NmapInput = Schema.Struct({ ip: Schema.String });
+const NmapOutput = Schema.Struct({
+  ip: Schema.String,
+  openPorts: Schema.Array(Schema.String),
+});
+
+const nmapOpenPorts = TransformSpec.make({
+  archetype: "analyze",
+  id: "nmap-open-ports",
+  input: NmapInput,
+  output: NmapOutput,
+  projection: "steps",
+  sourceId: nmap.id,
+});
+
 const subdomainEnumeration = TransformSpec.make({
   archetype: "search",
   id: "securitytrails-subdomains",
@@ -373,6 +377,16 @@ export const manifest = PackManifest.make({
       project: projectDig,
       source: dig,
       spec: digLookup,
+    }),
+    RegisteredTransform.make({
+      project: projectWhois,
+      source: whois,
+      spec: whoisRegistration,
+    }),
+    RegisteredTransform.make({
+      project: projectNmap,
+      source: nmap,
+      spec: nmapOpenPorts,
     }),
     RegisteredTransform.make({
       project: projectSubdomains,

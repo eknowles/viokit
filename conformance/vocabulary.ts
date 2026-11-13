@@ -7,8 +7,8 @@ import {
 
 /**
  * Entity kinds and relation types must come from @viokit/vocabulary. The scan
- * is syntactic: it reads string literals in `kind: "…"` and
- * `linked(from, to, "…")`. A name built dynamically is not seen.
+ * is syntactic: it reads string literals in `kind: "…"`, in
+ * `entityOfKind("…", …)` / `keyOf("…", …)`, and in `linked(from, to, "…")`. A name built dynamically is not seen.
  */
 
 const PACKS_ROOT = "packages/packs";
@@ -18,6 +18,8 @@ const TEST_FILE = /\.test\.ts$/;
 /** `kind` is also the passive/active classification on exec sources. */
 const TOOL_CLASSIFICATIONS = new Set(["passive", "active"]);
 const KIND_LITERAL = /\bkind:\s*"([a-z][a-z-]*)"/g;
+/** Entities built through the pack helpers: `entityOfKind("kind", …)`, `keyOf("kind", …)`. */
+const KIND_ARGUMENT = /\b(?:entityOfKind|keyOf)\(\s*"([a-z][a-z-]*)"/g;
 const RELATION_LITERAL = /\blinked\(\s*[^,()]+,\s*[^,()]+,\s*"([a-z][a-z-]*)"/g;
 
 export interface UnknownName {
@@ -37,7 +39,10 @@ export const findUnknownNames = (
   relations: ReadonlySet<string> = relationTypeNames
 ): readonly UnknownName[] => {
   const found: UnknownName[] = [];
-  for (const match of source.matchAll(KIND_LITERAL)) {
+  for (const match of [
+    ...source.matchAll(KIND_LITERAL),
+    ...source.matchAll(KIND_ARGUMENT),
+  ]) {
     const name = match[1] ?? "";
     if (!(kinds.has(name) || TOOL_CLASSIFICATIONS.has(name))) {
       found.push({

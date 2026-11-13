@@ -58,10 +58,9 @@ describe("registering the web-dns pack", () => {
         const transforms = entries.filter(
           (entry) => entry.kind === "transform"
         );
-        assert.strictEqual(sources.length, 11);
-        // Four now: certificate transparency, subdomain enumeration, the
-        // domain record, and the dig answer.
-        assert.strictEqual(transforms.length, 4);
+        // Derived from the manifest: adding a tool must not mean editing this test.
+        assert.strictEqual(sources.length, manifest.sources.length);
+        assert.strictEqual(transforms.length, manifest.transforms.length);
         const certificates = transforms.find(
           (entry) => entry.id === "crt-sh-certificate-search"
         );

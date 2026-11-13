@@ -287,8 +287,10 @@ describe("front-end parity (I8)", () => {
 
     expect(viaCli).toBe(0);
     expect(viaMcp.isError).toBe(false);
-    // web-dns registers four transforms now.
-    expect(JSON.parse(viaMcp.text)).toHaveLength(4);
+    // Every transform the registered packs declare, not a magic number.
+    expect(JSON.parse(viaMcp.text)).toHaveLength(
+      webDns.transforms.length + peopleManifest.transforms.length
+    );
   });
 });
 

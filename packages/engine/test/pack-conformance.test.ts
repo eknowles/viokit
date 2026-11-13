@@ -98,11 +98,20 @@ describe("every promoted source is registered by its pack", () => {
     assert.deepStrictEqual(onDisk, Object.keys(packModules).sort());
   });
 
-  it("registers every promoted source across all packs", () => {
-    const total = Object.values(packModules).reduce(
+  it("registers every promoted source across all packs", async () => {
+    const packs = Object.values(packModules);
+    const registered = packs.reduce(
       (sum, [manifest]) => sum + manifest.sources.length,
       0
     );
-    assert.strictEqual(total, 40);
+    const shipped = (
+      await Promise.all(
+        packs.map(async ([, load]) => shippedIds(await load()).length)
+      )
+    ).reduce((sum, count) => sum + count, 0);
+    // Derived, not a magic number: adding a source must not require editing
+    // this test, and a source shipped but not registered still fails here.
+    assert.strictEqual(registered, shipped);
+    assert.isAbove(registered, 0);
   });
 });

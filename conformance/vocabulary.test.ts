@@ -17,6 +17,15 @@ describe("vocabulary conformance", () => {
     ]);
   });
 
+  it("flags an unknown kind passed to the entity helpers", () => {
+    const found = findUnknownNames(
+      "p.ts",
+      'entityOfKind("registrar", key, v);\nkeyOf("hostname", v);'
+    );
+    expect(found.map((f) => f.name)).toEqual(["registrar", "hostname"]);
+    expect(found.map((f) => f.line)).toEqual([1, 2]);
+  });
+
   it("flags an unknown relation type, including across lines", () => {
     const found = findUnknownNames(
       "p.ts",
@@ -42,6 +51,7 @@ describe("vocabulary conformance", () => {
     expect(found.map((f) => f.name).sort()).toEqual([
       "hostname",
       "pointing-at",
+      "registrar",
     ]);
   });
 
