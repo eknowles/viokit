@@ -30,3 +30,6 @@ npm-debug.log*
 .idea/
 .vscode/*
 !.vscode/extensions.json
+
+# delivery orchestrator: worktrees, claims and run records
+.deliver/

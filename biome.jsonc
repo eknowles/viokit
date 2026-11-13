@@ -16,7 +16,11 @@
     },
     {
       // Runs under `bun test`, not vitest, so Bun globals are in scope.
-      "includes": ["packages/sources/test/browser-live.ts", "conformance/*.ts"],
+      "includes": [
+        "packages/sources/test/browser-live.ts",
+        "conformance/*.ts",
+        "scripts/**/*.ts"
+      ],
       "javascript": {
         "globals": ["Bun"]
       }
