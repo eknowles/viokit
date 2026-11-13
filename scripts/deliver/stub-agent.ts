@@ -1,7 +1,7 @@
 /**
  * A stand-in for the real agent, so the orchestrator's loop can be tested
  * without a model. Behaviour is chosen by environment variables:
- *   STUB_MODE   success | break | fix-second | edit-guard | none
+ *   STUB_MODE   success | break | fix-second | edit-guard | edit-vocabulary | none
  *   STUB_REVIEW approve | reject | garbage | high
  *   STUB_STATE  a directory for counters and the recorded argv
  * Reviewer runs are recognised by the --json-schema flag.
@@ -78,6 +78,12 @@ const author = () => {
   } else if (mode === "break" || mode === "fix-second") {
     writeFileSync("broken.txt", "this breaks the gate\n");
     commit("deliver: stub work that breaks the gate");
+  } else if (mode === "edit-vocabulary") {
+    writeFileSync(
+      "packages/vocabulary/src/vocabulary.ts",
+      "export const x = 2;\n"
+    );
+    commit("deliver: stub edits the vocabulary");
   } else if (mode === "edit-guard") {
     writeFileSync("conformance/guard.ts", "process.exit(0);\n");
     writeFileSync("delivered.txt", "done\n");

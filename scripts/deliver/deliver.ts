@@ -88,6 +88,8 @@ const AUTHOR_ALLOW = [
 const REVIEWER_ALLOW = ["Read", "Grep", "Glob"] as const;
 const REVIEWER_DENY = ["Edit", "Write", "Bash"] as const;
 const MAX_REVIEW_TURNS = 10;
+/** Only a change named like this may edit the shared vocabulary. */
+const STEWARD_PREFIX = "vocabulary-";
 const OUTPUT_EXCERPT = 4000;
 const MERGE_LOCK_ATTEMPTS = 50;
 const MERGE_LOCK_WAIT_MS = 100;
@@ -307,7 +309,11 @@ const runGates = async (
   try {
     const path = join(dir, "guard.ts");
     await writeFile(path, source.stdout);
-    const result = await exec(["bun", path, config.integration], worktree);
+    const steward = config.change.startsWith(STEWARD_PREFIX);
+    const result = await exec(
+      ["bun", path, config.integration, ...(steward ? ["--steward"] : [])],
+      worktree
+    );
     if (result.code !== 0) {
       return { gate: "guard", output: excerpt(result.stdout + result.stderr) };
     }

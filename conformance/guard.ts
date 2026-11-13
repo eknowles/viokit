@@ -23,6 +23,8 @@ export interface Violation {
 
 const PROTECTED_EXACT = new Set(["biome.jsonc", "lefthook.yml"]);
 const PROTECTED_PREFIXES = ["conformance/", "openspec/specs/"];
+/** Only a steward change (guard run with --steward) may edit the vocabulary. */
+const VOCABULARY_PREFIX = "packages/vocabulary/";
 const TEST_FILE = /(^|\/)test\/|\.test\.tsx?$/;
 const ADDED = "A";
 
@@ -38,11 +40,16 @@ const protectedReason = (path: string): string | undefined => {
 /** Pure decision over a change list; `scriptChanged` is the package.json check. */
 export const evaluate = (
   changes: readonly Change[],
-  scriptChanged: boolean
+  scriptChanged: boolean,
+  options: { readonly steward?: boolean } = {}
 ): readonly Violation[] => {
   const violations: Violation[] = [];
   for (const { path, status } of changes) {
-    const reason = protectedReason(path);
+    const reason =
+      protectedReason(path) ??
+      (path.startsWith(VOCABULARY_PREFIX) && options.steward !== true
+        ? "the shared vocabulary, which only a steward change may edit"
+        : undefined);
     if (reason !== undefined) {
       violations.push({ path, reason });
     } else if (TEST_FILE.test(path) && status !== ADDED) {
@@ -108,7 +115,8 @@ export const changesSince = async (
 
 export const checkChange = async (
   cwd: string,
-  base: string
+  base: string,
+  options: { readonly steward?: boolean } = {}
 ): Promise<readonly Violation[]> => {
   const changes = await changesSince(cwd, base);
   const before = await git(cwd, ["show", `${base}:package.json`]).catch(
@@ -116,7 +124,7 @@ export const checkChange = async (
   );
   const after = await git(cwd, ["show", "HEAD:package.json"]).catch(() => "");
   const scriptChanged = conformanceScript(before) !== conformanceScript(after);
-  return evaluate(changes, scriptChanged);
+  return evaluate(changes, scriptChanged, options);
 };
 
 const main = async (): Promise<number> => {
@@ -125,7 +133,8 @@ const main = async (): Promise<number> => {
     process.stderr.write("usage: guard.ts <base-ref>\n");
     return 2;
   }
-  const violations = await checkChange(process.cwd(), base);
+  const steward = process.argv.includes("--steward");
+  const violations = await checkChange(process.cwd(), base, { steward });
   for (const v of violations) {
     process.stderr.write(`guard: ${v.path}: ${v.reason}\n`);
   }

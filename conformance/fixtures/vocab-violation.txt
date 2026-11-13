@@ -1,0 +1,4 @@
+// A deliberate violation: names that are not in the vocabulary. The scanner
+// MUST flag both lines. Kept as .txt so nothing treats it as real source.
+const entity = { kind: "hostname" };
+const edge = linked(a, b, "pointing-at");

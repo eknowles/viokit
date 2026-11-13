@@ -9,7 +9,7 @@
     "astro:check": "bun run --filter @viokit/site astro check",
     "build": "bun run --filter @viokit/site build",
     "check": "ultracite check && bun run conformance",
-    "conformance": "bun conformance/check.ts && bun test ./conformance/control.test.ts",
+    "conformance": "bun conformance/check.ts && bun test ./conformance/control.test.ts ./conformance/vocabulary.test.ts",
     "deliver": "bun scripts/deliver/cli.ts",
     "dev": "bun run --filter @viokit/site dev",
     "fix": "ultracite fix",

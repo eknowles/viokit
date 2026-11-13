@@ -1,5 +1,6 @@
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
+import { scanPacks } from "./vocabulary.js";
 
 /**
  * Conformance checks for I4/I10 (see conformance/README.md). Two checks run
@@ -88,6 +89,7 @@ export const scanSuppressions = async (
 const main = async (): Promise<number> => {
   const rules = await runPluginRules(SCAN_ROOTS);
   const suppressions = await scanSuppressions();
+  const unknownNames = await scanPacks();
 
   if (!rules.ok) {
     process.stderr.write(
@@ -99,8 +101,13 @@ const main = async (): Promise<number> => {
       `I4/I10 conformance: ${finding.file}:${finding.line} suppresses the conformance plugin: ${finding.text}\n`
     );
   }
-  if (rules.ok && suppressions.length === 0) {
-    process.stdout.write("I4/I10 conformance: ok\n");
+  for (const unknown of unknownNames) {
+    process.stderr.write(
+      `vocabulary conformance: ${unknown.file}:${unknown.line} uses ${unknown.what} "${unknown.name}", which is not in @viokit/vocabulary\n`
+    );
+  }
+  if (rules.ok && suppressions.length === 0 && unknownNames.length === 0) {
+    process.stdout.write("conformance: ok\n");
     return 0;
   }
   return 1;

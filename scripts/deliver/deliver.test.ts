@@ -57,7 +57,19 @@ const makeFixture = async (
     join(ROOT, "conformance/guard.ts"),
     join(repo, "conformance/guard.ts")
   );
+  await mkdir(join(repo, "packages/vocabulary/src"), { recursive: true });
+  await writeFile(
+    join(repo, "packages/vocabulary/src/vocabulary.ts"),
+    "export const x = 1;\n"
+  );
   await mkdir(join(repo, "openspec/changes/demo"), { recursive: true });
+  await mkdir(join(repo, "openspec/changes/vocabulary-add"), {
+    recursive: true,
+  });
+  await writeFile(
+    join(repo, "openspec/changes/vocabulary-add/tasks.md"),
+    "- [ ] 1.1 add\n"
+  );
   await writeFile(
     join(repo, "openspec/changes/demo/tasks.md"),
     "- [ ] 1.1 do it\n"
@@ -225,6 +237,22 @@ describe("delivery orchestrator", () => {
       expect(merges.trim()).toBe("");
     });
   }
+
+  it("rejects a vocabulary edit by an ordinary change", async () => {
+    process.env.STUB_MODE = "edit-vocabulary";
+    const { config } = await makeFixture();
+    const record = await deliver(config);
+    expect(record.outcome).toBe("failed-gate");
+    expect(record.failure?.gate).toBe("guard");
+    expect(record.failure?.output).toContain("packages/vocabulary");
+  });
+
+  it("allows a vocabulary edit by a change named as a vocabulary change", async () => {
+    process.env.STUB_MODE = "edit-vocabulary";
+    const { config } = await makeFixture({ change: "vocabulary-add" });
+    const record = await deliver(config);
+    expect(record.outcome).toBe("merged");
+  });
 
   it("passes the exact caps and permissions, with no push and no edit tools for the reviewer", async () => {
     const { config, state } = await makeFixture();

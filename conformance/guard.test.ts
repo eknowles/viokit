@@ -116,6 +116,44 @@ describe("held-out guard", () => {
     expect(await checkChange(root, "base")).toHaveLength(0);
   });
 
+  it("fails a vocabulary edit without the steward flag", async () => {
+    const root = await makeRepo();
+    await put(
+      root,
+      "packages/vocabulary/src/vocabulary.ts",
+      "export const x = 2;\n"
+    );
+    await commit(root);
+    const v = await checkChange(root, "base");
+    expect(v.map((x) => x.path)).toContain(
+      "packages/vocabulary/src/vocabulary.ts"
+    );
+  });
+
+  it("allows a vocabulary edit with the steward flag", async () => {
+    const root = await makeRepo();
+    await put(
+      root,
+      "packages/vocabulary/src/vocabulary.ts",
+      "export const x = 2;\n"
+    );
+    await commit(root);
+    expect(await checkChange(root, "base", { steward: true })).toHaveLength(0);
+  });
+
+  it("still fails a conformance rule edit under the steward flag", async () => {
+    const root = await makeRepo();
+    await put(
+      root,
+      "packages/vocabulary/src/vocabulary.ts",
+      "export const x = 2;\n"
+    );
+    await put(root, "conformance/rules/r.grit", "language js // weakened\n");
+    await commit(root);
+    const v = await checkChange(root, "base", { steward: true });
+    expect(v.map((x) => x.path)).toEqual(["conformance/rules/r.grit"]);
+  });
+
   it("fails a changed main specification", () => {
     const v = evaluate(
       [{ path: "openspec/specs/cache/spec.md", status: "M" }],
