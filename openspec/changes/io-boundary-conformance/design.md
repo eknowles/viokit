@@ -28,6 +28,10 @@ Run 2026-11-13 against Biome 2.5.6 and TypeScript 7.0.2.
 | Does a planted violation under `packages/engine/src` get caught in the real tree? | **Yes.** Three more errors, one per line, at the planted file. |
 | Do path exclusions work? | **Not in the spike.** The spike config sat outside the repo, so its `files.includes` patterns resolved against the wrong root and the transports were not excluded. The real config lives at the repo root; task 1.2 re-runs this to confirm. |
 
+| Can an author silence the plugin with a suppression comment? | **Yes, a hole.** `// biome-ignore lint/plugin: ...` above a `fetch` call and `// biome-ignore-all lint/plugin: ...` at the top of a file both produced no diagnostic. Without a second check an agent can bypass the gate with one comment. |
+| Can the rules live in a nested Biome config? | **No.** A `biome.json` inside the repo is a nested root and breaks `ultracite check` ("nested root configuration"). The config is named `biome-conformance.json` and passed with `--config-path`. |
+| Do `files.includes` patterns with `..` work? | **No.** They matched 0 files. Patterns of the form `**` plus `!**/packages/sources/src` work when the paths to scan are passed on the command line. |
+
 Existing violations outside the allowed paths: none.
 
 What the rules do not catch: an alias (`const f = fetch; f(url)`), `globalThis.fetch(...)`, a dynamic `import("node:child_process")`, a shell template (`Bun.$`), and I/O reached through a third-party library. They are listed so no one reads "check passes" as "no I/O exists".
@@ -49,7 +53,10 @@ An author agent can read the rules, so it could write code that avoids the exact
 ### 5. The guard protects the conformance set, not every test
 The research suggested failing any change that touches tests. A delivered tool brings its own fixture test, so adding must be allowed. The guard fails on modification or deletion of files that existed on the base, which is the weakening case, and on any change to the protected set.
 
-### 6. The guard runs from the base
+### 6. A second check bans suppressions of the plugin
+The spike showed a one-line comment turns the plugin off. The conformance command therefore also scans source files for a suppression naming the plugin and fails on any. Both checks sit in the protected set.
+
+### 7. The guard runs from the base
 The orchestrator runs the guard from the base branch (`git show <base>:conformance/guard.sh`), so an author who edits the guard still faces the old one.
 
 ## Risks / Trade-offs

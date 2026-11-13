@@ -1,0 +1,27 @@
+{
+  "$schema": "../node_modules/@biomejs/biome/configuration_schema.json",
+  "root": true,
+  "vcs": {
+    "enabled": false
+  },
+  "files": {
+    "includes": [
+      "**",
+      "!**/node_modules",
+      "!**/dist",
+      "!**/test",
+      "!**/*.test.ts",
+      "!**/*.test.tsx",
+      "!**/packages/sources/src",
+      "!**/packages/engine/src/source-runtime.ts",
+      "!**/packages/engine/src/egress.ts"
+    ]
+  },
+  "plugins": ["./rules/no-direct-io.grit", "./rules/no-io-imports.grit"],
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "recommended": false
+    }
+  }
+}

@@ -23,6 +23,21 @@ The system SHALL fail a check when code outside the source transports and the so
 - **WHEN** a file in the transports or the source runtime performs network or process I/O
 - **THEN** the check does not flag it
 
+### Requirement: A suppression comment cannot silence the check
+The system SHALL fail when a source file carries a lint suppression comment that names the conformance plugin, because such a comment would otherwise turn the check off for the code beneath it.
+
+#### Scenario: A line is suppressed
+- **WHEN** a file has a suppression comment for the plugin category above a call to `fetch`
+- **THEN** the check fails and names the file and line
+
+#### Scenario: A whole file is suppressed
+- **WHEN** a file opens with a file-level suppression for the plugin category
+- **THEN** the check fails and names the file
+
+#### Scenario: Unrelated suppressions are unaffected
+- **WHEN** a file suppresses a different lint rule with a reason
+- **THEN** the suppression check does not flag it
+
 ### Requirement: The check proves it can fail
 The system SHALL include a fixture that violates the invariant and SHALL fail its own test run if the check does not flag that fixture.
 

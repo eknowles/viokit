@@ -1,0 +1,14 @@
+language js
+
+`import $names from $source` where {
+  $source <: or {
+    `"node:child_process"`,
+    `"child_process"`,
+    `"node:http"`,
+    `"node:https"`,
+    `"node:net"`,
+    `"node:tls"`,
+    `"node:dgram"`
+  },
+  register_diagnostic(span=$source, message="I4/I10: I/O module imported outside the runtime", severity="error")
+}
