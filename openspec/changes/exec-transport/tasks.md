@@ -5,12 +5,12 @@
 
 ## 2. Runners and transport
 
-- [ ] 2.1 Implement the host runner: detached spawn, environment of `PATH` plus declared variables, throwaway working directory removed afterwards, counting reader with a size cap, timeout; verify a harmless command's arguments arrive intact and a parent secret is not visible
-- [ ] 2.2 Kill the whole process group on timeout and on cap; verify with a command that ignores termination and starts a child (ends in under two seconds, no process left) and with a command that floods output
-- [ ] 2.3 Treat a non-zero exit as failure with the status and a bounded stderr excerpt, recording nothing; verify with a command that exits 2
-- [ ] 2.4 Implement the container runner as `docker exec` with an array, an explicit working directory and declared environment; verify the exact command line built, an error naming the container when it is not running (using a fake docker executable), and an opt-in live test gated on `VIOKIT_EXEC_CONTAINER`
-- [ ] 2.5 Add a deployment-wide concurrency permit; verify more acquisitions than the limit never exceed it
-- [ ] 2.6 Refuse `proxy` egress before starting anything; verify no process is started
+- [x] 2.1 Implement the host runner: detached spawn, environment of `PATH` plus declared variables, throwaway working directory removed afterwards, counting reader with a size cap, timeout; verify a harmless command's arguments arrive intact and a parent secret is not visible
+- [x] 2.2 Kill the whole process group on timeout and on cap; verify with a command that ignores termination and starts a child (ends in under two seconds, no process left) and with a command that floods output
+- [x] 2.3 Treat a non-zero exit as failure with the status and a bounded stderr excerpt, recording nothing; verify with a command that exits 2
+- [x] 2.4 Implement the container runner as `docker exec` with an array, an explicit working directory and declared environment; verify the exact command line built, an error naming the container when it is not running (using a fake docker executable), and an opt-in live test gated on `VIOKIT_EXEC_CONTAINER`
+- [x] 2.5 Add a deployment-wide concurrency permit; verify more acquisitions than the limit never exceed it
+- [x] 2.6 Refuse `proxy` egress before starting anything; verify no process is started
 
 ## 3. Runtime and wiring
 
