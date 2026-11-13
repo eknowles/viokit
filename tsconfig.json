@@ -5,6 +5,7 @@
     "packages/*/src/**/*.ts",
     "packages/*/test/**/*.ts",
     "conformance/*.ts",
+    "scripts/*.ts",
     "scripts/deliver/*.ts"
   ],
   // @viokit/ui is a browser package: React, JSX and the DOM lib, none of which
