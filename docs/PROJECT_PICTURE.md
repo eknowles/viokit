@@ -22,6 +22,10 @@ agents). What changes is who drives it and what it promises.
 | 6 | **MCP is not used for wrapping.** Existing MCP front-ends stay as they are. | One tool kind: a CLI tool through `exec`. |
 | 7 | **The TDR gate is replaced** by spike-before-adopt: a change that adds a dependency, transport, store or format records a spike result in `design.md`. No sign-off. | See `.agents/skills/viokit-build/SKILL.md`. Not yet mechanically enforced. |
 
+| 8 | **Shared vocabulary, one lane.** Entity and relation types live in one vocabulary that a single steward lane edits. Tool agents use existing types; a missing one is requested and stubbed. Each tool is one directory, so tool agents never share a file. A check fails any tool that defines its own type. | Parallel tool wrapping without type drift. The steward lane is a serial bottleneck by design. |
+| 9 | **Merge gate: checks plus a review agent, into an `integration` branch.** A change merges automatically when typecheck, lint, tests and the conformance tests pass and a separate review agent confirms no defects. You promote `integration` to `main` and tag each promotion. | No human reads individual changes. You read integration. Throughput is bounded by the checks, not by review. |
+| 10 | **Conformance tests, in this order** (proposed, not yet confirmed): I4/I10 (nothing outside the runtime performs I/O or starts a process), I2 (no graph write without evidence), I6 (decode at every boundary), I1, I5, I8. | The invariants agent-written tools are most likely to break come first. |
+
 ## Changes this forces on drafted work
 
 - `exec-transport`: run in the container, not on the host (the working directory and environment
@@ -32,10 +36,9 @@ agents). What changes is who drives it and what it promises.
 
 ## Open
 
-1. How work is split so many agents can proceed in parallel without colliding (ontology types are
-   the main collision risk).
-2. What replaces human review before merge: which checks are mechanical, and which an agent
-   reviews.
-3. Which invariants become executable conformance tests, and in what order.
-4. How the delivery loop stages work and what the research pass on harness, loop and skill
-   techniques should produce.
+1. Confirm the conformance-test order in decision 10.
+2. The delivery loop itself: how work is staged and handed to parallel agents, how a failing check
+   sends work back, how the review agent is kept independent of the author, and what runs
+   unattended versus when you are asked.
+3. A research pass on current Claude harness, loop, skill and workflow techniques, to inform
+   question 2. Its output is a short comparison with a recommendation, not a survey.
