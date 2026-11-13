@@ -21,7 +21,7 @@
 
 ## 4. First tool: dig
 
-- [ ] 4.1 Add a passive `dig` source to the `web-dns` pack and register it; verify the pack conformance test still passes
+- [x] 4.1 Add a passive `dig` source to the `web-dns` pack and register it; verify the pack conformance test still passes
 - [x] 4.2 Add a transform projecting `dig` answer lines into domain, address and `resolves_to` operations attributed to the run's evidence; verify a fixture test from captured `dig` output yields the expected entities and relations, and an empty answer yields none
 - [x] 4.3 Add one end-to-end test that runs real `dig` and is skipped when `dig` is absent; verify it passes here (dig is installed) and reports a skip otherwise
 
