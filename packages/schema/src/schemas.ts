@@ -2,7 +2,12 @@ import { Effect, Schema } from "effect";
 import { PrincipalId } from "./principal.js";
 
 /** A transport selector — how a source reaches the outside world. */
-export const Transport = Schema.Literals(["http", "dataset", "browser"]);
+export const Transport = Schema.Literals([
+  "http",
+  "dataset",
+  "browser",
+  "exec",
+]);
 export type Transport = typeof Transport.Type;
 
 /** Authentication for a source. Credentials never enter the cache or evidence. */
@@ -354,6 +359,51 @@ export type SourceAccess = typeof SourceAccess.Type;
  */
 export const UNVERSIONED = "unversioned";
 
+/** The type a parameter of an `exec` source is validated against. */
+export const ExecParamType = Schema.Literals([
+  "domain",
+  "ip",
+  "cidr",
+  "url",
+  "integer",
+  "enum",
+  "token",
+]);
+export type ExecParamType = typeof ExecParamType.Type;
+
+/**
+ * One declared parameter of an `exec` source. `values` is the closed list an
+ * `enum` parameter accepts; it is ignored for every other type.
+ */
+export class ExecParam extends Schema.Class<ExecParam>("ExecParam")({
+  name: Schema.String,
+  type: ExecParamType,
+  values: Schema.optionalKey(Schema.Array(Schema.String)),
+}) {}
+
+/**
+ * Metadata only: nothing is refused because a tool is active (project decision
+ * 3). It is shown in the runtime catalog so a human or agent can see it.
+ */
+export const ExecKind = Schema.Literals(["passive", "active"]);
+export type ExecKind = typeof ExecKind.Type;
+
+/**
+ * A command run as a source. `args` is an argument vector, never a command
+ * line; `{name}` placeholders fill whole elements and each is validated by its
+ * declared `params` type. `env` is the only environment beyond `PATH` the
+ * command sees.
+ */
+export class ExecSpec extends Schema.Class<ExecSpec>("ExecSpec")({
+  args: Schema.Array(Schema.String),
+  command: Schema.String,
+  env: Schema.optionalKey(Schema.Record(Schema.String, Schema.String)),
+  kind: ExecKind,
+  maxOutputBytes: Schema.Int,
+  params: Schema.Array(ExecParam),
+  timeoutMs: Schema.Int,
+}) {}
+
 export class SourceSpec extends Schema.Class<SourceSpec>("SourceSpec")({
   access: withDefault(SourceAccess, "unknown"),
   /**
@@ -369,6 +419,7 @@ export class SourceSpec extends Schema.Class<SourceSpec>("SourceSpec")({
     CachePolicy.make({ maxStaleMs: 0, mode: "live-only", ttlMs: 0 })
   ),
   egress: withDefault(EgressPolicy, EgressDirect.make({})),
+  exec: Schema.optionalKey(ExecSpec),
   id: Schema.String,
   projection: withDefault(ResponseProjection, "bytes"),
   rateLimit: Schema.optionalKey(RateLimitPolicy),

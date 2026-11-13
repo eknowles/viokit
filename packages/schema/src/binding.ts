@@ -1,6 +1,10 @@
 import { Schema } from "effect";
-import type { SourceSpec } from "./schemas.js";
-import { SourceSpec as SourceSpecClass } from "./schemas.js";
+import { refusalFor } from "./param-types.js";
+import type { ExecSpec, SourceSpec } from "./schemas.js";
+import {
+  ExecSpec as ExecSpecClass,
+  SourceSpec as SourceSpecClass,
+} from "./schemas.js";
 
 /**
  * Binding a source to the thing being asked about.
@@ -31,6 +35,50 @@ export const parametersOf = (url: string): readonly string[] => [
 ];
 
 /**
+ * Bind `{name}` placeholders in an exec source's argument vector, element by
+ * element. A placeholder is replaced inside its element and never split,
+ * quoted or joined, so the value reaches the command as part of one argument.
+ *
+ * Only declared parameters are read from `params`: an input the source does not
+ * declare is never looked at, so a caller cannot add arguments. Failure reuses
+ * `UnboundParameter` so the runtime's error channel is unchanged; the message
+ * names the parameter and, for a bad value, the type.
+ */
+const bindExec = (
+  source: SourceSpec,
+  exec: ExecSpec,
+  params: Record<string, unknown>
+): ExecSpec | UnboundParameter => {
+  const failure = (reason: string) =>
+    new UnboundParameter({
+      message: `source '${source.id}' cannot be bound: ${reason}`,
+    });
+  const args: string[] = [];
+  for (const template of exec.args) {
+    let refusal: string | undefined;
+    const arg = template.replaceAll(PLACEHOLDER, (_match, name: string) => {
+      const param = exec.params.find((one) => one.name === name);
+      if (param === undefined) {
+        refusal ??= `placeholder '${name}' has no declared parameter`;
+        return "";
+      }
+      const value = params[name];
+      if (value === undefined || value === null || value === "") {
+        refusal ??= `missing parameter '${name}'`;
+        return "";
+      }
+      refusal ??= refusalFor(param, value);
+      return String(value);
+    });
+    if (refusal !== undefined) {
+      return failure(refusal);
+    }
+    args.push(arg);
+  }
+  return ExecSpecClass.make({ ...exec, args });
+};
+
+/**
  * Substitute `{name}` from `params`, percent-encoded.
  *
  * An unbound placeholder is a failure, not a pass-through: leaving `{hostname}`
@@ -59,5 +107,12 @@ export const bindSource = (
         .join(", ")} to build its url`,
     });
   }
-  return SourceSpecClass.make({ ...source, url });
+  if (source.exec === undefined) {
+    return SourceSpecClass.make({ ...source, url });
+  }
+  const exec = bindExec(source, source.exec, params);
+  if (exec instanceof UnboundParameter) {
+    return exec;
+  }
+  return SourceSpecClass.make({ ...source, exec, url });
 };

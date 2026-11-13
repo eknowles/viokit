@@ -19,6 +19,7 @@ import {
   archive_org,
   bgpview_io,
   crt_sh,
+  dig,
   dnsviz_net,
   domaintools_com,
   host_io,
@@ -42,6 +43,7 @@ const sources: readonly SourceSpec[] = [
   archive_org,
   bgpview_io,
   crt_sh,
+  dig,
   host_io,
   dnsviz_net,
   domaintools_com,
@@ -257,6 +259,89 @@ const projectDomainRecord = (
   return operations;
 };
 
+const DigInput = Schema.Struct({ domain: Schema.String });
+const DigOutput = Schema.Struct({
+  addresses: Schema.Array(Schema.String),
+  domain: Schema.String,
+});
+
+/** Trailing dot of a fully qualified name, as `dig` prints it. */
+const TRAILING_DOT = /\.$/;
+const WHITESPACE = /\s+/;
+const DIG_ADDRESS_TYPES = { A: "ipv4", AAAA: "ipv6" } as const;
+/** name, TTL, class, type, data: the columns of `dig +noall +answer`. */
+const DIG_MIN_COLUMNS = 5;
+
+const digName = (name: string): string =>
+  name.toLowerCase().replace(TRAILING_DOT, "");
+
+/**
+ * `dig +noall +answer` prints one record per line. Address records become
+ * address entities linked from the name that owns them (which, behind a
+ * CNAME, is the canonical name, not the one asked about); CNAME records link
+ * the alias to its target. Comment lines and record types this projection does
+ * not read are skipped, and an empty answer derives nothing at all: no answer is
+ * not a finding.
+ */
+const projectDig = (
+  evidence: EvidenceInput,
+  input: unknown
+): readonly (AddEntity | AddRelation)[] => {
+  const { domain } = input as { readonly domain: string };
+  const operations: (AddEntity | AddRelation)[] = [];
+  for (const line of decodeBody.decode(evidence.bytes).split("\n")) {
+    const columns = line.trim().split(WHITESPACE);
+    const [owner = "", , , type = "", data = ""] = columns;
+    if (
+      line.trim().startsWith(";") ||
+      columns.length < DIG_MIN_COLUMNS ||
+      data === ""
+    ) {
+      continue;
+    }
+    const name = digName(owner);
+    if (type === "CNAME") {
+      const target = digName(data);
+      operations.push(
+        domainEntity(name),
+        domainEntity(target),
+        linked(name, target, "alias-of")
+      );
+    } else if (type in DIG_ADDRESS_TYPES) {
+      operations.push(
+        domainEntity(name),
+        AddEntity.make({
+          entity: Entity.make({
+            id: entityId(data),
+            identifiers: [
+              Identifier.make({
+                kind: DIG_ADDRESS_TYPES[type as keyof typeof DIG_ADDRESS_TYPES],
+                value: data,
+              }),
+            ],
+            kind: "ip-address",
+            spatialExtent: unlocated,
+            temporalExtent: unbounded,
+          }),
+        }),
+        linked(name, data, "resolves-to")
+      );
+    }
+  }
+  return operations.length === 0
+    ? operations
+    : [domainEntity(domain), ...operations];
+};
+
+const digLookup = TransformSpec.make({
+  archetype: "resolve",
+  id: "dig-resolve",
+  input: DigInput,
+  output: DigOutput,
+  projection: "steps",
+  sourceId: dig.id,
+});
+
 const subdomainEnumeration = TransformSpec.make({
   archetype: "search",
   id: "securitytrails-subdomains",
@@ -283,6 +368,11 @@ export const manifest = PackManifest.make({
       project: projectCertificates,
       source: crt_sh,
       spec: certificateSearch,
+    }),
+    RegisteredTransform.make({
+      project: projectDig,
+      source: dig,
+      spec: digLookup,
     }),
     RegisteredTransform.make({
       project: projectSubdomains,

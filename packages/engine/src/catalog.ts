@@ -121,6 +121,7 @@ const sourceEntry = (
     // from, so an unchecked classification cannot pass for a checked one.
     accessVerified: (source.accessEvidence?.length ?? 0) > 0,
     description: `${source.transport} source at ${source.url}`,
+    ...(source.exec === undefined ? {} : { execKind: source.exec.kind }),
     // A spec pointing at a site's front door is registered but not really
     // wired up: it acquires a homepage whatever the source actually offers.
     frontDoor: isBareHost(source.url),

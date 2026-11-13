@@ -105,3 +105,25 @@ export const host_io: SourceSpec = {
   transport: "http",
   url: "https://host.io/api/full/{domain}",
 };
+
+/**
+ * `dig` as a source: one record type at a time, answer section only, so the
+ * output is one record per line (name, TTL, class, type, data).
+ *
+ * Passive: it asks the resolver, not the target. `{domain}` is validated as a
+ * domain by `exec.params`, so a value that could be read as a `dig` option never
+ * reaches the command. `url` is the derived identity `exec:<command>`.
+ */
+export const dig: SourceSpec = {
+  exec: {
+    args: ["+noall", "+answer", "{domain}", "A"],
+    command: "dig",
+    kind: "passive",
+    maxOutputBytes: 65_536,
+    params: [{ name: "domain", type: "domain" }],
+    timeoutMs: 20_000,
+  },
+  id: "dig",
+  transport: "exec",
+  url: "exec:dig",
+};

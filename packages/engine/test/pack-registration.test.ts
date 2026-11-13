@@ -58,10 +58,10 @@ describe("registering the web-dns pack", () => {
         const transforms = entries.filter(
           (entry) => entry.kind === "transform"
         );
-        assert.strictEqual(sources.length, 10);
-        // Three now: certificate transparency, subdomain enumeration, and the
-        // domain record.
-        assert.strictEqual(transforms.length, 3);
+        assert.strictEqual(sources.length, 11);
+        // Four now: certificate transparency, subdomain enumeration, the
+        // domain record, and the dig answer.
+        assert.strictEqual(transforms.length, 4);
         const certificates = transforms.find(
           (entry) => entry.id === "crt-sh-certificate-search"
         );

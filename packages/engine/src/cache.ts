@@ -70,10 +70,17 @@ export interface CacheStore {
  * requests that differ only in their credential collide — task 2.5 / I9).
  */
 export const requestFingerprint = (source: SourceSpec): string => {
+  // An exec source's url is only `exec:<command>`, so the bound argument list
+  // is what says which question was asked: two inputs to one command must not
+  // share an entry. Added only when present, so every other transport's
+  // fingerprint is unchanged.
   const canonical = JSON.stringify({
     id: source.id,
     transport: source.transport,
     url: source.url,
+    ...(source.exec === undefined
+      ? {}
+      : { exec: { args: source.exec.args, command: source.exec.command } }),
   });
   // Cryptographic (TDR-021): a fingerprint collision would serve bytes
   // acquired from a *different* source while the evidence recorded
