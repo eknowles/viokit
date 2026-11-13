@@ -6,11 +6,19 @@
 
 ## State
 
-- **Branch:** `main`, ahead of `origin/main` (last push was `141992e`). Not pushed: whois/nmap wrappers,
-  relatedness tie-break fix, the whole investigation tree, this note. Push only when the user says so.
+- **Branch:** `main`, pushed to `origin/main`. Includes whois/nmap wrappers,
+  relatedness tie-break fix, the whole investigation tree, this note.
 - **Tag:** `v0.1.0-tdr-gated` (pushed) marks the old human-gated state.
 - **Delivery model:** TDR gate replaced by spike-before-adopt (`.agents/skills/viokit-build/SKILL.md`).
   Every change goes through OpenSpec (`openspec/changes/<name>`), spike recorded in `design.md` first.
+
+## Working agreements (copied from machine-local Claude memory)
+
+- The user replies tersely ("y", "you decide"): pick the recommended option, say which, keep going.
+- Commit and merge locally freely; **push only when the user says "push"** (fast-forward main is fine).
+  Scan the range for secrets first.
+- Keep the build board updated as work lands (log entries `log/l<N>`, last was `l21`), and refresh
+  this note when context runs low.
 
 ## Built this session (all on main)
 
