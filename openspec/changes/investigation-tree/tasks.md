@@ -27,5 +27,5 @@
 ## 6. Acceptance
 
 - [x] 6.1 Write the deterministic acceptance test: a stub transport returning canned output, one seed, at least 5 transforms across at least 3 entity kinds, at least 50 entities, each tracing to a run; verify it passes and that removing a transform's `accepts` makes it fail
-- [ ] 6.2 Run one real unattended expansion against the sidecar for a seed domain with the default caps, and record the real numbers (runs, entities, kinds, stop reason, wall time) in the design; verify the figures are the observed ones, and say plainly if they fall short of the stub test's
-- [ ] 6.3 Run `bun run check` and the package and script tests; verify they are green apart from the known pre-existing `dispatch.test.ts` failure, and that no existing test was edited
+- [x] 6.2 Run one real unattended expansion against the sidecar for a seed domain with the default caps, and record the real numbers (runs, entities, kinds, stop reason, wall time) in the design; verify the figures are the observed ones, and say plainly if they fall short of the stub test's
+- [x] 6.3 Run `bun run check` and the package and script tests; verify they are green apart from the known pre-existing `dispatch.test.ts` failure, and that no existing test was edited

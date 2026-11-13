@@ -21,6 +21,23 @@ Run 2026-11-14 as `packages/engine/test/tree-preconditions.test.ts`, against the
 
 Consequences: the expander is built inside the engine package, next to the registry; it takes a small port (run, insert, ingest, entities, source status, clock, run log) so it can be tested without a database; seeding takes the principal.
 
+## Live runs
+
+Run 2026-11-14 through the CLI (`tree_expand`) against the live sidecar, with `kinds: ["passive"]`. Passive-only was a deliberate choice for a demonstration: `whois` pulls in a registrar's name servers, and with the default policy `nmap` would then scan those third-party addresses. `nmap` itself is verified live against its published test host (`packages/agent/test/sidecar-live.test.ts`).
+
+| Seed | Caps | Result |
+|---|---|---|
+| `scanme.nmap.org` | defaults | **2 entities** (the name and its address), 3 runs, 12.9 s, exhausted. `crt.sh` derived nothing new (12.1 s); `whois` returned "Malformed request", recorded as `empty`. |
+| `nmap.org` | 60 runs, 7 min | **16 entities** (10 domains, 6 addresses), 30 runs, 52.8 s, 0 failures, exhausted. `crt.sh` found `www`, `svn`, `www.svn` and `issues`; `whois` on the apex found five Linode name servers; `dig` resolved the rest. |
+
+Both fall well short of the deterministic test (79 entities, 6 kinds). The reasons, all observed:
+- **`whois` only answers for a registrable domain.** It returned `empty` for 9 of 10 runs in the `nmap.org` tree, every subdomain and name server. Deriving the registrable domain needs public-suffix data; that is follow-up work.
+- **Two of six transforms need credentials** (`securitytrails`, `host.io`) and were skipped with the exact missing secret named.
+- **Passive-only removes the port and technology kinds**, which come from `nmap`.
+- **`crt.sh` latency varies from 13 ms to 15.4 s per query**, so wide trees are slow serially.
+
+The tree also showed the third-party reach the risks section predicted: five Linode name servers and their addresses joined the tree from one `whois` record.
+
 ## Decisions
 
 ### 1. `accepts` on the transform spec, optional
