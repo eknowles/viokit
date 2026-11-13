@@ -1,7 +1,7 @@
 ## 1. Schema
 
-- [ ] 1.1 Add `"exec"` to `Transport` and an optional `exec` block to `SourceSpec` (command, args, params with types, timeoutMs, maxOutputBytes, kind, optional env); verify a decode test accepts a valid block and rejects a missing `kind` or an unknown param type
-- [ ] 1.2 Extend `binding.ts` to bind placeholders in `exec.args` element by element with typed validation, refusing values that start with `-` or contain NUL or a newline, and dropping undeclared input; verify tests cover a shell-metacharacter value (stays one argument), `-f/etc/passwd` and `--version` (refused), a wrong-typed value, a missing value, and an undeclared parameter
+- [x] 1.1 Add `"exec"` to `Transport` and an optional `exec` block to `SourceSpec` (command, args, params with types, timeoutMs, maxOutputBytes, kind, optional env); verify a decode test accepts a valid block and rejects a missing `kind` or an unknown param type
+- [x] 1.2 Extend `binding.ts` to bind placeholders in `exec.args` element by element with typed validation, refusing values that start with `-` or contain NUL or a newline, and dropping undeclared input; verify tests cover a shell-metacharacter value (stays one argument), `-f/etc/passwd` and `--version` (refused), a wrong-typed value, a missing value, and an undeclared parameter
 
 ## 2. Runners and transport
 
