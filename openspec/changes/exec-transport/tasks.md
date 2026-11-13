@@ -27,5 +27,5 @@
 
 ## 5. Close out
 
-- [ ] 5.1 Run `bun run check`, `tsc --noEmit` and the package tests; verify the conformance check passes (the runners live in the exempt `packages/sources/src`) and the tsc error count has not risen above 85
-- [ ] 5.2 Walk invariants I1 to I12 for this change and record which were relaxed; verify the checklist is in the final commit message
+- [x] 5.1 Run `bun run check`, `tsc --noEmit` and the package tests; verify the conformance check passes (the runners live in the exempt `packages/sources/src`) and the tsc error count has not risen above 85
+- [x] 5.2 Walk invariants I1 to I12 for this change and record which were relaxed; verify the checklist is in the final commit message
