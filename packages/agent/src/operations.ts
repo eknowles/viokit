@@ -5,6 +5,7 @@ import {
   CatalogFilter,
   CurrentPrincipal,
   EvidenceInput,
+  ExpandRequest,
   evidenceId,
   GraphState,
   Manual,
@@ -405,6 +406,51 @@ export const operations: readonly AgentOperation[] = [
         });
         return yield* engine((e) => e.saveViewState(document));
       }),
+  },
+  {
+    args: [
+      arg("seedKind", "string", "entity kind of the seed, e.g. domain"),
+      arg("seedValue", "string", "the seed's value, e.g. example.com"),
+      arg("maxDepth", "number", "runs between the seed and an entity", true),
+      arg("maxEntities", "number", "stop at this many entities", true),
+      arg("maxRuns", "number", "stop after this many runs", true),
+      arg("maxMs", "number", "stop after this many milliseconds", true),
+      arg(
+        "kinds",
+        "json",
+        'tool kinds allowed to run: ["passive","active"] by default',
+        true
+      ),
+    ],
+    description:
+      "Expand a seed into an investigation tree: run every applicable transform on every entity found, under caps, committing what they derive and recording each run. Returns a summary including why it stopped.",
+    name: "tree_expand",
+    run: (args) =>
+      Effect.gen(function* () {
+        const request = yield* decodeValue(ExpandRequest, {
+          seedKind: String(args.seedKind),
+          seedValue: String(args.seedValue),
+          ...(args.maxDepth === undefined
+            ? {}
+            : { maxDepth: Number(args.maxDepth) }),
+          ...(args.maxEntities === undefined
+            ? {}
+            : { maxEntities: Number(args.maxEntities) }),
+          ...(args.maxRuns === undefined
+            ? {}
+            : { maxRuns: Number(args.maxRuns) }),
+          ...(args.maxMs === undefined ? {} : { maxMs: Number(args.maxMs) }),
+          ...(args.kinds === undefined ? {} : { kinds: args.kinds }),
+        });
+        return yield* asPrincipal((e, me) => e.expandTree(request, me.id));
+      }),
+  },
+  {
+    args: [],
+    description:
+      "The investigation tree so far: each entity with the runs applied to it, and each run with the entities it discovered, read back from the run records.",
+    name: "tree_show",
+    run: () => engine((e) => e.showTree),
   },
   {
     args: [

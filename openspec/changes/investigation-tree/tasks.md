@@ -22,7 +22,7 @@
 ## 5. Reading the tree and the operations
 
 - [x] 5.1 Implement reading the tree from the records, nested by the entity that caused each run; verify an entity traces to its run and the nesting matches the expansion
-- [ ] 5.2 Add `tree_expand` and `tree_show` to the shared operation table; verify the CLI, MCP and HTTP listings all include them and a call returns the same result on each (I8)
+- [x] 5.2 Add `tree_expand` and `tree_show` to the shared operation table; verify the CLI, MCP and HTTP listings all include them and a call returns the same result on each (I8)
 
 ## 6. Acceptance
 

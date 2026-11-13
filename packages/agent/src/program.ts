@@ -4,6 +4,7 @@ import {
   EvidenceRootDir,
   makeEngineLayer,
   makeEnvPrincipalStore,
+  makeRunLogLayer,
   makeViewStateLayer,
   OntologyRegistryLayer,
   PRINCIPALS_ENV,
@@ -95,6 +96,16 @@ const viewStateLayer = makeViewStateLayer(
 );
 
 /**
+ * Where the investigation tree's run records live. Apart from the evidence
+ * store and the step log: they record orchestration, not assertions about the
+ * world. Durable, so `tree_show` in a later invocation reads what an earlier
+ * `tree_expand` did.
+ */
+const runLogLayer = makeRunLogLayer(
+  process.env.VIOKIT_RUN_LOG_DIR ?? "./.viokit/runs"
+);
+
+/**
  * What this deployment can actually perform. The browser engine and the exec
  * runner are wired into the dispatch transport below, so `browser` and `exec`
  * are claimed and those sources become runnable.
@@ -141,6 +152,7 @@ const deployment = Layer.mergeAll(
   evidenceBackend,
   OntologyRegistryLayer,
   graphConfig,
+  runLogLayer,
   viewStateLayer
 );
 

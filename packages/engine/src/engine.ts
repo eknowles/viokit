@@ -12,6 +12,7 @@ import type {
   EvidenceInput,
   EvidenceReadError,
   EvidenceWriteError,
+  ExpandRequest,
   ExtentHit,
   GraphPath,
   GraphState,
@@ -36,6 +37,9 @@ import type {
   StepOperation,
   TransformError,
   TransformSpec,
+  TreeError,
+  TreeNode,
+  TreeSummary,
   Unauthorized,
   UnboundParameter,
   UnknownCatalogEntry,
@@ -49,9 +53,11 @@ import {
   CorrelateResolverService,
   defaultTransportCapabilities,
   emptyPackRegistry,
+  Manual,
   PackRegistry,
   Redaction as RedactionClass,
   RedactionStoreService,
+  RunLogService,
   redactionId,
   SourceRuntimeService,
   TransformRunnerService,
@@ -72,10 +78,12 @@ import { writeBundle } from "./export.js";
 import { DuckDBGraphLayer, DuckDBGraphService } from "./graph-duckdb.js";
 import { RateLimiterLayer } from "./rate-limit.js";
 import { RedactionStoreLayer, withheldIn } from "./redactions.js";
+import { makeMemoryRunLog } from "./run-log.js";
 import { SecretProviderEnvLayer } from "./secrets.js";
 import { BundleSignerLayer, BundleSignerService } from "./signing.js";
 import { SourceRuntimeLayer } from "./source-runtime.js";
 import { TransformRunnerLayer } from "./transform.js";
+import { expand, readTree, type TreePort, type TreeTransform } from "./tree.js";
 
 /**
  * The composition root of the engine pipeline. Exposes the Stage-0 spine
@@ -213,6 +221,19 @@ export class Engine extends Context.Service<
     /** Run a transform by catalog id, with its projection resolved from the
      * pack that registered it — the invocation form that survives a front-end
      * boundary, since a projection callback cannot cross one. */
+    /**
+     * Expand a seed through every applicable transform under caps, committing
+     * what they find and recording each run. `by` is the acting principal.
+     */
+    readonly expandTree: (
+      request: ExpandRequest,
+      by: PrincipalId
+    ) => Effect.Effect<
+      TreeSummary,
+      TreeError | EvidenceWriteError | ProvenanceError
+    >;
+    /** The investigation tree, read back from its run records. */
+    readonly showTree: Effect.Effect<readonly TreeNode[]>;
     readonly runCatalogTransform: (
       transformId: string,
       input: unknown
@@ -276,6 +297,61 @@ const engineLayerWith = (registry: Layer.Layer<PackRegistry>) =>
         () => defaultTransportCapabilities
       );
 
+      const packs = yield* PackRegistry;
+      const runLog = Option.getOrElse(
+        yield* Effect.serviceOption(RunLogService),
+        makeMemoryRunLog
+      );
+      // Only transforms that declare what they accept are ever expanded.
+      const treeTransforms: readonly TreeTransform[] = packs.flatMap(
+        (manifest) =>
+          manifest.transforms.flatMap((registered) =>
+            registered.spec.accepts === undefined
+              ? []
+              : [
+                  {
+                    accepts: registered.spec.accepts,
+                    id: registered.spec.id,
+                    sourceId: registered.source.id,
+                    toolKind: registered.source.exec?.kind ?? "passive",
+                  },
+                ]
+          )
+      );
+      // Runnability is reported on sources, so a transform is checked through
+      // the source it runs.
+      const sourceStatus: TreePort["sourceStatus"] = (sourceId) =>
+        Effect.map(catalog.list({ kind: "source" }), (entries) => {
+          const entry = entries.find((one) => one.id === sourceId);
+          return {
+            reason: entry?.reason,
+            runnable: entry?.runnable === true,
+          };
+        });
+      const treePort = (by: PrincipalId): TreePort => ({
+        ingestSeed: (bytes) => {
+          const now = new Date();
+          return evidenceStore.put({
+            acquiredAt: now,
+            acquiredBy: by,
+            acquisitionPath: Manual.make({
+              by,
+              ref: "investigation tree seed",
+            }),
+            bytes,
+            contentType: "application/json",
+            observedAt: now,
+          });
+        },
+        insert: (step) => graph.insert(step),
+        investigation: Effect.map(graph.current, (open) => open.id),
+        nowMs: Effect.sync(() => Date.now()),
+        run: (transformId, input) => catalog.runTransform(transformId, input),
+        runLog,
+        sourceStatus,
+        transforms: treeTransforms,
+      });
+
       return {
         acquire: (source, by) =>
           Effect.gen(function* () {
@@ -294,6 +370,7 @@ const engineLayerWith = (registry: Layer.Layer<PackRegistry>) =>
         describe: (id) => catalog.describe(id),
         discardInvestigation: (id, by) => graph.discardInvestigation(id, by),
         evidence: (id) => evidenceStore.get(id),
+        expandTree: (request, by) => expand(treePort(by), request),
         exportBundle: (path) =>
           Effect.gen(function* () {
             const steps = yield* graph.log;
@@ -352,6 +429,10 @@ const engineLayerWith = (registry: Layer.Layer<PackRegistry>) =>
           transform.run(spec, source, project, input),
         saveViewState: (document) => viewState.save(document),
         sharedEvidence: graph.sharedEvidence,
+        showTree: readTree({
+          investigation: Effect.map(graph.current, (open) => open.id),
+          runLog,
+        }),
         spatial: (bbox) => graph.spatial(bbox),
         timeline: (from, to) => graph.timeline(from, to),
         // The probe reads the services this layer already holds, so it is
