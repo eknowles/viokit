@@ -10,7 +10,16 @@ The engine already offers what the expander needs: `runCatalogTransform(id, inpu
 
 ## Spike
 
-Not yet run. This design is from reading the code; the first tasks are the spike and must record results here before the rest. The questions: does committing the same entity twice (two runs both add `ip-address:1.2.3.4`) leave one entity or two after `replay`; does the catalog report runnability per transform so skipping can happen up front; and what does the seed need as evidence (a manual evidence submission exists for the console).
+Run 2026-11-14 as `packages/engine/test/tree-preconditions.test.ts`, against the real engine with the `web-dns` pack and a stub transport. It is kept as a permanent test.
+
+| Question | Result |
+|---|---|
+| Does committing the same entity from two runs leave one entity? | **Yes.** Running `dig-resolve` twice and committing both runs' steps leaves one entity for the address and one for the domain after `replay`. Dedup by id holds. |
+| Does the catalog report runnability per transform? | **No.** Transform entries carry no `runnable`. It is reported on **source** entries (with a `reason`). A transform reaches its source through the manifest (`RegisteredTransform.source`), so the expander reads the registry and the source entries, not the transform entries. |
+| Can a seed be recorded as attributed evidence? | **Yes**, through `engine.ingest(input, by)`: `by` (the acquiring principal) is required, and omitting it fails with "Expected string at acquiredBy". The seed entity is then inserted with that evidence's id. |
+| Does a bare engine run exec sources? | **No.** The engine layer declares transports through `TransportCapabilities`; the default is `http` and `dataset`. A deployment (and a test) must declare `exec`, or the source is refused with "source declares transport 'exec', which this deployment does not provide". |
+
+Consequences: the expander is built inside the engine package, next to the registry; it takes a small port (run, insert, ingest, entities, source status, clock, run log) so it can be tested without a database; seeding takes the principal.
 
 ## Decisions
 

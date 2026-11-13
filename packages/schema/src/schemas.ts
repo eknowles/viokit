@@ -450,8 +450,21 @@ export type TransformArchetype = typeof TransformArchetype.Type;
  * `projection`. Both are decoded at the boundary (I6); domain shapes are
  * contributed by packs, so core keeps them open rather than closed enums.
  */
+/**
+ * What a transform accepts from an entity, so the investigation tree can run it
+ * on entities it finds: the entity kind, and the input field that takes the
+ * entity's value. A transform without it is never expanded automatically.
+ */
+export class TransformAccepts extends Schema.Class<TransformAccepts>(
+  "TransformAccepts"
+)({
+  field: Schema.String,
+  kind: Schema.String,
+}) {}
+
 export class TransformSpec extends Schema.Class<TransformSpec>("TransformSpec")(
   {
+    accepts: Schema.optionalKey(TransformAccepts),
     archetype: TransformArchetype,
     id: Schema.String,
     input: Schema.Any,

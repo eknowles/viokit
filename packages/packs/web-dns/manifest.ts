@@ -123,6 +123,7 @@ const projectCertificates = (
 };
 
 const certificateSearch = TransformSpec.make({
+  accepts: { field: "domain", kind: "domain" },
   archetype: "search",
   id: "crt-sh-certificate-search",
   input: CertificateSearchInput,
@@ -308,6 +309,7 @@ const projectDig = (
 };
 
 const digLookup = TransformSpec.make({
+  accepts: { field: "domain", kind: "domain" },
   archetype: "resolve",
   id: "dig-resolve",
   input: DigInput,
@@ -323,6 +325,7 @@ const WhoisOutput = Schema.Struct({
 });
 
 const whoisRegistration = TransformSpec.make({
+  accepts: { field: "domain", kind: "domain" },
   archetype: "lookup",
   id: "whois-registration",
   input: WhoisInput,
@@ -338,6 +341,7 @@ const NmapOutput = Schema.Struct({
 });
 
 const nmapOpenPorts = TransformSpec.make({
+  accepts: { field: "ip", kind: "ip-address" },
   archetype: "analyze",
   id: "nmap-open-ports",
   input: NmapInput,
@@ -347,6 +351,7 @@ const nmapOpenPorts = TransformSpec.make({
 });
 
 const subdomainEnumeration = TransformSpec.make({
+  accepts: { field: "hostname", kind: "domain" },
   archetype: "search",
   id: "securitytrails-subdomains",
   input: SubdomainInput,
@@ -356,6 +361,7 @@ const subdomainEnumeration = TransformSpec.make({
 });
 
 const domainRecord = TransformSpec.make({
+  accepts: { field: "domain", kind: "domain" },
   archetype: "lookup",
   id: "host-io-domain-record",
   input: DomainRecordInput,

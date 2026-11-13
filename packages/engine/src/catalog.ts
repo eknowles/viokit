@@ -138,6 +138,9 @@ const transformEntry = (
 ): CatalogEntry =>
   CatalogEntry.make({
     ...(pack === undefined ? {} : { pack }),
+    ...(transform.spec.accepts === undefined
+      ? {}
+      : { accepts: transform.spec.accepts }),
     archetype: transform.spec.archetype,
     description: `${transform.spec.archetype} transform over source '${transform.spec.sourceId}'`,
     id: transform.spec.id,

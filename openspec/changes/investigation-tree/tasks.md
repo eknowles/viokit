@@ -1,11 +1,11 @@
 ## 1. Spike and schema
 
-- [ ] 1.1 Run the spike: commit two runs that add the same entity and check `replay` leaves one; read per-transform runnability from the catalog; submit a seed as evidence; record the results under `## Spike` in this design before continuing; verify the section exists and each claim names what was run
-- [ ] 1.2 Add the optional `accepts` to `TransformSpec` and the `RunRecord` schema; verify decode tests accept a valid record and reject one without an outcome
+- [x] 1.1 Run the spike: commit two runs that add the same entity and check `replay` leaves one; read per-transform runnability from the catalog; submit a seed as evidence; record the results under `## Spike` in this design before continuing; verify the section exists and each claim names what was run
+- [x] 1.2 Add the optional `accepts` to `TransformSpec` and the `RunRecord` schema; verify decode tests accept a valid record and reject one without an outcome
 
 ## 2. Packs declare what they accept
 
-- [ ] 2.1 Declare `accepts` on `dig-resolve`, `whois-registration` (domain, `domain`), `nmap-open-ports` (ip-address, `ip`) and the crt.sh transform (domain, `domain`); verify a catalog test lists each with its accepted kind and that undeclared transforms list none
+- [x] 2.1 Declare `accepts` on `dig-resolve`, `whois-registration` (domain, `domain`), `nmap-open-ports` (ip-address, `ip`) and the crt.sh transform (domain, `domain`); verify a catalog test lists each with its accepted kind and that undeclared transforms list none
 
 ## 3. Run log
 

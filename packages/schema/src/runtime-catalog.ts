@@ -3,6 +3,7 @@ import {
   ExecKind,
   SourceAccess,
   SourceSpec,
+  TransformAccepts,
   TransformArchetype,
   TransformSpec,
 } from "./schemas.js";
@@ -29,6 +30,13 @@ export type CatalogEntryKind = typeof CatalogEntryKind.Type;
  * only for transforms.
  */
 export class CatalogEntry extends Schema.Class<CatalogEntry>("CatalogEntry")({
+  /**
+   * The entity kind a transform accepts and the input field that takes its
+   * value, so the investigation tree (and an agent) can tell where a transform
+   * applies. Absent for sources and types, and for a transform that declares
+   * nothing, which the tree never expands.
+   */
+  accepts: Schema.optionalKey(TransformAccepts),
   /** How a source is reached; absent for transforms and types. */
   access: Schema.optionalKey(SourceAccess),
   /**
