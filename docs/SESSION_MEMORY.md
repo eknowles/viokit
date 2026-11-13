@@ -1,7 +1,7 @@
 # Viokit — Session Memory (2026-08-11)
 
 > Working state for the next session. Project: **Viokit** — Effect v4 OSINT investigation engine.
-> Guardrails enforced by the `viokit-build` skill (hard TDR gate, invariants I1–I12, open-domain rule, build-order gates in ROADMAP.md). Use the `effect-ts` skill for all Effect code.
+> Guardrails enforced by the `viokit-build` skill (spike-before-adopt rule, invariants I1–I12, open-domain rule, build-order gates in ROADMAP.md). Use the `effect-ts` skill for all Effect code.
 
 ---
 

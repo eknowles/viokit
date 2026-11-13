@@ -60,7 +60,7 @@ Each source declares, all as schema:
 ### 7. Verify
 - `tsc --noEmit`, `vitest run`, `npm exec -- ultracite check`.
 - Run the invariant checklist (references/CONTRACT.md) — especially I2, I4, I6, I9.
-- If the pack adds a store/transport/serialization dependency, a `decided` TDR is required first.
+- If the pack adds a store/transport/serialization dependency, a recorded spike result is required first (see the `viokit-build` skill).
 
 ## Leaked-data packs (special care)
 - Dataset transport: schema-mapping spec (columns → normalized records), raw-file hashing, projection.

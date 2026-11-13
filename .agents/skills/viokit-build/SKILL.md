@@ -1,6 +1,6 @@
 ---
 name: viokit-build
-description: "Use whenever working on the Viokit investigation framework — core (ontology, sources, evidence, transforms, graph, interfaces), domain packs, technology decisions, or the web UI. Enforces the Viokit guardrails: the invariant contract (I1-I12), the hard TDR gate on technology choices, the open-domain rule, and the build-order gates in ROADMAP. Do not build Viokit components without following this skill."
+description: "Use whenever working on the Viokit investigation framework — core (ontology, sources, evidence, transforms, graph, interfaces), domain packs, technology decisions, or the web UI. Enforces the Viokit guardrails: the invariant contract (I1-I12), the spike-before-adopt rule for new dependencies, the open-domain rule, and the build-order gates in ROADMAP. Do not build Viokit components without following this skill."
 ---
 
 # Viokit — Framework Build Guardrails
@@ -17,9 +17,12 @@ plugin/domain-pack model, cache + egress policy, and schema-driven UI.
 
 ## Non-negotiable guardrails
 
-1. **The TDR gate (HARD).** Do not *implement* a technology choice until its TDR exists in
-   `openspec/decisions/`, has been reviewed, and is marked `decided`. If a decision is missing a TDR,
-   stop and write one first (use `openspec/decisions/TEMPLATE.md`). This is the strongest guardrail.
+1. **Spike before you adopt.** A change that adds a dependency, transport, store, or serialization
+   format MUST record a spike result in its `design.md` (a short, falsifiable experiment that ran, and
+   what it showed) before the implementation tasks. There is no approval step: no human sign-off and no
+   `decided` status. The spike is the gate. Past spikes contradicted the published docs more than once
+   (browser proxy binding, `dataStore`, id strength, a GPL engine behind an MIT wrapper), which is why
+   this stays. Decisions are written down afterwards as a decision record (see below).
 2. **The invariant contract.** All work must preserve invariants **I1–I12** (see
    `references/CONTRACT.md`). Run the invariant checklist before every commit.
 3. **Open-domain rule.** Core must never contain domain entity/relation types. Domain content ships
@@ -36,7 +39,7 @@ plugin/domain-pack model, cache + egress policy, and schema-driven UI.
 
 ### Adding a feature or component
 1. Read the relevant exploration doc (`openspec/exploration/0X-*.md`).
-2. If it touches a technology choice, the TDR gate applies first.
+2. If it adds a dependency, transport, store, or format, run and record the spike first.
 3. Implement against the owning capability; never cross capability boundaries (see CONTRACT).
 4. Add tests. Run: `tsc --noEmit`, `vitest run`, `npm exec -- ultracite check`.
 5. Run the invariant checklist; update docs if behavior changed.
@@ -45,11 +48,11 @@ plugin/domain-pack model, cache + egress policy, and schema-driven UI.
 Follow `references/PACK_RECIPE.md`. It is the primary agent-facing workflow: types → sources →
 transforms → view specs → tests, with the invariant checklist at the end.
 
-### Making a technology decision
-1. Copy `openspec/decisions/TEMPLATE.md` → `openspec/decisions/TDR-NNN-<slug>.md`; fill Context + Options.
-2. Research and evaluate against the criteria; mark `in-review`.
-3. Human review; mark `decided` with a one-line decision summary + date.
-4. Update `openspec/decisions/README.md` index. Update references if the decision supersedes one.
+### Recording a decision
+Decision records (`openspec/decisions/TDR-NNN-<slug>.md`, from `TEMPLATE.md`) are a log, not a gate.
+Write one after the work when the choice is non-obvious or the spike found something surprising. Put the
+spike evidence and the findings in it, add it to `openspec/decisions/README.md`, and mark it
+`superseded` if a later one replaces it. Nothing waits on a record being written or reviewed.
 
 ### Researching against the Effect skill
 For any Effect API question, use `.agents/skills/effect-ts/` first (its setup requires
@@ -60,12 +63,12 @@ For any Effect API question, use `.agents/skills/effect-ts/` first (its setup re
 - `tsc --noEmit` clean
 - tests pass (vitest + @effect/vitest)
 - invariant checklist green (CONTRACT.md)
-- no TDR-gated technology implemented without a `decided` TDR
+- any new dependency, transport, store, or format has its spike result in the change's `design.md`
 
 ## References
 - `references/CONTRACT.md` — invariants I1–I12 + capability boundaries + forbidden crossings
 - `references/ROADMAP.md` — build phases P0–P4 with gates and exit criteria
 - `references/PACK_RECIPE.md` — the domain-pack creation workflow
 - `openspec/exploration/01..04` — architecture, OSINT landscape, system design, web UI
-- `openspec/decisions/` — TDR process, template, and index
+- `openspec/decisions/` — decision records (a log, not a gate), template, and index
 - `.agents/skills/effect-ts/` — Effect v4 patterns and guides

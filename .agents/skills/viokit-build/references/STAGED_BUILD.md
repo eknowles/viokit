@@ -121,11 +121,11 @@ governance enforced on a sensitive pack; a defensible evidentiary export.
 - Stages 0–3 build **no new seams**; each is a deepening or a backend swap.
 - Domain content ships as packs from day one (open-domain rule) — even the Stage-0 proof uses a pack
   shape for any domain-specific sample, never core.
-- Anything that adds a store, transport, serialization, or UI dependency requires a `decided` TDR.
+- Anything that adds a store, transport, serialization, or UI dependency requires a recorded spike result.
 
 ## Standing rules (unchanged from ROADMAP/CONTRACT)
 
-TDR gate; invariant checklist (I1–I12) before every commit; `effect-ts` skill for all Effect code;
+spike-before-adopt; invariant checklist (I1–I12) before every commit; `effect-ts` skill for all Effect code;
 `AGENTS.md`/ultracite clean; tests per component.
 
 ## Definition of done (each stage)
@@ -135,4 +135,4 @@ TDR gate; invariant checklist (I1–I12) before every commit; `effect-ts` skill 
 - tests pass (vitest + @effect/vitest)
 - invariant checklist green (CONTRACT.md)
 - the stage's thin vertical exit proof runs
-- no TDR-gated technology implemented without a `decided` TDR
+- any new dependency, transport, store, or format has its spike result recorded

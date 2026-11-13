@@ -1,8 +1,10 @@
 # Technology Decisions Index
 
-> **Rule:** a technology choice is **not made** until its TDR is written (options, criteria, trade-offs,
-> recommendation) and reviewed. Statuses below reflect how far each has been *worked* — none are
-> settled until they say `decided`.
+> **These records are a log, not a gate.** Nothing waits on a TDR being written, reviewed, or `decided`.
+> The rule that replaced the gate is in the `viokit-build` skill: a change that adds a dependency,
+> transport, store, or format records a spike result in its `design.md`. Write a TDR afterwards when the
+> choice is non-obvious or the spike found something. Records written before 2026-11-13 were gates;
+> their statuses stay as they were.
 >
 > Format: `openspec/decisions/TEMPLATE.md`. Numbered `TDR-001` onward.
 
@@ -37,10 +39,9 @@
 | TDR-027 | Graph camera, scale & per-kind node rendering | decided 2026-08-26 | supersedes TDR-020. **Cytoscape.js** (3.34.1, MIT, *no dependencies*): camera, hit-testing, ~10k-node canvas, and the hierarchical layouts the packs' forests need — `breadthfirst` is in the **core**, so no layout package is adopted and the ELK licence question is avoided. Per-kind nodes come from its selector stylesheet (`node[kind=...]` + `background-image`/`label`), structurally the same data-driven idea as `graph.css`'s `--vk-node-cat` slot, covering §4.2's icon/colour/thumbnail specs — but *not* arbitrary node markup. `preset` keeps the `atTime`/`capped`/`layout` seam intact. WebGL stays declined: per-kind appearance is the requirement that decided the document. **Accepted cost, named:** canvas has no DOM, so the graph's CSS rules are re-expressed in a second language and `role`/`aria-pressed`/`:focus-visible` are **rebuilt, not inherited** — specified as an outcome and tested. **Finding:** `cytoscape-elk` is MIT but declares `elkjs` (EPL-2.0 OR GPL-3.0-or-later) as a direct dependency — the wrapper's licence does not launder the engine's |
 
 ## Workflow
-1. Create a TDR from the template; fill **Context** and **Options**; mark `proposed`.
-2. Research + evaluate against criteria; mark `in-review`.
-3. Human review; mark `decided` with a one-line decision summary + date.
-4. If circumstances change, write a new TDR that supersedes the old one (`superseded`).
+1. After the work, copy the template; record Context, Options, the spike evidence, and what it found.
+2. Add it to the index below with the decision and the date.
+3. If circumstances change, write a new TDR that supersedes the old one (`superseded`).
 
-> **Enforced by the `viokit-build` skill:** the TDR gate is hard — no technology is implemented until
-> its TDR is `decided`. Statuses below reflect how far each has been *worked*.
+> **Not enforced as a gate.** The spike-before-adopt rule in the `viokit-build` skill is the only
+> requirement; records are optional and written for the next reader.

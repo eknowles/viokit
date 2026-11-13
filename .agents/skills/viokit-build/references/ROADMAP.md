@@ -1,10 +1,10 @@
 # Viokit — Build Roadmap
 
 > Build phases with gates. Do not start phase N+1 until phase N's **exit criteria** pass. Each phase
-> lists the TDRs that must be `decided` before implementation starts. Companion to
+> lists the decisions it depends on; historical TDR references below record how they were settled. Companion to
 > `openspec/exploration/01..04`.
 
-**Standing rules for every phase:** TDR gate; invariant checklist; `effect-ts` skill for all Effect
+**Standing rules for every phase:** spike-before-adopt; invariant checklist; `effect-ts` skill for all Effect
 code; `AGENTS.md`/ultracite clean; tests per component.
 
 ---
@@ -231,6 +231,6 @@ Track B is unblocked: TDR-023 and TDR-024 now have a unit to apply to.
 ## Sequencing notes
 - P0–P2 are the engine core; do not start P3 (UI) until P2 exits — the UI consumes the engine.
 - Packs may begin during P1/P2 for a chosen subject (they prove the recipes), but must be pack-shaped.
-- Anything that adds a store, transport, serialization, or UI dependency requires a `decided` TDR.
+- Anything that adds a store, transport, serialization, or UI dependency requires a recorded spike result.
 - P5's tracks are independent: A is about reach, B about trust, C about comfort. Do A before C —
   a better workbench over a thin catalog improves the wrong thing.

@@ -51,12 +51,12 @@ Each invariant has a **verification hint** — how to check a change does not br
 - Agents mutate graph/history through non-Engine paths (I8/I3).
 - Secrets (incl. plaintext passwords) enter the cache or evidence by default (governance).
 - View state is written to the step log (I12).
-- Technology is implemented without a `decided` TDR (see `openspec/decisions/`).
+- A new dependency, transport, store, or format is adopted without a recorded spike result in the change's `design.md`.
 
 ---
 
 ## Checklist (run before commit)
 - [ ] No invariant violated (walk I1–I12 above).
-- [ ] All technology choices referenced have `decided` TDRs.
+- [ ] Any new dependency, transport, store, or format has its spike result in `design.md`.
 - [ ] New domain content is in a pack, not core.
 - [ ] `ultracite check`, `tsc --noEmit`, tests all green.
