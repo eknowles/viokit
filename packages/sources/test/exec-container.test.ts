@@ -214,7 +214,6 @@ describe("container runner against a real container (opt-in)", () => {
       while (running && Date.now() < deadline) {
         // biome-ignore lint/performance/noAwaitInLoops: polling is sequential
         await new Promise((resolve) => setTimeout(resolve, POLL_MS));
-        // biome-ignore lint/performance/noAwaitInLoops: polling is sequential
         running = await insideContainerHas(probe);
       }
       assert.isFalse(running);
