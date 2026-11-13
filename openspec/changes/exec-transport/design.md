@@ -65,6 +65,9 @@ Bytes are stdout, content type `text/plain`. A non-zero exit fails with the stat
 ### 7. Limits: a process-group kill and a capped reader
 The command starts detached, so it leads its own process group. On timeout or cap the group is killed. Output is read through a counting reader that stops at the cap. The spike shows both are needed. The concurrency limit is a deployment-wide permit like the browser gate; the per-source `rateLimit` still applies in front of it.
 
+### 7a. The container runner wraps the command in the container's own `timeout`
+Killing the `docker exec` client does not stop the process inside the container: Docker forwards no signal without a TTY. A live spike on two images reproduced it (the process kept running after the client was killed). The runner therefore runs `timeout -s KILL <seconds>` inside the container, set one second after the host's timer so the host still reports the timeout, which bounds the leak. On a Debian image (GNU `timeout`) the whole process group ended within 3 s with no grandchildren left; on Alpine (busybox `timeout`) the command ended but a grandchild survived. Kali is Debian-based. An image without a `timeout` binary fails with an error naming `timeout`. Covered by an opt-in live test that polls the container for the process.
+
 ### 8. Clean environment and working directory
 The host runner passes only `PATH` plus variables the source lists in `exec.env`, and uses a fresh temporary directory removed afterwards. The container runner passes the same through `docker exec`. Hygiene against accidents, not isolation.
 

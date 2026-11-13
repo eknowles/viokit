@@ -243,6 +243,7 @@ export interface ContainerRunnerConfig {
 }
 
 export const DEFAULT_CONTAINER_WORKDIR = "/tmp";
+const MS_PER_SECOND = 1000;
 
 /**
  * The exact argument array handed to `docker`. Exported because the container
@@ -260,6 +261,15 @@ export const dockerExecArgs = (
     .sort(([left], [right]) => left.localeCompare(right))
     .flatMap(([name, value]) => ["-e", `${name}=${value}`]),
   config.container,
+  // Killing the `docker exec` client does not stop the process inside the
+  // container (Docker forwards no signal without a TTY; spike on a real
+  // container reproduced it). The container's own `timeout` ends it, so the
+  // leak is bounded. It fires a second after the host's timer so the host
+  // reports the timeout, and GNU `timeout` kills the whole process group.
+  "timeout",
+  "-s",
+  "KILL",
+  String(Math.ceil(request.timeoutMs / MS_PER_SECOND) + 1),
   request.command,
   ...request.args,
 ];

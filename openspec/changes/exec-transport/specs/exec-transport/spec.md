@@ -49,6 +49,10 @@ The system SHALL stop a command that runs longer than its declared timeout, SHAL
 - **WHEN** a command starts a child that ignores termination signals and the command times out
 - **THEN** the acquisition still ends promptly and no child process remains
 
+#### Scenario: A container command is stopped inside the container
+- **WHEN** a command run through the container runner times out
+- **THEN** the process inside the container is also ended within a bounded time after the timeout, and does not run on to completion
+
 #### Scenario: Output exceeds the cap
 - **WHEN** a command writes more standard output than its declared cap
 - **THEN** reading stops, the command and its children are terminated, and the acquisition fails with an error stating the cap

@@ -1,3 +1,4 @@
+import { execFile, execFileSync } from "node:child_process";
 import { chmodSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -68,6 +69,10 @@ describe("container runner", () => {
         "-e",
         "LANG=C",
         "kali",
+        "timeout",
+        "-s",
+        "KILL",
+        String(Math.ceil(request().timeoutMs / 1000) + 1),
         "dig",
         "+short",
         "a b; $HOME",
@@ -139,17 +144,80 @@ describe("container runner", () => {
 
 const liveContainer = process.env.VIOKIT_EXEC_CONTAINER;
 
+/** The real docker, found on the PATH from before the fake was installed. */
+const realDocker = (): string =>
+  execFileSync("sh", ["-c", "command -v docker"], {
+    encoding: "utf8",
+    env: { PATH: originalPath ?? "" },
+  }).trim();
+
+const insideContainerHas = (pattern: string): Promise<boolean> =>
+  new Promise((resolve) => {
+    execFile(
+      realDocker(),
+      [
+        "exec",
+        liveContainer ?? "",
+        "sh",
+        "-c",
+        `pgrep -f '${pattern}' >/dev/null`,
+      ],
+      (error) => resolve(error === null)
+    );
+  });
+
 describe("container runner against a real container (opt-in)", () => {
   it.skipIf(liveContainer === undefined)(
     "runs echo in VIOKIT_EXEC_CONTAINER",
     async () => {
       const result = await Effect.runPromise(
-        makeContainerRunner({ container: liveContainer ?? "" }).run(
-          request({ args: ["hello"], command: "echo", env: {} })
-        )
+        makeContainerRunner({
+          container: liveContainer ?? "",
+          docker: realDocker(),
+        }).run(request({ args: ["hello"], command: "echo", env: {} }))
       );
       assert.strictEqual(result.status, 0);
       assert.strictEqual(new TextDecoder().decode(result.stdout), "hello\n");
+    }
+  );
+
+  it.skipIf(liveContainer === undefined)(
+    "does not leave a timed-out command running inside the container",
+    async () => {
+      // A duration unique to this run, so a leftover process from an earlier
+      // run cannot be mistaken for this one. `[s]leep` keeps the probe from
+      // matching its own command line.
+      const seconds = 200 + Math.floor(Math.random() * 700);
+      const probe = `[s]leep ${seconds}`;
+      const outcomeOfRun = await Effect.runPromise(
+        Effect.result(
+          makeContainerRunner({
+            container: liveContainer ?? "",
+            docker: realDocker(),
+          }).run(
+            request({
+              args: [String(seconds)],
+              command: "sleep",
+              env: {},
+              timeoutMs: 1000,
+            })
+          )
+        )
+      );
+      assert.strictEqual(outcomeOfRun._tag, "Failure");
+      assert.include(JSON.stringify(outcomeOfRun), "timed out");
+      // The in-container timeout fires one second after the host's: bounded.
+      const LEAK_BOUND_MS = 4000;
+      const POLL_MS = 250;
+      const deadline = Date.now() + LEAK_BOUND_MS;
+      let running = await insideContainerHas(probe);
+      while (running && Date.now() < deadline) {
+        // biome-ignore lint/performance/noAwaitInLoops: polling is sequential
+        await new Promise((resolve) => setTimeout(resolve, POLL_MS));
+        // biome-ignore lint/performance/noAwaitInLoops: polling is sequential
+        running = await insideContainerHas(probe);
+      }
+      assert.isFalse(running);
     }
   );
 });
